@@ -1,11 +1,5 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/next"
-    }
-  ],
   "headers": [
     {
       "source": "/(.*)",
@@ -25,7 +19,7 @@
       ]
     },
     {
-      "source": "/(.*\\.(js|css|svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|otf))",
+      "source": "/((.*).(js|css|svg|png|jpg|jpeg|gif|webp|ico|woff|woff2|ttf|otf))",
       "headers": [
         {
           "key": "Cache-Control",
