@@ -2,7 +2,7 @@
 
 This directory contains comprehensive documentation for the Oil Amor platform.
 
-## Documentation Index
+## Documentation Index.
 
 ### Getting Started
 - [Environment Setup](./ENVIRONMENT_SETUP.md) - Step-by-step guide for configuring all external services
