@@ -1,0 +1,346 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ========================================
+   OIL AMOR — $10M Luxury Design System
+   Aesop × Byredo × Le Labo Level
+   ======================================== */
+
+@layer base {
+  :root {
+    /* Deep, Rich Color Palette — NO bright purples */
+    --miron-void: #0a080c;
+    --miron-depth: #141218;
+    --miron-base: #1c181f;
+    --miron-mid: #262228;
+    --miron-light: #3d383f;
+    
+    /* Muted Gold Accents */
+    --gold-pure: #c9a227;
+    --gold-dark: #8b7355;
+    --gold-muted: #a69b8a;
+    
+    /* Warm Cream Tones */
+    --cream: #f5f3ef;
+    --cream-warm: #ebe7e0;
+    --cream-dark: #d4cfc5;
+    
+    /* Typography */
+    --font-display: 'Cormorant Garamond', Georgia, serif;
+    --font-body: 'Inter', -apple-system, sans-serif;
+    
+    /* Luxury Spacing */
+    --space-xs: 0.5rem;
+    --space-sm: 1rem;
+    --space-md: 2rem;
+    --space-lg: 4rem;
+    --space-xl: 8rem;
+    --space-2xl: 12rem;
+    
+    /* Easing Curves */
+    --ease-luxury: cubic-bezier(0.16, 1, 0.3, 1);
+    --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  * {
+    @apply box-border;
+  }
+
+  html {
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    scroll-behavior: smooth;
+    
+    /* Mobile touch optimization */
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  body {
+    background: var(--miron-void);
+    color: var(--cream);
+    font-family: var(--font-body);
+    line-height: 1.6;
+    overflow-x: hidden;
+    
+    /* Prevent pull-to-refresh on mobile */
+    overscroll-behavior-y: none;
+  }
+
+  /* Mobile font size adjustment */
+  @media (max-width: 768px) {
+    html {
+      font-size: 15px;
+    }
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    line-height: 1.1;
+  }
+
+  h1 {
+    font-size: clamp(2.5rem, 8vw, 5rem);
+    letter-spacing: -0.02em;
+  }
+
+  h2 {
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    letter-spacing: -0.01em;
+  }
+
+  h3 {
+    font-size: clamp(1.5rem, 3vw, 2rem);
+  }
+
+  /* Selection */
+  ::selection {
+    background: rgba(201, 162, 39, 0.3);
+    color: var(--cream);
+  }
+}
+
+@layer components {
+  /* Luxury Container */
+  .luxury-container {
+    width: 100%;
+    max-width: 1800px;
+    margin: 0 auto;
+    padding-left: clamp(1rem, 4vw, 3rem);
+    padding-right: clamp(1rem, 4vw, 3rem);
+  }
+
+  /* Mobile-safe section padding */
+  .section-safe {
+    padding-top: max(5rem, 10vh);
+    padding-bottom: max(3rem, 6vh);
+  }
+
+  /* Text Balance for Headlines */
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  /* Responsive Grid */
+  .grid-luxury {
+    display: grid;
+    gap: clamp(1rem, 3vw, 2.5rem);
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  }
+
+  /* Touch-friendly buttons */
+  .btn-touch {
+    min-height: 44px;
+    min-width: 44px;
+    touch-action: manipulation;
+  }
+
+  /* Image zoom container */
+  .zoom-container {
+    cursor: zoom-in;
+    touch-action: pan-x pan-y;
+  }
+
+  .zoom-container:active {
+    cursor: grabbing;
+  }
+}
+
+@layer utilities {
+  /* Safe area insets for notched devices */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Prevent text selection */
+  .no-select {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+  }
+
+  /* Hardware acceleration for animations */
+  .gpu {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
+  }
+}
+
+/* ========================================
+   Luxury Animations
+   ======================================== */
+@keyframes grain {
+  0%, 100% { transform: translate(0, 0); }
+  10% { transform: translate(-2%, -2%); }
+  20% { transform: translate(2%, 2%); }
+  30% { transform: translate(-1%, 1%); }
+  40% { transform: translate(1%, -1%); }
+  50% { transform: translate(-2%, 2%); }
+  60% { transform: translate(2%, -2%); }
+  70% { transform: translate(-1%, -1%); }
+  80% { transform: translate(1%, 1%); }
+  90% { transform: translate(-2%, -2%); }
+}
+
+@keyframes float {
+  0%, 100% { 
+    transform: translateY(0) rotate(0deg); 
+  }
+  50% { 
+    transform: translateY(-20px) rotate(2deg); 
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-gold {
+  0%, 100% { 
+    box-shadow: 0 0 0 0 rgba(201, 162, 39, 0.4);
+  }
+  50% { 
+    box-shadow: 0 0 0 20px rgba(201, 162, 39, 0);
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ========================================
+   Form Elements
+   ======================================== */
+input, textarea, select {
+  background: var(--miron-base);
+  border: 1px solid var(--miron-light);
+  color: var(--cream);
+  padding: 1rem;
+  font-size: 0.875rem;
+  transition: border-color 0.3s ease;
+  
+  /* Mobile form optimization */
+  font-size: 16px; /* Prevents zoom on iOS */
+  touch-action: manipulation;
+}
+
+input:focus, textarea:focus, select:focus {
+  outline: none;
+  border-color: var(--gold-pure);
+}
+
+input::placeholder, textarea::placeholder {
+  color: var(--gold-muted);
+}
+
+/* ========================================
+   Accessibility
+   ======================================== */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.skip-link {
+  position: absolute;
+  top: -40px;
+  left: 0;
+  background: var(--gold-pure);
+  color: var(--miron-void);
+  padding: 8px 16px;
+  z-index: 10000;
+  transition: top 0.3s;
+}
+
+.skip-link:focus {
+  top: 0;
+}
+
+/* ========================================
+   Divider — Elegant
+   ======================================== */
+.divider-gold {
+  width: 1px;
+  height: 60px;
+  background: linear-gradient(to bottom, var(--gold-pure), transparent);
+}
+
+.divider-gold-horizontal {
+  width: 60px;
+  height: 1px;
+  background: var(--gold-pure);
+}
+
+/* ========================================
+   Mobile Optimizations
+   ======================================== */
+@media (max-width: 768px) {
+  /* Larger touch targets on mobile */
+  button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Responsive images */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  /* Prevent horizontal scroll */
+  body {
+    overflow-x: hidden;
+  }
+}
+
+/* ========================================
+   Print Styles
+   ======================================== */
+@media print {
+  .grain,
+  .nav,
+  .no-print {
+    display: none !important;
+  }
+  
+  body {
+    background: white;
+    color: black;
+  }
+}

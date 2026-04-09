@@ -1,0 +1,288 @@
+/**
+ * Community Blends Schema
+ * 
+ * Enables users to share their custom blends with the community.
+ * Blends become available only after purchase + explicit consent.
+ */
+
+import {
+  pgTable,
+  text,
+  timestamp,
+  integer,
+  jsonb,
+  boolean,
+  index,
+  pgEnum,
+  uuid,
+} from 'drizzle-orm/pg-core';
+import { relations } from 'drizzle-orm';
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+export const blendVisibilityEnum = pgEnum('blend_visibility', [
+  'private',      // Only creator can see
+  'shared',       // Accessible via direct link only
+  'community',    // Listed on community page
+]);
+
+export const blendStatusEnum = pgEnum('blend_status', [
+  'draft',        // Being created, not purchased
+  'purchased',    // Creator bought it, can now share
+  'published',    // Available on community page
+  'archived',     // Removed from community
+]);
+
+export const commissionStatusEnum = pgEnum('commission_status', [
+  'purchased',    // Commission earned but not paid
+  'paid',         // Commission paid to creator
+  'refunded',     // Commission reversed due to refund
+]);
+
+// ============================================================================
+// COMMUNITY BLENDS TABLE
+// ============================================================================
+
+export const communityBlends = pgTable(
+  'community_blends',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    
+    // Creator info (denormalized for performance)
+    creatorId: text('creator_id').notNull(),
+    creatorName: text('creator_name').notNull(),
+    creatorAvatar: text('creator_avatar'),
+    creatorBio: text('creator_bio'),
+    
+    // Blend details
+    name: text('name').notNull(),
+    slug: text('slug').notNull().unique(),
+    description: text('description'),
+    story: text('story'), // Why they created this blend
+    
+    // The actual recipe (stored as JSON for flexibility)
+    recipe: jsonb('recipe').notNull().$type<{
+      mode: 'pure' | 'carrier';
+      bottleSize: number;
+      strength: number;
+      oils: { oilId: string; name: string; ml: number }[];
+      carrierOilId?: string;
+      crystalId?: string;
+      crystalName?: string;
+    }>(),
+    
+    // Pricing at time of creation
+    price: integer('price').notNull(), // Stored in cents
+    
+    // Visibility & Status
+    visibility: blendVisibilityEnum('visibility').notNull().default('private'),
+    status: blendStatusEnum('status').notNull().default('draft'),
+    
+    // Consent tracking
+    consentToShare: boolean('consent_to_share').notNull().default(false),
+    consentDate: timestamp('consent_date', { mode: 'date' }),
+    
+    // Purchase verification
+    originalOrderId: text('original_order_id'), // The order that purchased this blend
+    purchaseVerifiedAt: timestamp('purchase_verified_at', { mode: 'date' }),
+    
+    // Engagement metrics
+    viewCount: integer('view_count').notNull().default(0),
+    purchaseCount: integer('purchase_count').notNull().default(0),
+    ratingSum: integer('rating_sum').notNull().default(0),
+    ratingCount: integer('rating_count').notNull().default(0),
+    
+    // For sorting/ranking
+    popularityScore: integer('popularity_score').notNull().default(0),
+    
+    // Timestamps
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+    publishedAt: timestamp('published_at', { mode: 'date' }),
+  },
+  (table) => ({
+    creatorIdIdx: index('blend_creator_id_idx').on(table.creatorId),
+    statusIdx: index('blend_status_idx').on(table.status),
+    visibilityIdx: index('blend_visibility_idx').on(table.visibility),
+    slugIdx: index('blend_slug_idx').on(table.slug),
+    popularityIdx: index('blend_popularity_idx').on(table.popularityScore),
+    createdAtIdx: index('blend_created_at_idx').on(table.createdAt),
+  })
+);
+
+// ============================================================================
+// BLEND RATINGS TABLE
+// ============================================================================
+
+export const blendRatings = pgTable(
+  'blend_ratings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    blendId: uuid('blend_id')
+      .notNull()
+      .references(() => communityBlends.id, { onDelete: 'cascade' }),
+    
+    // Rater info
+    userId: text('user_id').notNull(),
+    userName: text('user_name').notNull(),
+    userAvatar: text('user_avatar'),
+    
+    // Rating details
+    rating: integer('rating').notNull(), // 1-5 stars
+    review: text('review'),
+    verifiedPurchase: boolean('verified_purchase').notNull().default(false),
+    orderId: text('order_id'), // To verify purchase
+    
+    // Engagement
+    helpfulCount: integer('helpful_count').notNull().default(0),
+    
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => ({
+    blendIdIdx: index('rating_blend_id_idx').on(table.blendId),
+    userIdIdx: index('rating_user_id_idx').on(table.userId),
+    createdAtIdx: index('rating_created_at_idx').on(table.createdAt),
+    // Ensure one rating per user per blend
+    uniqueUserBlend: index('rating_unique_user_blend_idx').on(table.blendId, table.userId),
+  })
+);
+
+// ============================================================================
+// BLEND SHARES TABLE (Track private shares)
+// ============================================================================
+
+export const blendShares = pgTable(
+  'blend_shares',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    blendId: uuid('blend_id')
+      .notNull()
+      .references(() => communityBlends.id, { onDelete: 'cascade' }),
+    
+    // Share details
+    sharedBy: text('shared_by').notNull(),
+    platform: text('platform'), // 'facebook', 'twitter', 'email', 'link', etc.
+    shareToken: text('share_token').notNull().unique(), // For tracking
+    
+    // Analytics
+    clickCount: integer('click_count').notNull().default(0),
+    conversionCount: integer('conversion_count').notNull().default(0), // Purchases from this share
+    
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { mode: 'date' }), // Optional expiration
+  },
+  (table) => ({
+    blendIdIdx: index('share_blend_id_idx').on(table.blendId),
+    tokenIdx: index('share_token_idx').on(table.shareToken),
+  })
+);
+
+// ============================================================================
+// USER BLEND STATS (Aggregated stats per user)
+// ============================================================================
+
+export const userBlendStats = pgTable(
+  'user_blend_stats',
+  {
+    userId: text('user_id').primaryKey(),
+    
+    // Creator stats
+    blendsCreated: integer('blends_created').notNull().default(0),
+    blendsPublished: integer('blends_published').notNull().default(0),
+    totalPurchasesOfBlends: integer('total_purchases_of_blends').notNull().default(0),
+    totalRatingsReceived: integer('total_ratings_received').notNull().default(0),
+    averageRating: integer('average_rating').notNull().default(0), // Stored as percentage (4.5 = 450)
+    
+    // Creator earnings (5% commission on community blend sales)
+    totalCommissionEarned: integer('total_commission_earned').notNull().default(0), // in cents
+    pendingCommission: integer('pending_commission').notNull().default(0), // in cents
+    
+    // Follower system (for future)
+    followerCount: integer('follower_count').notNull().default(0),
+    
+    // Badges/Achievements
+    badges: jsonb('badges').$type<string[]>().default([]),
+    
+    updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+  }
+);
+
+// ============================================================================
+// BLEND COMMISSIONS (Track creator earnings from community blend sales)
+// ============================================================================
+
+export const blendCommissions = pgTable(
+  'blend_commissions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    
+    // Blend and creator info
+    blendId: uuid('blend_id')
+      .notNull()
+      .references(() => communityBlends.id, { onDelete: 'cascade' }),
+    creatorId: text('creator_id').notNull(),
+    
+    // Purchase info
+    orderId: text('order_id').notNull(),
+    purchaserId: text('purchaser_id').notNull(),
+    
+    // Financial details
+    saleAmount: integer('sale_amount').notNull(), // in cents
+    commissionRate: integer('commission_rate').notNull().default(5), // percentage (5 = 5%)
+    commissionAmount: integer('commission_amount').notNull(), // in cents
+    
+    // Status
+    status: commissionStatusEnum('status').notNull().default('purchased'), // 'purchased', 'paid', 'refunded'
+    paidAt: timestamp('paid_at', { mode: 'date' }),
+    
+    // Timestamps
+    createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => ({
+    blendIdIdx: index('commission_blend_id_idx').on(table.blendId),
+    creatorIdIdx: index('commission_creator_id_idx').on(table.creatorId),
+    orderIdIdx: index('commission_order_id_idx').on(table.orderId),
+    statusIdx: index('commission_status_idx').on(table.status),
+    createdAtIdx: index('commission_created_at_idx').on(table.createdAt),
+  })
+);
+
+// ============================================================================
+// RELATIONS
+// ============================================================================
+
+export const communityBlendsRelations = relations(communityBlends, ({ many }) => ({
+  ratings: many(blendRatings),
+  shares: many(blendShares),
+  commissions: many(blendCommissions),
+}));
+
+export const blendRatingsRelations = relations(blendRatings, ({ one }) => ({
+  blend: one(communityBlends, {
+    fields: [blendRatings.blendId],
+    references: [communityBlends.id],
+  }),
+}));
+
+// ============================================================================
+// TYPE EXPORTS
+// ============================================================================
+
+export type CommunityBlend = typeof communityBlends.$inferSelect;
+export type InsertCommunityBlend = typeof communityBlends.$inferInsert;
+
+export type BlendRating = typeof blendRatings.$inferSelect;
+export type InsertBlendRating = typeof blendRatings.$inferInsert;
+
+export type BlendShare = typeof blendShares.$inferSelect;
+export type InsertBlendShare = typeof blendShares.$inferInsert;
+
+export type UserBlendStats = typeof userBlendStats.$inferSelect;
+export type InsertUserBlendStats = typeof userBlendStats.$inferInsert;
+
+export type BlendCommission = typeof blendCommissions.$inferSelect;
+export type InsertBlendCommission = typeof blendCommissions.$inferInsert;
