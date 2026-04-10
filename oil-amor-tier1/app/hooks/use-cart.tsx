@@ -119,8 +119,6 @@ async function clearCartApi(cartId: string): Promise<Cart> {
   const response = await fetch('/api/cart', {
     method: 'GET',
   })
-  const data = await response.json()
-  return data.cart
   
   if (!response.ok) {
     const error = await response.json()
