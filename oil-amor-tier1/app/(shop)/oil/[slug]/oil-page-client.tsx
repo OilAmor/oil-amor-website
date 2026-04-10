@@ -9,7 +9,6 @@ import {
   MapPin, 
   Beaker, 
   Sparkles, 
-  Droplets,
   Wind,
   Flame,
   Gem,
@@ -127,9 +126,9 @@ export function OilPageClient({ slug, variant }: OilPageClientProps) {
       <div className="pt-24 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16">
-            {/* Left Column - Image & Crystal Synergy (order-2 on mobile, product info comes first) */}
-            <div className="space-y-6 order-2 lg:order-1">
-              {/* Main Image with Zoom */}
+            {/* LEFT COLUMN - Visual & Details (order-1 on mobile to appear FIRST with image) */}
+            <div className="space-y-6 order-1">
+              {/* Main Image with Zoom - NOW FIRST */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -144,12 +143,88 @@ export function OilPageClient({ slug, variant }: OilPageClientProps) {
                 />
               </motion.div>
 
-              {/* Crystal Selector - Above Synergy */}
+              {/* Quick Specs Grid - Moved up right after image */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="grid grid-cols-3 gap-4 text-center"
+              >
+                <div className="p-4 rounded-xl bg-[#111] border border-[#f5f3ef]/5">
+                  <Wind className="w-5 h-5 text-[#c9a227] mx-auto mb-2" />
+                  <p className="text-[10px] text-[#a69b8a] uppercase tracking-wider mb-1">Extraction</p>
+                  <p className="text-xs text-[#f5f3ef]">{oilData.extractionMethod}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-[#111] border border-[#f5f3ef]/5">
+                  <Flame className="w-5 h-5 text-[#c9a227] mx-auto mb-2" />
+                  <p className="text-[10px] text-[#a69b8a] uppercase tracking-wider mb-1">Strength</p>
+                  <p className="text-xs text-[#f5f3ef]">{oilData.strengths[0]}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-[#111] border border-[#f5f3ef]/5">
+                  <MapPin className="w-5 h-5 text-[#c9a227] mx-auto mb-2" />
+                  <p className="text-[10px] text-[#a69b8a] uppercase tracking-wider mb-1">Origin</p>
+                  <p className="text-xs text-[#f5f3ef]">{oilData.origin.split(',')[0]}</p>
+                </div>
+              </motion.div>
+
+              {/* Detailed Product Specifications */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.2 }}
+                className="p-5 rounded-2xl bg-[#111] border border-[#f5f3ef]/10"
+              >
+                <h4 className="text-[#f5f3ef] font-medium mb-4 flex items-center gap-2">
+                  <Beaker className="w-4 h-4 text-[#c9a227]" />
+                  Product Specifications
+                </h4>
+                <dl className="space-y-3 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-[#a69b8a]">Botanical Name</dt>
+                    <dd className="text-[#f5f3ef]">{oilData.technicalName}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-[#a69b8a]">Full Origin</dt>
+                    <dd className="text-[#f5f3ef] flex items-center gap-1">
+                      <MapPin className="w-3 h-3" />
+                      {oilData.origin}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-[#a69b8a]">Extraction Method</dt>
+                    <dd className="text-[#f5f3ef]">{oilData.extractionMethod}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-[#a69b8a]">Aroma Profile</dt>
+                    <dd className="text-[#f5f3ef]">{oilData.aroma}</dd>
+                  </div>
+                </dl>
+              </motion.div>
+
+              {/* Benefits Grid - Moved here from right column */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.25 }}
+                className="grid grid-cols-2 gap-3"
+              >
+                {oilData.baseProperties.slice(0, 4).map((benefit, i) => (
+                  <div
+                    key={i}
+                    className="flex items-center gap-2 p-3 rounded-lg bg-[#111] border border-[#f5f3ef]/5"
+                  >
+                    <Sparkles className="w-4 h-4 text-[#c9a227] flex-shrink-0" />
+                    <span className="text-[#f5f3ef]/80 text-sm">{benefit}</span>
+                  </div>
+                ))}
+              </motion.div>
+
+              {/* Crystal Selector */}
               {oilData.crystalPairings.length > 0 && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.1 }}
+                  transition={{ delay: 0.3 }}
                   className="p-5 rounded-2xl border-2 border-[#c9a227]/30 bg-[#c9a227]/5"
                 >
                   <div className="flex items-center gap-2 mb-3">
@@ -195,51 +270,17 @@ export function OilPageClient({ slug, variant }: OilPageClientProps) {
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.15 }}
+                  transition={{ delay: 0.35 }}
                 >
                   <CrystalSynergyExpandable crystal={configuration.selectedCrystal} />
                 </motion.div>
               )}
 
-              {/* Product Specifications */}
+              {/* FOREVER BOTTLE REFILL SECTION - Last on left column */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className="p-5 rounded-2xl bg-[#111] border border-[#f5f3ef]/10"
-              >
-                <h4 className="text-[#f5f3ef] font-medium mb-4 flex items-center gap-2">
-                  <Beaker className="w-4 h-4 text-[#c9a227]" />
-                  Product Specifications
-                </h4>
-                <dl className="space-y-3 text-sm">
-                  <div className="flex justify-between">
-                    <dt className="text-[#a69b8a]">Botanical Name</dt>
-                    <dd className="text-[#f5f3ef]">{oilData.technicalName}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-[#a69b8a]">Origin</dt>
-                    <dd className="text-[#f5f3ef] flex items-center gap-1">
-                      <MapPin className="w-3 h-3" />
-                      {oilData.origin}
-                    </dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-[#a69b8a]">Extraction Method</dt>
-                    <dd className="text-[#f5f3ef]">{oilData.extractionMethod}</dd>
-                  </div>
-                  <div className="flex justify-between">
-                    <dt className="text-[#a69b8a]">Aroma Profile</dt>
-                    <dd className="text-[#f5f3ef]">{oilData.aroma}</dd>
-                  </div>
-                </dl>
-              </motion.div>
-
-              {/* FOREVER BOTTLE REFILL SECTION - STANDALONE */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
+                transition={{ delay: 0.4 }}
               >
                 <RefillPricingSection
                   oilId={slug}
@@ -249,8 +290,8 @@ export function OilPageClient({ slug, variant }: OilPageClientProps) {
               </motion.div>
             </div>
 
-            {/* Right Column - Product Info & Configuration (order-1 on mobile to appear first) */}
-            <div className="space-y-6 order-1 lg:order-2">
+            {/* RIGHT COLUMN - Product Info & Purchase (order-2 on mobile) */}
+            <div className="space-y-6 order-2">
               {/* Title & Meta */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -320,29 +361,11 @@ export function OilPageClient({ slug, variant }: OilPageClientProps) {
                 {oilData.description}
               </motion.p>
 
-              {/* Benefits Grid */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.2 }}
-                className="grid grid-cols-2 gap-3"
-              >
-                {oilData.baseProperties.slice(0, 4).map((benefit, i) => (
-                  <div
-                    key={i}
-                    className="flex items-center gap-2 p-3 rounded-lg bg-[#111] border border-[#f5f3ef]/5"
-                  >
-                    <Sparkles className="w-4 h-4 text-[#c9a227] flex-shrink-0" />
-                    <span className="text-[#f5f3ef]/80 text-sm">{benefit}</span>
-                  </div>
-                ))}
-              </motion.div>
-
               {/* Product Configurator */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
+                transition={{ delay: 0.2 }}
                 className="p-6 rounded-2xl bg-[#111] border border-[#f5f3ef]/10"
               >
                 <ProductConfigurator
@@ -356,7 +379,7 @@ export function OilPageClient({ slug, variant }: OilPageClientProps) {
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
+                transition={{ delay: 0.25 }}
                 className="p-6 rounded-2xl bg-[#111] border border-[#f5f3ef]/10"
               >
                 <AddToCartSection
@@ -378,29 +401,6 @@ export function OilPageClient({ slug, variant }: OilPageClientProps) {
                 />
               </motion.div>
 
-              {/* Additional Info */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
-                className="grid grid-cols-3 gap-4 text-center"
-              >
-                <div className="p-4 rounded-xl bg-[#111] border border-[#f5f3ef]/5">
-                  <Wind className="w-5 h-5 text-[#c9a227] mx-auto mb-2" />
-                  <p className="text-[10px] text-[#a69b8a] uppercase tracking-wider mb-1">Extraction</p>
-                  <p className="text-xs text-[#f5f3ef]">{oilData.extractionMethod}</p>
-                </div>
-                <div className="p-4 rounded-xl bg-[#111] border border-[#f5f3ef]/5">
-                  <Flame className="w-5 h-5 text-[#c9a227] mx-auto mb-2" />
-                  <p className="text-[10px] text-[#a69b8a] uppercase tracking-wider mb-1">Strength</p>
-                  <p className="text-xs text-[#f5f3ef]">{oilData.strengths[0]}</p>
-                </div>
-                <div className="p-4 rounded-xl bg-[#111] border border-[#f5f3ef]/5">
-                  <Droplets className="w-5 h-5 text-[#c9a227] mx-auto mb-2" />
-                  <p className="text-[10px] text-[#a69b8a] uppercase tracking-wider mb-1">Origin</p>
-                  <p className="text-xs text-[#f5f3ef]">{oilData.origin.split(',')[0]}</p>
-                </div>
-              </motion.div>
             </div>
           </div>
         </div>
