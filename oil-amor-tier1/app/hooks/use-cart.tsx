@@ -45,7 +45,20 @@ async function addToCartApi(
   const response = await fetch('/api/cart', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...input, cartId }),
+    body: JSON.stringify({ 
+      action: 'add',
+      cartId,
+      product: {
+        id: input.productId,
+        variantId: input.variantId,
+        name: input.properties?.name || 'Product',
+        price: Number(input.properties?.price) || 0,
+        image: input.properties?.image,
+        sku: input.properties?.sku,
+      },
+      quantity: input.quantity,
+      properties: input.properties,
+    }),
   })
   
   if (!response.ok) {
@@ -62,9 +75,14 @@ async function updateCartItemApi(
   input: UpdateCartItemInput
 ): Promise<Cart> {
   const response = await fetch('/api/cart', {
-    method: 'PATCH',
+    method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ ...input, cartId }),
+    body: JSON.stringify({ 
+      action: 'update',
+      cartId,
+      lineId: input.lineId,
+      quantity: input.quantity,
+    }),
   })
   
   if (!response.ok) {
@@ -77,8 +95,14 @@ async function updateCartItemApi(
 }
 
 async function removeFromCartApi(cartId: string, lineId: string): Promise<Cart> {
-  const response = await fetch(`/api/cart?cartId=${cartId}&lineId=${lineId}`, {
-    method: 'DELETE',
+  const response = await fetch('/api/cart', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ 
+      action: 'remove',
+      cartId,
+      lineId,
+    }),
   })
   
   if (!response.ok) {
@@ -91,9 +115,12 @@ async function removeFromCartApi(cartId: string, lineId: string): Promise<Cart> 
 }
 
 async function clearCartApi(cartId: string): Promise<Cart> {
-  const response = await fetch(`/api/cart?cartId=${cartId}&clear=true`, {
-    method: 'DELETE',
+  // Create new empty cart instead of clearing
+  const response = await fetch('/api/cart', {
+    method: 'GET',
   })
+  const data = await response.json()
+  return data.cart
   
   if (!response.ok) {
     const error = await response.json()
