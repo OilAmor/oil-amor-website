@@ -8,14 +8,28 @@ import { Cart, CartItem, AddToCartInput, ShopifyCart } from './types'
 import { logger } from '@/lib/logging/logger'
 
 // ============================================================================
-// SHOPIFY CLIENT
+// SHOPIFY CLIENT (Lazy initialization)
 // ============================================================================
 
-const shopifyClient = createStorefrontApiClient({
-  storeDomain: process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN || '',
-  apiVersion: process.env.SHOPIFY_STOREFRONT_API_VERSION || '2024-01',
-  publicAccessToken: process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN || '',
-})
+let shopifyClient: ReturnType<typeof createStorefrontApiClient> | null = null
+
+function getShopifyClient() {
+  if (!shopifyClient) {
+    const storeDomain = process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN
+    const publicAccessToken = process.env.NEXT_PUBLIC_SHOPIFY_STOREFRONT_ACCESS_TOKEN
+    
+    if (!storeDomain || !publicAccessToken) {
+      throw new Error('Shopify not configured - missing environment variables')
+    }
+    
+    shopifyClient = createStorefrontApiClient({
+      storeDomain,
+      apiVersion: process.env.SHOPIFY_STOREFRONT_API_VERSION || '2024-01',
+      publicAccessToken,
+    })
+  }
+  return shopifyClient
+}
 
 // ============================================================================
 // GRAPHQL FRAGMENTS
@@ -93,7 +107,7 @@ export async function createShopifyCart(): Promise<string> {
   `
   
   try {
-    const { data } = await shopifyClient.request(mutation)
+    const { data } = await getShopifyClient().request(mutation)
     
     if (data?.cartCreate?.userErrors?.length > 0) {
       throw new Error(data.cartCreate.userErrors[0].message)
@@ -117,7 +131,7 @@ export async function getShopifyCart(cartId: string): Promise<ShopifyCart | null
   `
   
   try {
-    const { data } = await shopifyClient.request(query, {
+    const { data } = await getShopifyClient().request(query, {
       variables: { cartId },
     })
     
@@ -152,7 +166,7 @@ export async function addLinesToShopifyCart(
   `
   
   try {
-    const { data } = await shopifyClient.request(mutation, {
+    const { data } = await getShopifyClient().request(mutation, {
       variables: { cartId, lines },
     })
     
@@ -190,7 +204,7 @@ export async function updateShopifyCartLines(
   `
   
   try {
-    const { data } = await shopifyClient.request(mutation, {
+    const { data } = await getShopifyClient().request(mutation, {
       variables: {
         cartId,
         lines: lines.map(line => ({
@@ -231,7 +245,7 @@ export async function removeLinesFromShopifyCart(
   `
   
   try {
-    const { data } = await shopifyClient.request(mutation, {
+    const { data } = await getShopifyClient().request(mutation, {
       variables: { cartId, lineIds },
     })
     
