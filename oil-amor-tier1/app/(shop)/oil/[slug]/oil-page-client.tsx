@@ -129,7 +129,22 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
               />
             </motion.div>
 
-            {/* 2. Title & Meta */}
+            {/* 2. Back to Collection - NOW FIRST */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="flex justify-start"
+            >
+              <Link 
+                href="/oils" 
+                className="group inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/40 text-purple-400 hover:text-purple-300 hover:border-purple-400 hover:bg-purple-500/20 transition-all"
+              >
+                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+                <span className="text-sm font-medium">Back to Collection</span>
+              </Link>
+            </motion.div>
+
+            {/* 3. Title & Meta */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -147,27 +162,10 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
               <p className="text-[#a69b8a] text-lg">{oilData.technicalName}</p>
             </motion.div>
 
-            {/* 3. Back to Collection */}
+            {/* 4. Price - DIRECTLY UNDER TITLE */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.05 }}
-              className="flex justify-end"
-            >
-              <Link 
-                href="/oils" 
-                className="group inline-flex items-center gap-2 px-4 py-2 rounded-full bg-purple-500/10 border border-purple-500/40 text-purple-400 hover:text-purple-300 hover:border-purple-400 hover:bg-purple-500/20 transition-all"
-              >
-                <span className="text-sm font-medium">Back to Collection</span>
-                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
-              </Link>
-            </motion.div>
-
-            {/* 4. Price */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
               className="flex items-baseline gap-3"
             >
               {configuration.price > 0 ? (
@@ -191,17 +189,32 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
             <motion.p
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.15 }}
               className="text-[#f5f3ef]/80 leading-relaxed"
             >
               {oilData.description}
             </motion.p>
 
-            {/* 6. Product Specifications */}
+            {/* 6. Benefits - UNDER DESCRIPTION */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
+              className="grid grid-cols-2 gap-3"
+            >
+              {oilData.baseProperties.slice(0, 4).map((benefit: string, i: number) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 p-3 rounded-lg bg-[#111] border border-[#f5f3ef]/5"
+                >
+                  <Sparkles className="w-4 h-4 text-[#c9a227] flex-shrink-0" />
+                  <span className="text-[#f5f3ef]/80 text-sm">{benefit}</span>
+                </div>
+              ))}
+            </motion.div>
+
+            {/* 7. Product Specifications */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
               className="p-5 rounded-2xl bg-[#111] border border-[#f5f3ef]/10"
             >
               <h4 className="text-[#f5f3ef] font-medium mb-4 flex items-center gap-2">
@@ -231,12 +244,24 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
               </dl>
             </motion.div>
 
-            {/* 7. Select Your Crystal */}
+            {/* 8. Product Configurator */}
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-6 rounded-2xl bg-[#111] border border-[#f5f3ef]/10"
+            >
+              <ProductConfigurator
+                oil={{ id: slug, name: oilData.commonName }}
+                selectedCrystal={configuration.selectedCrystal}
+                onConfigurationChange={(config: any) => setConfiguration((prev: any) => ({ ...prev, ...config }))}
+              />
+            </motion.div>
+
+            {/* 9. Select Your Crystal - BETWEEN CONFIGURATOR AND ADD TO CART */}
             {oilData.crystalPairings.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
                 className="p-5 rounded-2xl border-2 border-[#c9a227]/30 bg-[#c9a227]/5"
               >
                 <div className="flex items-center gap-2 mb-3">
@@ -276,25 +301,10 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
               </motion.div>
             )}
 
-            {/* 8. Product Configurator */}
+            {/* 10. Add to Cart */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="p-6 rounded-2xl bg-[#111] border border-[#f5f3ef]/10"
-            >
-              <ProductConfigurator
-                oil={{ id: slug, name: oilData.commonName }}
-                selectedCrystal={configuration.selectedCrystal}
-                onConfigurationChange={(config: any) => setConfiguration((prev: any) => ({ ...prev, ...config }))}
-              />
-            </motion.div>
-
-            {/* 9. Add to Cart */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.35 }}
               className="p-6 rounded-2xl bg-[#111] border border-[#f5f3ef]/10"
             >
               <AddToCartSection
@@ -314,24 +324,6 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
                 isValid={configuration.isValid}
                 validationMessage={configuration.validationMessage}
               />
-            </motion.div>
-
-            {/* 10. Benefits */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="grid grid-cols-2 gap-3"
-            >
-              {oilData.baseProperties.slice(0, 4).map((benefit: string, i: number) => (
-                <div
-                  key={i}
-                  className="flex items-center gap-2 p-3 rounded-lg bg-[#111] border border-[#f5f3ef]/5"
-                >
-                  <Sparkles className="w-4 h-4 text-[#c9a227] flex-shrink-0" />
-                  <span className="text-[#f5f3ef]/80 text-sm">{benefit}</span>
-                </div>
-              ))}
             </motion.div>
 
             {/* 11. Quick Specs */}
