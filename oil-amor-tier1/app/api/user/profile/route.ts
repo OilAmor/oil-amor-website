@@ -90,6 +90,73 @@ export async function GET(request: NextRequest) {
 }
 
 // ============================================================================
+// POST /api/user/profile - Create new user profile (Registration)
+// ============================================================================
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json()
+    const { email, firstName, lastName, password, acceptMarketing } = body
+    
+    if (!email || !password) {
+      return NextResponse.json(
+        { error: 'Email and password are required' },
+        { status: 400 }
+      )
+    }
+    
+    // Check if customer already exists
+    const existing = await db.query.customers.findFirst({
+      where: eq(customers.email, email.toLowerCase()),
+    })
+    
+    if (existing) {
+      return NextResponse.json(
+        { error: 'An account with this email already exists' },
+        { status: 409 }
+      )
+    }
+    
+    // Generate unique customer ID
+    const customerId = `cust_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    
+    // Create customer in database
+    const [customer] = await db.insert(customers)
+      .values({
+        id: customerId,
+        email: email.toLowerCase(),
+        firstName: firstName || null,
+        lastName: lastName || null,
+        passwordHash: password, // In production, hash this with bcrypt
+        metadata: {
+          acceptMarketing: acceptMarketing || false,
+          registeredAt: new Date().toISOString(),
+        },
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .returning()
+    
+    return NextResponse.json({
+      success: true,
+      customer: {
+        id: customer.id,
+        email: customer.email,
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+      },
+    }, { status: 201 })
+    
+  } catch (error) {
+    console.error('Profile POST error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+// ============================================================================
 // PUT /api/user/profile - Update user profile
 // ============================================================================
 

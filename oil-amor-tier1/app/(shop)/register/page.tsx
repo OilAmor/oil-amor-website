@@ -12,7 +12,6 @@ import {
   User,
   ArrowRight,
   Crown,
-  Sparkles,
   CheckCircle
 } from 'lucide-react'
 import { useUser } from '@/lib/context/user-context'
@@ -27,7 +26,7 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   
-  const { loginDemo } = useUser()
+  const { login } = useUser()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,16 +34,32 @@ export default function RegisterPage() {
     setError('')
     setIsLoading(true)
 
-    // Simulate registration
-    setTimeout(() => {
-      setIsLoading(false)
-      setError('Registration is not yet available. Please use the demo account.')
-    }, 1000)
-  }
+    try {
+      // Create account via API
+      const response = await fetch('/api/user/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email,
+          firstName,
+          lastName,
+          password,
+          acceptMarketing,
+        }),
+      })
 
-  const handleDemoLogin = () => {
-    loginDemo()
-    router.push('/account')
+      if (!response.ok) {
+        const data = await response.json()
+        throw new Error(data.error || 'Failed to create account')
+      }
+
+      // Auto-login after registration
+      await login(email, password)
+      router.push('/account')
+    } catch (err: any) {
+      setError(err.message || 'Failed to create account')
+      setIsLoading(false)
+    }
   }
 
   return (
@@ -168,21 +183,7 @@ export default function RegisterPage() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center gap-4 my-6">
-            <div className="flex-1 h-px bg-[#f5f3ef]/10" />
-            <span className="text-xs text-[#a69b8a] uppercase">Or</span>
-            <div className="flex-1 h-px bg-[#f5f3ef]/10" />
-          </div>
 
-          {/* Demo Login */}
-          <button
-            onClick={handleDemoLogin}
-            className="w-full py-3 rounded-xl border border-[#f5f3ef]/20 text-[#f5f3ef] font-medium hover:bg-[#f5f3ef]/5 transition-colors flex items-center justify-center gap-2"
-          >
-            <Sparkles className="w-4 h-4 text-[#c9a227]" />
-            Try Demo Account
-          </button>
         </motion.div>
 
         {/* Login Link */}

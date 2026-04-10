@@ -10,8 +10,7 @@ import {
   Mail, 
   Lock, 
   ArrowRight,
-  Crown,
-  Sparkles
+  Crown
 } from 'lucide-react'
 import { useUser } from '@/lib/context/user-context'
 
@@ -22,7 +21,7 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   
-  const { login, loginDemo } = useUser()
+  const { login } = useUser()
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,11 +37,6 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false)
     }
-  }
-
-  const handleDemoLogin = () => {
-    loginDemo()
-    router.push('/account')
   }
 
   return (
@@ -131,21 +125,7 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Divider */}
-          <div className="flex items-center gap-4 my-6">
-            <div className="flex-1 h-px bg-[#f5f3ef]/10" />
-            <span className="text-xs text-[#a69b8a] uppercase">Or</span>
-            <div className="flex-1 h-px bg-[#f5f3ef]/10" />
-          </div>
 
-          {/* Demo Login */}
-          <button
-            onClick={handleDemoLogin}
-            className="w-full py-3 rounded-xl border border-[#f5f3ef]/20 text-[#f5f3ef] font-medium hover:bg-[#f5f3ef]/5 transition-colors flex items-center justify-center gap-2"
-          >
-            <Sparkles className="w-4 h-4 text-[#c9a227]" />
-            Try Demo Account
-          </button>
         </motion.div>
 
         {/* Sign Up Link */}

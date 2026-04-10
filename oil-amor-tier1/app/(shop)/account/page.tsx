@@ -87,7 +87,7 @@ function StatCard({ icon: Icon, value, label, sublabel, color = '#c9a227' }: any
   )
 }
 
-function DemoLoginPrompt({ onLogin }: { onLogin: () => void }) {
+function LoginPrompt() {
   return (
     <div className="min-h-screen bg-[#0a080c] pt-32 pb-16">
       <div className="max-w-md mx-auto px-6">
@@ -100,17 +100,25 @@ function DemoLoginPrompt({ onLogin }: { onLogin: () => void }) {
         </div>
 
         <div className="p-6 rounded-2xl bg-[#111] border border-[#f5f3ef]/10 mb-6">
-          <h2 className="text-lg font-medium text-[#f5f3ef] mb-4">Preview Account Dashboard</h2>
+          <h2 className="text-lg font-medium text-[#f5f3ef] mb-4">Sign In Required</h2>
           <p className="text-sm text-[#a69b8a] mb-6">
-            Experience the account dashboard with demo data. See how your orders unlock refill access, 
-            track your collection progress, and manage returns.
+            Sign in to access your account dashboard, track orders, manage refill unlocks, 
+            and view your collection progress.
           </p>
-          <button
-            onClick={onLogin}
-            className="w-full py-3 rounded-xl bg-[#c9a227] text-[#0a080c] font-medium hover:bg-[#f5f3ef] transition-colors"
-          >
-            Enter as Demo User
-          </button>
+          <div className="flex flex-col gap-3">
+            <Link
+              href="/login"
+              className="w-full py-3 rounded-xl bg-[#c9a227] text-[#0a080c] font-medium hover:bg-[#f5f3ef] transition-colors text-center"
+            >
+              Sign In
+            </Link>
+            <Link
+              href="/register"
+              className="w-full py-3 rounded-xl border border-[#f5f3ef]/20 text-[#f5f3ef] font-medium hover:bg-[#f5f3ef]/5 transition-colors text-center"
+            >
+              Create Account
+            </Link>
+          </div>
         </div>
 
         <div className="space-y-4">
@@ -142,10 +150,6 @@ function DemoLoginPrompt({ onLogin }: { onLogin: () => void }) {
             </div>
           </div>
         </div>
-
-        <p className="text-center text-xs text-[#a69b8a]/60 mt-8">
-          Full authentication coming soon with Shopify Customer Accounts
-        </p>
       </div>
     </div>
   )
@@ -156,11 +160,11 @@ function DemoLoginPrompt({ onLogin }: { onLogin: () => void }) {
 // ============================================================================
 export default function AccountDashboardPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'collection' | 'orders' | 'returns'>('overview')
-  const { user, orders, unlockedOils, isAuthenticated, loginDemo, logout, isOilUnlocked, getUnlockedOilIds, totalSavings, isDemo } = useUser()
+  const { user, orders, unlockedOils, isAuthenticated, logout, isOilUnlocked, getUnlockedOilIds, totalSavings, isDemo } = useUser()
   const router = useRouter()
 
   if (!isAuthenticated || !user) {
-    return <DemoLoginPrompt onLogin={loginDemo} />
+    return <LoginPrompt />
   }
 
   const collectorProgress = (user.totalXP / user.nextLevelXP) * 100
