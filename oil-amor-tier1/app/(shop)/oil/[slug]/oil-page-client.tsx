@@ -185,16 +185,7 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
               </span>
             </motion.div>
 
-            {/* 5. Description */}
-            <motion.p
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="text-[#f5f3ef]/80 leading-relaxed"
-            >
-              {oilData.description}
-            </motion.p>
-
-            {/* 6. Benefits - UNDER DESCRIPTION */}
+            {/* 5. Benefits - ABOVE DESCRIPTION */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -210,6 +201,15 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
                 </div>
               ))}
             </motion.div>
+
+            {/* 6. Description */}
+            <motion.p
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-[#f5f3ef]/80 leading-relaxed"
+            >
+              {oilData.description}
+            </motion.p>
 
             {/* 7. Product Specifications */}
             <motion.div
@@ -257,7 +257,7 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
               />
             </motion.div>
 
-            {/* 9. Select Your Crystal - BETWEEN CONFIGURATOR AND ADD TO CART */}
+            {/* 9. Select Your Crystal */}
             {oilData.crystalPairings.length > 0 && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -301,7 +301,17 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
               </motion.div>
             )}
 
-            {/* 10. Add to Cart */}
+            {/* 10. Crystal Synergy - AFTER SELECT YOUR CRYSTAL */}
+            {configuration.selectedCrystal && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+              >
+                <CrystalSynergyExpandable crystal={configuration.selectedCrystal} />
+              </motion.div>
+            )}
+
+            {/* 11. Add to Cart */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
@@ -350,18 +360,7 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
               </div>
             </motion.div>
 
-            {/* 12. Crystal Synergy */}
-            {configuration.selectedCrystal && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
-              >
-                <CrystalSynergyExpandable crystal={configuration.selectedCrystal} />
-              </motion.div>
-            )}
-
-            {/* 13. Forever Bottle */}
+            {/* 12. Forever Bottle */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
