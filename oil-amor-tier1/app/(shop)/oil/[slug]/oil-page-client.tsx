@@ -127,8 +127,8 @@ export function OilPageClient({ slug, variant }: OilPageClientProps) {
       <div className="pt-24 pb-16 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16">
-            {/* Left Column - Image & Crystal Synergy */}
-            <div className="space-y-6">
+            {/* Left Column - Image & Crystal Synergy (order-2 on mobile, product info comes first) */}
+            <div className="space-y-6 order-2 lg:order-1">
               {/* Main Image with Zoom */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -249,8 +249,8 @@ export function OilPageClient({ slug, variant }: OilPageClientProps) {
               </motion.div>
             </div>
 
-            {/* Right Column - Product Info & Configuration */}
-            <div className="space-y-6">
+            {/* Right Column - Product Info & Configuration (order-1 on mobile to appear first) */}
+            <div className="space-y-6 order-1 lg:order-2">
               {/* Title & Meta */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
