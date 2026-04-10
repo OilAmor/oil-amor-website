@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { getProductByHandle } from '@/app/lib/shopify'
 import { getOilByHandle, getOilById, getAllOils } from '@/lib/content/oil-crystal-synergies'
-import { OilPageClient } from './oil-page-client'
+import OilPageClient from './oil-page-client'
 
 // Map URL slugs to oil IDs for the original oils
 // New oils use their ID as the slug directly
@@ -71,10 +71,8 @@ export default async function OilPage({ params }: Props) {
 
   return (
     <OilPageClient 
-      oilData={oilData} 
-      variant={variant} 
-      title={title}
       slug={params.slug}
+      variant={variant}
     />
   )
 }
