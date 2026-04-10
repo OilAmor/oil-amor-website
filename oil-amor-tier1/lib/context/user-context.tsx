@@ -121,8 +121,8 @@ const DEMO_UNLOCKED_OILS: UnlockedOil[] = [
   { oilId: 'tea-tree', unlockedAt: '2026-02-28', unlockedBy: 'ORD-002', type: 'enhanced' },
 ]
 
-const STORAGE_KEY = 'oil_amor_user_state'
-const BLEND_REFILLS_KEY = 'oil_amor_blend_refills'
+const STORAGE_KEY = 'oil_amor_user_state_v2'
+const BLEND_REFILLS_KEY = 'oil_amor_blend_refills_v2'
 
 function loadStateFromStorage(): Partial<UserState> | null {
   if (typeof window === 'undefined') return null

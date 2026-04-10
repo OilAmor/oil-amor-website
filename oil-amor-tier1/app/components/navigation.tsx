@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { Menu, X, ShoppingBag, User, ChevronRight, LogOut, Package, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useUser } from '@/lib/context/user-context'
+import { useCart } from '@/app/hooks/use-cart'
 
 const navLinks = [
   { href: '/oils', label: 'Collection' },
@@ -17,8 +18,7 @@ const navLinks = [
   { href: '/contact', label: 'Contact' },
 ]
 
-// Mock cart count - replace with real cart state
-const MOCK_CART_COUNT = 2
+
 
 export function Navigation() {
   const [isScrolled, setIsScrolled] = useState(false)
@@ -26,6 +26,7 @@ export function Navigation() {
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   
   const { user, isAuthenticated, logout } = useUser()
+  const { itemCount } = useCart()
 
   useEffect(() => {
     const handleScroll = () => {
@@ -116,9 +117,9 @@ export function Navigation() {
               className="relative w-10 h-10 flex items-center justify-center text-[#a69b8a] hover:text-[#f5f3ef] transition-colors"
             >
               <ShoppingBag className="w-5 h-5" />
-              {MOCK_CART_COUNT > 0 && (
+              {itemCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#c9a227] text-[#0a080c] text-xs font-medium flex items-center justify-center">
-                  {MOCK_CART_COUNT}
+                  {itemCount > 9 ? '9+' : itemCount}
                 </span>
               )}
             </Link>
@@ -248,9 +249,9 @@ export function Navigation() {
               className="relative w-10 h-10 flex items-center justify-center text-[#f5f3ef]"
             >
               <ShoppingBag className="w-5 h-5" />
-              {MOCK_CART_COUNT > 0 && (
+              {itemCount > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 rounded-full bg-[#c9a227] text-[#0a080c] text-xs font-medium flex items-center justify-center">
-                  {MOCK_CART_COUNT}
+                  {itemCount > 9 ? '9+' : itemCount}
                 </span>
               )}
             </Link>
