@@ -3,6 +3,8 @@
  * Merge guest cart into authenticated user cart
  */
 
+export const runtime = 'nodejs'
+
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { Redis } from '@upstash/redis'
