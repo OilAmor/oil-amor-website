@@ -300,11 +300,8 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
 }
 
 // ============================================================================
-// Configuration
+// Route Configuration
 // ============================================================================
 
-export const config = {
-  api: {
-    bodyParser: false, // Stripe needs raw body
-  },
-}
+export const dynamic = 'force-dynamic'  // Disable static generation for webhook
+export const runtime = 'nodejs'         // Use Node.js runtime
