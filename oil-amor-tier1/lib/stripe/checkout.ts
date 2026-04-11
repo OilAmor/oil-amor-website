@@ -69,21 +69,13 @@ export async function createCheckoutSession(params: CreateCheckoutParams): Promi
     
     const { sessionId, orderId, url } = await response.json()
     
-    // Redirect to Stripe Checkout
-    const stripe = await getStripe()
-    
-    if (!stripe) {
-      throw new Error('Stripe.js failed to load')
+    // Redirect to Stripe Checkout using URL (redirectToCheckout is deprecated)
+    if (url) {
+      window.location.href = url
+      return { success: true, sessionId, orderId, url }
     }
     
-    // Use redirectToCheckout for seamless experience
-    const { error } = await (stripe as any).redirectToCheckout({ sessionId })
-    
-    if (error) {
-      throw new Error(error.message)
-    }
-    
-    return { success: true, sessionId, orderId, url }
+    throw new Error('No checkout URL returned from server')
     
   } catch (error: any) {
     console.error('Checkout error:', error)
@@ -129,6 +121,7 @@ export function cartItemsToCheckoutItems(
     size?: string
     type?: string
     customMix?: any
+    configuration?: any
   }>
 ): CheckoutItem[] {
   return items.map(item => ({
@@ -150,16 +143,41 @@ export function cartItemsToCheckoutItems(
 function generateItemDescription(item: any): string {
   const parts: string[] = []
   
+  // Size
   if (item.size) {
     parts.push(item.size)
   }
   
-  if (item.type) {
-    parts.push(item.type === 'enhanced' ? 'Enhanced' : 'Pure')
+  // Type with carrier/ratio details
+  if (item.type === 'carrier' && item.configuration) {
+    const { carrierOil, ratio } = item.configuration
+    if (carrierOil && ratio) {
+      parts.push(`${carrierOil} • ${ratio}`)
+    } else {
+      parts.push('Carrier Enhanced')
+    }
+  } else if (item.type === 'pure') {
+    parts.push('Pure Essential Oil')
+  } else if (item.type) {
+    parts.push(item.type)
   }
   
+  // Crystal
+  if (item.configuration?.crystalName) {
+    parts.push(`with ${item.configuration.crystalName}`)
+  }
+  
+  // Cord
+  if (item.configuration?.cord) {
+    parts.push(`+ ${item.configuration.cord} cord`)
+  }
+  
+  // Custom Mix details
   if (item.customMix) {
-    parts.push(`Custom Mix - ${item.customMix.recipeName || 'Custom Blend'}`)
+    const oilNames = item.customMix.oils?.map((o: any) => o.oilName || o.name).slice(0, 3).join(', ')
+    parts.push(`Custom: ${item.customMix.recipeName || 'Blend'}`)
+    if (oilNames) parts.push(`(${oilNames})`)
+    if (item.customMix.totalVolume) parts.push(`${item.customMix.totalVolume}ml`)
   }
   
   return parts.join(' • ') || 'Essential Oil'

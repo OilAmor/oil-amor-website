@@ -1,0 +1,63 @@
+import { NextRequest } from 'next/server'
+import { createClient } from '@/lib/db/client'
+import { customers } from '@/lib/db/schema'
+import { eq } from 'drizzle-orm'
+import crypto from 'crypto'
+
+// POST /api/auth/forgot-password
+export async function POST(request: NextRequest) {
+  try {
+    const { email } = await request.json()
+
+    if (!email) {
+      return Response.json(
+        { error: 'Email is required' },
+        { status: 400 }
+      )
+    }
+
+    const db = createClient()
+
+    // Find customer
+    const customer = await db.query.customers.findFirst({
+      where: eq(customers.email, email.toLowerCase()),
+    })
+
+    // Always return success to prevent email enumeration
+    // But only send email if customer exists
+    if (customer) {
+      // Generate reset token
+      const resetToken = crypto.randomBytes(32).toString('hex')
+      const resetTokenExpiry = new Date(Date.now() + 3600000) // 1 hour
+
+      // Store token in customer metadata
+      await db
+        .update(customers)
+        .set({
+          metadata: {
+            ...customer.metadata,
+            resetToken,
+            resetTokenExpiry: resetTokenExpiry.toISOString(),
+          },
+          updatedAt: new Date(),
+        })
+        .where(eq(customers.id, customer.id))
+
+      // In a real app, send email here
+      // For now, log the reset URL
+      const resetUrl = `${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
+      console.log('Password reset URL:', resetUrl)
+    }
+
+    return Response.json({
+      success: true,
+      message: 'If an account exists, a reset link has been sent',
+    })
+  } catch (error) {
+    console.error('Forgot password error:', error)
+    return Response.json(
+      { error: 'Failed to process request' },
+      { status: 500 }
+    )
+  }
+}

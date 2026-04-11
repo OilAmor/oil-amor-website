@@ -43,6 +43,12 @@ interface ProductConfiguratorProps {
     name: string
   }
   selectedCrystal: CrystalPairing | undefined
+  externalConfig?: {
+    type?: ProductType
+    carrier?: string
+    ratio?: RatioPreset
+    size?: BottleSize
+  }
   onConfigurationChange: (config: {
     size: BottleSize
     type: ProductType
@@ -220,20 +226,37 @@ const MIRON_BENEFITS = [
 export function ProductConfigurator({
   oil,
   selectedCrystal,
+  externalConfig,
   onConfigurationChange,
 }: ProductConfiguratorProps) {
   const oilId = getOilIdFromSlug(oil.id)
   const recommendedCarrierId = RECOMMENDED_CARRIERS[oilId]
   const defaultCarrierId = recommendedCarrierId || 'jojoba'
   
-  const [selectedSize, setSelectedSize] = useState<BottleSize>(BOTTLE_SIZES[0])
-  const [selectedType, setSelectedType] = useState<ProductType>('pure')
-  const [selectedCarrier, setSelectedCarrier] = useState(defaultCarrierId)
-  const [selectedRatio, setSelectedRatio] = useState<RatioPreset>(CARRIER_RATIOS[2])
+  const [selectedSize, setSelectedSize] = useState<BottleSize>(externalConfig?.size || BOTTLE_SIZES[0])
+  const [selectedType, setSelectedType] = useState<ProductType>(externalConfig?.type || 'pure')
+  const [selectedCarrier, setSelectedCarrier] = useState(externalConfig?.carrier || defaultCarrierId)
+  const [selectedRatio, setSelectedRatio] = useState<RatioPreset>(externalConfig?.ratio || CARRIER_RATIOS[2])
   const [selectedCord, setSelectedCord] = useState<CordOption>(CORD_OPTIONS[0])
   const [showDilutionInfo, setShowDilutionInfo] = useState(false)
   const [showCordOptions, setShowCordOptions] = useState(false)
   const [showMironInfo, setShowMironInfo] = useState(false)
+  
+  // Sync with external config when it changes
+  useEffect(() => {
+    if (externalConfig?.type && externalConfig.type !== selectedType) {
+      setSelectedType(externalConfig.type)
+    }
+    if (externalConfig?.carrier && externalConfig.carrier !== selectedCarrier) {
+      setSelectedCarrier(externalConfig.carrier)
+    }
+    if (externalConfig?.ratio && externalConfig.ratio.id !== selectedRatio.id) {
+      setSelectedRatio(externalConfig.ratio)
+    }
+    if (externalConfig?.size && externalConfig.size.id !== selectedSize.id) {
+      setSelectedSize(externalConfig.size)
+    }
+  }, [externalConfig])
 
   const crystalCount = selectedSize ? CRYSTAL_COUNTS[selectedSize.id] || 12 : 12
   const carrierOptions = CARRIER_OILS.filter(c => c.id !== 'pure')

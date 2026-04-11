@@ -81,6 +81,61 @@ export async function POST(request: NextRequest) {
     // Generate order ID
     const orderId = `ORD-${Date.now()}-${nanoid(4).toUpperCase()}`
     
+    // Create or retrieve Stripe Customer for address pre-fill
+    let stripeCustomerId: string | undefined
+    try {
+      // Search for existing customer by email
+      const existingCustomers = await stripe.customers.list({
+        email: body.customerEmail,
+        limit: 1,
+      })
+      
+      if (existingCustomers.data.length > 0) {
+        stripeCustomerId = existingCustomers.data[0].id
+        // Update customer with latest address
+        await stripe.customers.update(stripeCustomerId, {
+          shipping: {
+            name: `${body.shippingAddress.firstName} ${body.shippingAddress.lastName}`,
+            address: {
+              line1: body.shippingAddress.address1,
+              line2: body.shippingAddress.address2 || undefined,
+              city: body.shippingAddress.city,
+              state: body.shippingAddress.province,
+              postal_code: body.shippingAddress.postalCode,
+              country: body.shippingAddress.country,
+            },
+          },
+          metadata: {
+            customerId: body.customerId || 'guest',
+          },
+        })
+      } else if (body.customerEmail) {
+        // Create new customer
+        const newCustomer = await stripe.customers.create({
+          email: body.customerEmail,
+          name: `${body.shippingAddress.firstName} ${body.shippingAddress.lastName}`,
+          shipping: {
+            name: `${body.shippingAddress.firstName} ${body.shippingAddress.lastName}`,
+            address: {
+              line1: body.shippingAddress.address1,
+              line2: body.shippingAddress.address2 || undefined,
+              city: body.shippingAddress.city,
+              state: body.shippingAddress.province,
+              postal_code: body.shippingAddress.postalCode,
+              country: body.shippingAddress.country,
+            },
+          },
+          metadata: {
+            customerId: body.customerId || 'guest',
+          },
+        })
+        stripeCustomerId = newCustomer.id
+      }
+    } catch (err) {
+      console.error('Error creating/updating Stripe customer:', err)
+      // Continue without customer - checkout will still work
+    }
+    
     // Build line items for Stripe
     const lineItems = body.items.map(item => ({
       price_data: {
@@ -139,8 +194,8 @@ export async function POST(request: NextRequest) {
       // Line items
       line_items: lineItems,
       
-      // Customer info
-      customer_email: body.customerEmail,
+      // Customer info - use customer ID if available (pre-fills address)
+      ...(stripeCustomerId ? { customer: stripeCustomerId } : { customer_email: body.customerEmail }),
       
       // Shipping address collection
       shipping_address_collection: {
@@ -156,6 +211,7 @@ export async function POST(request: NextRequest) {
       metadata: {
         orderId,
         customerId: body.customerId || 'guest',
+        customerEmail: body.customerEmail || '',
         isGift: body.isGift ? 'true' : 'false',
         giftMessage: body.giftMessage || '',
         subtotal: String(subtotal),

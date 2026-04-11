@@ -58,13 +58,29 @@ export async function POST(request: NextRequest) {
     
     // Add item to cart
     if (action === 'add') {
-      const { cartId, product, quantity, attachment, customMix, configuration, properties } = body
+      let { cartId, product, quantity, attachment, customMix, configuration, properties } = body
       
-      if (!cartId || !product) {
+      console.log('[Cart API] Add item request:', { 
+        cartId, 
+        productId: product?.id, 
+        type: configuration?.type,
+        hasConfig: !!configuration,
+        configKeys: configuration ? Object.keys(configuration) : []
+      })
+      
+      if (!product) {
         return NextResponse.json(
-          { error: 'Cart ID and product are required' },
+          { error: 'Product is required' },
           { status: 400 }
         )
+      }
+      
+      // If no cartId or cart not found, create a new cart
+      let cart = cartId ? await cartManager.getCart(cartId) : null
+      if (!cart) {
+        console.log('[Cart API] Cart not found, creating new cart...')
+        cart = await cartManager.createCart()
+        cartId = cart.id
       }
       
       // Validate attachment if provided
@@ -89,29 +105,38 @@ export async function POST(request: NextRequest) {
         }
       }
       
-      const result = await cartManager.addItem(
-        cartId,
-        {
-          productId: product.id,
-          variantId: product.variantId,
-          quantity: quantity || 1,
-          attachment,
-          customMix,
-          configuration,
-          properties,
-        },
-        {
-          name: product.name,
-          price: product.price,
-          image: product.image,
-          sku: product.sku,
-        }
-      )
+      console.log('[Cart API] Calling cartManager.addItem...')
       
-      return NextResponse.json({ 
-        cart: result.cart, 
-        item: result.item 
-      })
+      try {
+        const result = await cartManager.addItem(
+          cartId,
+          {
+            productId: product.id,
+            variantId: product.variantId,
+            quantity: quantity || 1,
+            attachment,
+            customMix,
+            configuration,
+            properties,
+          },
+          {
+            name: product.name,
+            price: product.price,
+            image: product.image,
+            sku: product.sku,
+          }
+        )
+        
+        console.log('[Cart API] Item added successfully')
+        
+        return NextResponse.json({ 
+          cart: result.cart, 
+          item: result.item 
+        })
+      } catch (managerError) {
+        console.error('[Cart API] cartManager.addItem failed:', managerError)
+        throw managerError
+      }
     }
     
     // Update item
@@ -173,8 +198,11 @@ export async function POST(request: NextRequest) {
     )
   } catch (error) {
     console.error('Cart POST error:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorStack = error instanceof Error ? error.stack : ''
+    console.error('Error details:', { message: errorMessage, stack: errorStack })
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: errorMessage, stack: errorStack },
       { status: 500 }
     )
   }

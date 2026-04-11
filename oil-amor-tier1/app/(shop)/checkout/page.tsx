@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
@@ -218,6 +218,16 @@ export default function CheckoutPage() {
   const router = useRouter()
   const { cart, isLoading, clearCart } = useCart()
   const { user, isAuthenticated } = useUser()
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('[Checkout] Cart state:', { 
+      cartId: cart?.id, 
+      itemCount: cart?.items?.length, 
+      isLoading,
+      items: cart?.items?.map((i: any) => ({ name: i.name, id: i.id }))
+    })
+  }, [cart, isLoading])
   
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)

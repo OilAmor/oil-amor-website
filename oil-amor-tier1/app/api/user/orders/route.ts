@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { orders, unlockedOils } from '@/lib/db/schema-refill'
+import { orders, unlockedOils, customers } from '@/lib/db/schema-refill'
 import { eq, desc } from 'drizzle-orm'
 
 // ============================================================================
@@ -29,13 +29,44 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '50')
     const offset = parseInt(searchParams.get('offset') || '0')
     
-    // Fetch orders from database
-    const userOrders = await db.query.orders.findMany({
+    // Get customer email to also fetch orders by email
+    const customer = await db.query.customers.findFirst({
+      where: eq(customers.id, customerId),
+    })
+    
+    console.log('[UserOrders] Fetching orders for:', { customerId, email: customer?.email })
+    
+    // Fetch orders from database by customerId
+    let userOrders = await db.query.orders.findMany({
       where: eq(orders.customerId, customerId),
       orderBy: desc(orders.createdAt),
       limit,
       offset,
     })
+    
+    // Also fetch by email if we have it (for linked orders)
+    if (customer?.email) {
+      const emailOrders = await db.query.orders.findMany({
+        where: eq(orders.customerEmail, customer.email.toLowerCase()),
+        orderBy: desc(orders.createdAt),
+        limit,
+        offset,
+      })
+      
+      // Merge and deduplicate
+      const orderIds = new Set(userOrders.map(o => o.id))
+      for (const order of emailOrders) {
+        if (!orderIds.has(order.id)) {
+          userOrders.push(order)
+          orderIds.add(order.id)
+        }
+      }
+      
+      // Sort by date
+      userOrders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    }
+    
+    console.log('[UserOrders] Found', userOrders.length, 'orders')
     
     // Fetch unlocked oils for this customer
     const userUnlockedOils = await db.query.unlockedOils.findMany({
@@ -75,10 +106,10 @@ export async function GET(request: NextRequest) {
       total: userOrders.length,
     })
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('User orders GET error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error?.message || String(error) },
       { status: 500 }
     )
   }

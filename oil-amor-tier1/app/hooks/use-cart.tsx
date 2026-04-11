@@ -66,7 +66,8 @@ async function addToCartApi(
   
   if (!response.ok) {
     const error = await response.json()
-    throw new Error(error.message || 'Failed to add item')
+    console.error('[addToCartApi] Server error:', error)
+    throw new Error(error.details || error.message || 'Failed to add item')
   }
   
   const data: CartApiResponse = await response.json()
@@ -168,6 +169,10 @@ interface CartState {
   clearError: () => void
 }
 
+// Global flag to track hydration
+let hasHydrated = false
+let hydrationListeners: Array<(state: CartState) => void> = []
+
 const useCartStore = create<CartState>()(
   persist(
     (set) => ({
@@ -207,6 +212,13 @@ const useCartStore = create<CartState>()(
         }
         return persistedState
       },
+      onRehydrateStorage: () => (state) => {
+        hasHydrated = true
+        // Notify all listeners
+        hydrationListeners.forEach(listener => listener(state as CartState))
+        hydrationListeners = []
+        console.log('[useCart] Hydrated from localStorage:', state?.cart?.id, 'items:', state?.cart?.items?.length)
+      },
     }
   )
 )
@@ -224,43 +236,58 @@ export function useCart() {
     if (initialized.current) return
     initialized.current = true
     
-    // Delay initialization to avoid render-phase updates
-    const timeoutId = setTimeout(() => {
-      const initCart = async () => {
-        store.setError(null)
-        
-        try {
-          const cart = await fetchCart(store.cart?.id)
-          store.setCart(cart)
-        } catch (error) {
-          const message = error instanceof Error ? error.message : 'Failed to load cart'
-          store.setError(message)
-          logger.error('Cart initialization error', error as Error)
-          // Create a new empty cart on error
-          store.setCart({
-            id: `cart_${Date.now()}`,
-            items: [],
-            subtotal: 0,
-            taxTotal: 0,
-            shippingEstimate: 0,
-            discountTotal: 0,
-            total: 0,
-            currency: 'AUD',
-            itemCount: 0,
-            totalQuantity: 0,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-          })
-        } finally {
-          store.setLoading(false)
-        }
+    const initCart = async () => {
+      store.setError(null)
+      
+      // Wait for hydration from localStorage
+      if (!hasHydrated) {
+        console.log('[useCart] Waiting for localStorage hydration...')
+        await new Promise<void>((resolve) => {
+          hydrationListeners.push(() => resolve())
+          // Timeout after 500ms in case hydration never fires
+          setTimeout(resolve, 500)
+        })
       }
       
-      initCart()
-    }, 0)
+      // After hydration, check if we have a cart with items
+      const currentCart = useCartStore.getState().cart
+      if (currentCart && currentCart.items && currentCart.items.length > 0) {
+        console.log('[useCart] Using hydrated cart:', currentCart.id, 'with', currentCart.items.length, 'items')
+        store.setLoading(false)
+        return
+      }
+      
+      // No cart in localStorage, create a new one via API
+      console.log('[useCart] No hydrated cart found, creating new cart...')
+      try {
+        const cart = await fetchCart()
+        store.setCart(cart)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Failed to load cart'
+        store.setError(message)
+        logger.error('Cart initialization error', error as Error)
+        // Create a new empty cart on error
+        store.setCart({
+          id: `cart_${Date.now()}`,
+          items: [],
+          subtotal: 0,
+          taxTotal: 0,
+          shippingEstimate: 0,
+          discountTotal: 0,
+          total: 0,
+          currency: 'AUD',
+          itemCount: 0,
+          totalQuantity: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        })
+      } finally {
+        store.setLoading(false)
+      }
+    }
     
-    return () => clearTimeout(timeoutId)
+    initCart()
   }, [])
   
   // Add item to cart

@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { customers } from '@/lib/db/schema-refill'
+import { customers, orders, unlockedOils } from '@/lib/db/schema-refill'
 import { eq } from 'drizzle-orm'
 
 // ============================================================================
@@ -37,18 +37,18 @@ export async function GET(request: NextRequest) {
     }
     
     // Calculate collector level based on orders
-    const orders = await db.query.orders.findMany({
-      where: eq(customers.id, customerId),
+    const userOrders = await db.query.orders.findMany({
+      where: eq(orders.customerId, customerId),
     })
     
-    const unlockedOils = await db.query.unlockedOils.findMany({
-      where: eq(customers.id, customerId),
+    const userUnlockedOils = await db.query.unlockedOils.findMany({
+      where: eq(unlockedOils.customerId, customerId),
     })
     
     // Calculate stats
-    const totalOrders = orders.length
-    const totalSpent = orders.reduce((sum, o) => sum + (o.total || 0), 0)
-    const uniqueOils = new Set(unlockedOils.map(u => u.oilId)).size
+    const totalOrders = userOrders.length
+    const totalSpent = userOrders.reduce((sum, o) => sum + (o.total || 0), 0)
+    const uniqueOils = new Set(userUnlockedOils.map(u => u.oilId)).size
     
     // Calculate collector level (1-7)
     const collectorLevel = Math.min(7, Math.floor(uniqueOils / 5) + 1)
@@ -80,10 +80,10 @@ export async function GET(request: NextRequest) {
       }
     })
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('Profile GET error:', error)
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error?.message || String(error) },
       { status: 500 }
     )
   }
@@ -96,9 +96,12 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    console.log('[Profile POST] Request body:', { email: body?.email, firstName: body?.firstName })
+    
     const { email, firstName, lastName, password, acceptMarketing } = body
     
     if (!email || !password) {
+      console.log('[Profile POST] Missing required fields')
       return NextResponse.json(
         { error: 'Email and password are required' },
         { status: 400 }
@@ -106,11 +109,13 @@ export async function POST(request: NextRequest) {
     }
     
     // Check if customer already exists
+    console.log('[Profile POST] Checking for existing customer...')
     const existing = await db.query.customers.findFirst({
       where: eq(customers.email, email.toLowerCase()),
     })
     
     if (existing) {
+      console.log('[Profile POST] Customer already exists:', email)
       return NextResponse.json(
         { error: 'An account with this email already exists' },
         { status: 409 }
@@ -119,38 +124,47 @@ export async function POST(request: NextRequest) {
     
     // Generate unique customer ID
     const customerId = `cust_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
+    console.log('[Profile POST] Creating customer with ID:', customerId)
     
     // Create customer in database
-    const [customer] = await db.insert(customers)
-      .values({
-        id: customerId,
-        email: email.toLowerCase(),
-        firstName: firstName || null,
-        lastName: lastName || null,
-        passwordHash: password, // In production, hash this with bcrypt
-        metadata: {
-          acceptMarketing: acceptMarketing || false,
-          registeredAt: new Date().toISOString(),
-        },
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      })
-      .returning()
+    const insertData = {
+      id: customerId,
+      email: email.toLowerCase(),
+      firstName: firstName || null,
+      lastName: lastName || null,
+      metadata: {
+        passwordHash: password,
+        acceptMarketing: acceptMarketing || false,
+        registeredAt: new Date().toISOString(),
+      },
+    }
+    console.log('[Profile POST] Insert data:', insertData)
+    
+    await db.insert(customers).values(insertData)
+    
+    console.log('[Profile POST] Customer created successfully')
     
     return NextResponse.json({
       success: true,
       customer: {
-        id: customer.id,
-        email: customer.email,
-        firstName: customer.firstName,
-        lastName: customer.lastName,
+        id: customerId,
+        email: email.toLowerCase(),
+        firstName: firstName || null,
+        lastName: lastName || null,
       },
     }, { status: 201 })
     
-  } catch (error) {
-    console.error('Profile POST error:', error)
+  } catch (error: any) {
+    console.error('[Profile POST] Error:', error)
+    console.error('[Profile POST] Error details:', {
+      message: error?.message,
+      code: error?.code,
+      detail: error?.detail,
+      hint: error?.hint,
+      stack: error?.stack?.split('\n').slice(0, 5),
+    })
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Internal server error', details: error?.message },
       { status: 500 }
     )
   }

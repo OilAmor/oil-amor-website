@@ -51,6 +51,8 @@ const securityConfig: SecurityConfig = {
         'https://js.sentry-cdn.com',
         'https://www.googletagmanager.com',
         'https://www.google-analytics.com',
+        'https://js.stripe.com',
+        'https://checkout.stripe.com',
       ],
       'script-src-elem': [
         "'self'",
@@ -60,6 +62,8 @@ const securityConfig: SecurityConfig = {
         'https://js.sentry-cdn.com',
         'https://www.googletagmanager.com',
         'https://www.google-analytics.com',
+        'https://js.stripe.com',
+        'https://checkout.stripe.com',
       ],
       'style-src': [
         "'self'",
@@ -94,8 +98,16 @@ const securityConfig: SecurityConfig = {
         'https://analytics.google.com',
         'https://vitals.vercel-insights.com',
         'https://*.upstash.io',
+        'https://api.stripe.com',
+        'https://checkout.stripe.com',
       ],
       'media-src': ["'self'", 'https://cdn.sanity.io'],
+      'frame-src': [
+        "'self'",
+        'https://js.stripe.com',
+        'https://checkout.stripe.com',
+        'https://*.stripe.com',
+      ],
       'object-src': ["'none'"],
       'frame-ancestors': ["'none'"],
       'base-uri': ["'self'"],
@@ -107,7 +119,7 @@ const securityConfig: SecurityConfig = {
   },
   rateLimit: {
     api: { maxRequests: 100, windowMs: 60000 }, // 100 requests per minute
-    auth: { maxRequests: 5, windowMs: 60000 },   // 5 login attempts per minute
+    auth: { maxRequests: 50, windowMs: 300000 },   // 50 login attempts per 5 minutes
     general: { maxRequests: 200, windowMs: 60000 }, // 200 general requests per minute
   },
   headers: {

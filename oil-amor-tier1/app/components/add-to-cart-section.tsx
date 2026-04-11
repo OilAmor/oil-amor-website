@@ -41,7 +41,12 @@ export function AddToCartSection({
   const { addItem } = useCart()
 
   const handleAddToCart = () => {
-    if (!isValid) return
+    console.log('[AddToCart] Clicked - isValid:', isValid, 'variant.type:', variant.type, 'variant.carrier:', variant.carrier)
+    
+    if (!isValid) {
+      console.log('[AddToCart] Blocked - not valid')
+      return
+    }
     
     // Build detailed configuration
     const config: any = {
@@ -72,6 +77,8 @@ export function AddToCartSection({
       config.isPure = true
     }
     
+    console.log('[AddToCart] Calling addItem with:', { productId: variant.id, config, properties: { name: title, type: variant.type, carrier: variant.carrier }})
+    
     addItem({
       productId: variant.id,
       variantId: variant.id,
@@ -88,9 +95,12 @@ export function AddToCartSection({
         crystalChakra: selectedCrystal?.chakra || '',
         cordName: selectedCord?.name || '',
       },
+    }).then(() => {
+      console.log('[AddToCart] Successfully added to cart')
+      setAdded(true)
+    }).catch((err) => {
+      console.error('[AddToCart] Failed to add:', err)
     })
-    
-    setAdded(true)
     
     setTimeout(() => setAdded(false), 2000)
   }

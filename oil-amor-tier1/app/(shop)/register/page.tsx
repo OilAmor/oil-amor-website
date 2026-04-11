@@ -50,7 +50,8 @@ export default function RegisterPage() {
 
       if (!response.ok) {
         const data = await response.json()
-        throw new Error(data.error || 'Failed to create account')
+        console.error('[Register] API Error:', data)
+        throw new Error(data.error || data.details || `Server error: ${response.status}`)
       }
 
       // Auto-login after registration

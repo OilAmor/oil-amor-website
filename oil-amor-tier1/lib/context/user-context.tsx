@@ -207,11 +207,42 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     }
   }, [state])
 
+  // Link guest orders to user account
+  const linkGuestOrders = useCallback(async () => {
+    if (!state.isAuthenticated || state.isDemo || !state.user?.email) return
+    
+    try {
+      const response = await fetch('/api/user/link-orders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-customer-id': state.user?.id || '',
+        },
+        body: JSON.stringify({
+          email: state.user.email,
+          customerId: state.user.id,
+        }),
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        if (result.linkedCount > 0) {
+          console.log(`Linked ${result.linkedCount} guest orders to your account`)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to link guest orders:', error)
+    }
+  }, [state.isAuthenticated, state.isDemo, state.user?.id, state.user?.email])
+
   // Refresh user data from API
   const refreshUserData = useCallback(async () => {
     if (!state.isAuthenticated || state.isDemo) return
     
     try {
+      // First, link any guest orders by email
+      await linkGuestOrders()
+      
       // Fetch profile
       const profileRes = await fetch('/api/user/profile', {
         headers: {
@@ -246,11 +277,108 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {
       console.error('Failed to refresh user data:', error)
     }
-  }, [state.isAuthenticated, state.isDemo, state.user?.id])
+  }, [state.isAuthenticated, state.isDemo, state.user?.id, linkGuestOrders])
 
   const login = useCallback(async (email: string, password: string) => {
     console.log('Login attempted:', email)
-    throw new Error('Real authentication not implemented yet. Use demo login.')
+    
+    try {
+      const response = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      })
+      
+      console.log('Login response status:', response.status)
+      
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        console.error('Login failed:', data)
+        throw new Error(data.error || `Login failed: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      console.log('Login successful:', data.user?.id)
+      const userId = data.user.id
+      
+      // Set authenticated state
+      setState(prev => ({
+        ...prev,
+        user: {
+          ...data.user,
+          collectorLevel: 1,
+          totalXP: 0,
+          nextLevelXP: 500,
+          streakDays: 0,
+        },
+        isAuthenticated: true,
+        isDemo: false,
+      }))
+      
+      // Link any guest orders
+      try {
+        const linkRes = await fetch('/api/user/link-orders', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-customer-id': userId,
+          },
+          body: JSON.stringify({
+            email: data.user.email,
+            customerId: userId,
+          }),
+        })
+        if (!linkRes.ok) {
+          const err = await linkRes.json()
+          console.error('Link orders error:', err)
+        }
+      } catch (e) {
+        console.error('Failed to link guest orders:', e)
+      }
+      
+      // Fetch orders and unlocked oils
+      try {
+        const [profileRes, ordersRes] = await Promise.all([
+          fetch('/api/user/profile', {
+            headers: { 'x-customer-id': userId },
+          }),
+          fetch('/api/user/orders', {
+            headers: { 'x-customer-id': userId },
+          }),
+        ])
+        
+        if (!profileRes.ok) {
+          const err = await profileRes.json().catch(() => ({}))
+          console.error('Profile API error:', profileRes.status, err)
+        }
+        if (!ordersRes.ok) {
+          const err = await ordersRes.json().catch(() => ({}))
+          console.error('Orders API error:', ordersRes.status, err)
+        }
+        
+        if (profileRes.ok && ordersRes.ok) {
+          const [profile, ordersData] = await Promise.all([
+            profileRes.json(),
+            ordersRes.json(),
+          ])
+          
+          setState(prev => ({
+            ...prev,
+            user: {
+              ...prev.user!,
+              ...profile,
+            },
+            orders: ordersData.orders || [],
+            unlockedOils: ordersData.unlockedOils || [],
+          }))
+        }
+      } catch (error) {
+        console.error('Failed to fetch user data:', error)
+      }
+    } catch (error: any) {
+      console.error('Login error:', error)
+      throw error
+    }
   }, [])
 
   const loginDemo = useCallback(() => {

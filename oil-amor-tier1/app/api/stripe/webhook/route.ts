@@ -132,23 +132,42 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
   // Order doesn't exist - create it (shouldn't happen normally)
   console.warn(`Order ${orderId} not found in database, creating from webhook`)
   
-  // Extract items from session
-  const lineItems = await stripe.checkout.sessions.listLineItems(session.id)
+  // Extract items from session with metadata
+  const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+    expand: ['data.price.product'],
+  })
   
   const orderItems = lineItems.data
     .filter(item => item.description !== 'Shipping' && item.description !== 'GST (10%)')
-    .map(item => ({
-      id: `line_${nanoid(8)}`,
-      type: 'standard-oil' as const,
-      name: item.description || 'Unknown Item',
-      unitPrice: item.amount_total || 0,
-      quantity: item.quantity || 1,
-      subtotal: item.amount_subtotal || 0,
-      taxAmount: 0,
-      total: item.amount_total || 0,
-    }))
+    .map(item => {
+      // Get metadata from the product
+      const product = (item.price?.product as any) || {}
+      const metadata = product.metadata || {}
+      
+      return {
+        id: `line_${nanoid(8)}`,
+        type: 'standard-oil' as const,
+        name: item.description || 'Unknown Item',
+        unitPrice: item.amount_total || 0,
+        quantity: item.quantity || 1,
+        subtotal: item.amount_subtotal || 0,
+        taxAmount: 0,
+        total: item.amount_total || 0,
+        metadata: {
+          oilId: metadata.oilId,
+          size: metadata.size,
+          type: metadata.type,
+        },
+      }
+    })
   
   const now = new Date()
+  
+  console.log('[Webhook] Creating order:', { 
+    orderId, 
+    customerEmail: session.customer_email,
+    customerId: customerId || 'guest'
+  })
   
   // Create order
   await db.insert(orders).values({
@@ -156,7 +175,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
     customerId: customerId || 'guest',
     customerEmail: session.customer_email || 'guest@oilamor.com',
     customerName: session.customer_details?.name || 'Guest',
-    isGuest: customerId === 'guest' || !customerId,
+    isGuest: !customerId || customerId === 'guest',
     
     status: 'confirmed',
     statusHistory: [{

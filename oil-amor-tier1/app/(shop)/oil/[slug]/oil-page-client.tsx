@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -92,6 +92,15 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
     isValid: true,
     validationMessage: '',
   })
+  
+  // Debug: Log configuration changes
+  useEffect(() => {
+    console.log('[OilPage] Configuration updated:', { 
+      type: configuration.type, 
+      carrier: configuration.carrier,
+      ratio: configuration.ratio?.name 
+    })
+  }, [configuration.type, configuration.carrier, configuration.ratio])
 
   if (!oilData) {
     return (
@@ -243,7 +252,16 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
               <ProductConfigurator
                 oil={{ id: slug, name: oilData.commonName }}
                 selectedCrystal={configuration.selectedCrystal}
-                onConfigurationChange={(config: any) => setConfiguration((prev: any) => ({ ...prev, ...config }))}
+                externalConfig={{
+                  type: configuration.type,
+                  carrier: configuration.carrier,
+                  ratio: configuration.ratio,
+                  size: configuration.size,
+                }}
+                onConfigurationChange={(config: any) => {
+                  console.log('[OilPage] ProductConfigurator sent:', { type: config.type, carrier: config.carrier })
+                  setConfiguration((prev: any) => ({ ...prev, ...config }))
+                }}
               />
             </motion.div>
 
@@ -509,6 +527,12 @@ function PurchaseSection({
         <ProductConfigurator
           oil={{ id: slug, name: oilData.commonName }}
           selectedCrystal={configuration.selectedCrystal}
+          externalConfig={{
+            type: configuration.type,
+            carrier: configuration.carrier,
+            ratio: configuration.ratio,
+            size: configuration.size,
+          }}
           onConfigurationChange={(config: any) => setConfiguration((prev: any) => ({ ...prev, ...config }))}
         />
       </motion.div>
