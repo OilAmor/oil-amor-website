@@ -57,6 +57,9 @@ async function addToCartApi(
         sku: input.properties?.sku,
       },
       quantity: input.quantity,
+      configuration: input.configuration,
+      customMix: input.customMix,
+      attachment: input.attachment,
       properties: input.properties,
     }),
   })
@@ -169,7 +172,7 @@ const useCartStore = create<CartState>()(
   persist(
     (set) => ({
       cart: null,
-      isLoading: false,
+      isLoading: true, // Start as loading to prevent flash of empty cart
       isOpen: false,
       error: null,
       
@@ -224,7 +227,6 @@ export function useCart() {
     // Delay initialization to avoid render-phase updates
     const timeoutId = setTimeout(() => {
       const initCart = async () => {
-        store.setLoading(true)
         store.setError(null)
         
         try {

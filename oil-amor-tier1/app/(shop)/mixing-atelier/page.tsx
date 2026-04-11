@@ -2714,7 +2714,8 @@ export default function MixingAtelierPage() {
   const { isAuthenticated, user } = useUser()
   const { addItem, isLoading: isCartLoading, openCart } = useCart()
   
-  const [showProfileForm, setShowProfileForm] = useState(false)
+  // Safety check: Show profile form by default (safety first), hide only if profile is complete
+  const [showProfileForm, setShowProfileForm] = useState(!isProfileComplete)
   const [mode, setMode] = useState<'pure' | 'carrier'>('pure')
   
   // Toast notifications
@@ -2727,6 +2728,7 @@ export default function MixingAtelierPage() {
     setToasts(prev => prev.filter(t => t.id !== id))
   }, [])
   
+  // Update showProfileForm when isProfileComplete changes (e.g., after context loads)
   useEffect(() => {
     setShowProfileForm(!isProfileComplete)
   }, [isProfileComplete])

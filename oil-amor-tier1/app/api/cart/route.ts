@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
     
     // Add item to cart
     if (action === 'add') {
-      const { cartId, product, quantity, attachment, customMix, properties } = body
+      const { cartId, product, quantity, attachment, customMix, configuration, properties } = body
       
       if (!cartId || !product) {
         return NextResponse.json(
@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
           quantity: quantity || 1,
           attachment,
           customMix,
+          configuration,
           properties,
         },
         {
@@ -217,8 +218,11 @@ function validateCustomMix(mix: any): { valid: boolean; error?: string } {
     if (!oil.oilId) {
       return { valid: false, error: 'Oil ID is required for each oil' }
     }
-    if (!oil.drops || oil.drops < 1) {
-      return { valid: false, error: 'Valid drop count is required for each oil' }
+    // Accept either drops OR ml (drops takes precedence if both present)
+    const hasValidDrops = oil.drops && oil.drops >= 1
+    const hasValidMl = oil.ml && oil.ml > 0
+    if (!hasValidDrops && !hasValidMl) {
+      return { valid: false, error: 'Valid drop count or ml amount is required for each oil' }
     }
     
     // Check if oil exists in safety database

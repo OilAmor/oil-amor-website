@@ -291,6 +291,76 @@ function CartItemCard({
               </p>
             </div>
 
+            {/* Oil Product Details (Non-Atelier) */}
+            {!isAtelierBlend && (
+              <div className="mt-3">
+                {/* Product Configuration Tags */}
+                <div className="flex flex-wrap gap-1.5">
+                  {/* Bottle Size */}
+                  {configuration.bottleSize && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#f5f3ef]/5 text-[#a69b8a] text-xs">
+                      <Beaker className="w-3 h-3" />
+                      {configuration.bottleSize}
+                    </span>
+                  )}
+                  
+                  {/* Crystal Chips Count */}
+                  {configuration.crystalChips && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#f5f3ef]/5 text-[#a69b8a] text-xs">
+                      <Gem className="w-3 h-3" />
+                      {configuration.crystalChips} chips
+                    </span>
+                  )}
+                  
+                  {/* Type: Pure or Carrier */}
+                  {configuration.type === 'pure' || configuration.isPure ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#c9a227]/10 text-[#c9a227] text-xs">
+                      <Sparkles className="w-3 h-3" />
+                      Pure Essential Oil
+                    </span>
+                  ) : configuration.isCarrierBlend || configuration.carrierOil ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-purple-500/10 text-purple-400 text-xs">
+                      <Droplets className="w-3 h-3" />
+                      Carrier Blend
+                    </span>
+                  ) : null}
+                  
+                  {/* Carrier Oil */}
+                  {configuration.carrierOil && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#f5f3ef]/5 text-[#a69b8a] text-xs">
+                      {configuration.carrierOil}
+                    </span>
+                  )}
+                  
+                  {/* Ratio */}
+                  {configuration.ratio && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#f5f3ef]/5 text-[#a69b8a] text-xs">
+                      {configuration.ratio}
+                    </span>
+                  )}
+                  
+                  {/* Crystal Name */}
+                  {configuration.crystalName && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#c9a227]/10 text-[#c9a227] text-xs">
+                      <Gem className="w-3 h-3" />
+                      {configuration.crystalName}
+                      {configuration.crystalChakra && (
+                        <span className="text-[10px] opacity-70">({configuration.crystalChakra})</span>
+                      )}
+                    </span>
+                  )}
+                  
+                  {/* Cord */}
+                  {configuration.cord && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#f5f3ef]/5 text-[#a69b8a] text-xs">
+                      <Scroll className="w-3 h-3" />
+                      {configuration.cord}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Atelier Blend Details */}
             {isAtelierBlend && (
               <div className="mt-3">

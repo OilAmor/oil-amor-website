@@ -113,9 +113,6 @@ export default function RootLayout({
           Skip to main content
         </a>
 
-        {/* Grain Overlay */}
-        <div className="grain" />
-
         <UserProvider>
           <HealthProfileProvider>
             <RecipeProvider>

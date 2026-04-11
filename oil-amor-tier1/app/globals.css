@@ -278,8 +278,8 @@ input::placeholder, textarea::placeholder {
 }
 
 .skip-link {
-  position: absolute;
-  top: -40px;
+  position: fixed;
+  top: -100px;
   left: 0;
   background: var(--gold-pure);
   color: var(--miron-void);

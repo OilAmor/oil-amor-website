@@ -43,21 +43,50 @@ export function AddToCartSection({
   const handleAddToCart = () => {
     if (!isValid) return
     
+    // Build detailed configuration
+    const config: any = {
+      bottleSize: variant.size,
+      bottleSizeId: selectedSize.id,
+      bottleVolume: selectedSize.volume,
+      crystalChips: selectedSize.crystalChips,
+      type: variant.type,
+      cord: selectedCord?.name,
+      cordId: selectedCord?.id,
+    }
+    
+    // Add crystal info
+    if (selectedCrystal) {
+      config.crystalName = selectedCrystal.name
+      config.crystalId = selectedCrystal.id
+      config.crystalChakra = selectedCrystal.chakra
+      config.crystalElement = selectedCrystal.element
+      config.crystals = [selectedCrystal.name]
+    }
+    
+    // Add carrier/ratio info for carrier blends
+    if (variant.type === 'carrier') {
+      config.carrierOil = variant.carrier
+      config.ratio = variant.ratio
+      config.isCarrierBlend = true
+    } else {
+      config.isPure = true
+    }
+    
     addItem({
       productId: variant.id,
       variantId: variant.id,
       quantity,
-      configuration: {
-        bottleSize: variant.size,
-        carrierOil: variant.carrier,
-        cord: selectedCord?.name,
-        crystals: selectedCrystal?.name ? [selectedCrystal.name] : undefined,
-      },
+      configuration: config,
       properties: {
         name: title,
         price: String(variant.price),
         size: variant.size,
         type: variant.type,
+        carrier: variant.carrier || '',
+        ratio: variant.ratio || '',
+        crystalName: selectedCrystal?.name || '',
+        crystalChakra: selectedCrystal?.chakra || '',
+        cordName: selectedCord?.name || '',
       },
     })
     

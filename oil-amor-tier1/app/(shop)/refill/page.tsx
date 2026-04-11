@@ -210,7 +210,6 @@ export default function RefillStorePage() {
     isOilUnlocked, 
     getUnlockedOilIds, 
     unlockedOils, 
-    loginDemo,
     getUnlockedBlendRefills: getDemoBlendRefills,
   } = useUser()
   
@@ -389,12 +388,12 @@ export default function RefillStorePage() {
                 </div>
               </div>
               <div className="flex gap-2">
-                <button
-                  onClick={loginDemo}
+                <Link
+                  href="/login"
                   className="px-5 py-2.5 rounded-full bg-[#c9a227] text-[#0a080c] text-sm font-medium hover:bg-[#f5f3ef] transition-colors whitespace-nowrap"
                 >
-                  Demo Login
-                </button>
+                  Sign In
+                </Link>
               </div>
             </div>
           )}

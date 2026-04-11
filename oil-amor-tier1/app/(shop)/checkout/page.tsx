@@ -20,7 +20,8 @@ import {
   Gem,
   Scroll,
   Clock,
-  ExternalLink
+  ExternalLink,
+  Droplets
 } from 'lucide-react'
 import { formatPrice } from '@/lib/content/pricing-engine-final'
 import { useCart } from '@/app/hooks/use-cart'
@@ -73,6 +74,63 @@ function CheckoutItem({ item }: { item: any }) {
           {isAtelierBlend ? 'Custom Blend' : item.description}
         </p>
         
+        {/* Regular Oil Product Details */}
+        {!isAtelierBlend && (
+          <div className="flex flex-wrap gap-1.5 mt-2">
+            {/* Bottle Size */}
+            {configuration.bottleSize && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#f5f3ef]/5 text-[#a69b8a] text-[10px]">
+                <Beaker className="w-2.5 h-2.5" />
+                {configuration.bottleSize}
+              </span>
+            )}
+            
+            {/* Type: Pure or Carrier */}
+            {configuration.type === 'pure' || configuration.isPure ? (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#c9a227]/10 text-[#c9a227] text-[10px]">
+                <Sparkles className="w-2.5 h-2.5" />
+                Pure
+              </span>
+            ) : configuration.isCarrierBlend ? (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-purple-500/10 text-purple-400 text-[10px]">
+                <Droplets className="w-2.5 h-2.5" />
+                Carrier Blend
+              </span>
+            ) : null}
+            
+            {/* Carrier Oil */}
+            {configuration.carrierOil && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#f5f3ef]/5 text-[#a69b8a] text-[10px]">
+                {configuration.carrierOil}
+              </span>
+            )}
+            
+            {/* Ratio */}
+            {configuration.ratio && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#f5f3ef]/5 text-[#a69b8a] text-[10px]">
+                {configuration.ratio}
+              </span>
+            )}
+            
+            {/* Crystal */}
+            {configuration.crystalName && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#c9a227]/10 text-[#c9a227] text-[10px]">
+                <Gem className="w-2.5 h-2.5" />
+                {configuration.crystalName}
+              </span>
+            )}
+            
+            {/* Cord */}
+            {configuration.cord && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-[#f5f3ef]/5 text-[#a69b8a] text-[10px]">
+                <Scroll className="w-2.5 h-2.5" />
+                {configuration.cord}
+              </span>
+            )}
+          </div>
+        )}
+        
+        {/* Atelier Blend Details */}
         {isAtelierBlend && (
           <div className="flex flex-wrap gap-1.5 mt-2">
             {crystal && (
@@ -251,7 +309,7 @@ export default function CheckoutPage() {
   }
 
   // Show loading state while cart initializes
-  if (isLoading && !cart) {
+  if (isLoading) {
     return (
       <main className="min-h-screen bg-[#0a080c] pt-28 pb-16">
         <div className="max-w-6xl mx-auto px-6 flex items-center justify-center min-h-[50vh]">
@@ -264,7 +322,8 @@ export default function CheckoutPage() {
     )
   }
 
-  if (items.length === 0) {
+  // Show empty cart only after loading is complete
+  if (!isLoading && items.length === 0) {
     return (
       <main className="min-h-screen bg-[#0a080c] pt-32 pb-16">
         <div className="max-w-2xl mx-auto px-6 text-center">

@@ -61,6 +61,10 @@ const sentryWebpackPluginOptions = {
   
   // Tunnel Sentry requests to avoid ad-blockers
   tunnelRoute: '/monitoring/tunnel',
+  
+  // Disable Sentry if env vars not configured
+  disableServerWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
+  disableClientWebpackPlugin: !process.env.SENTRY_AUTH_TOKEN,
 }
 
 // Make sure adding Sentry options is the last code to modify `nextConfig`

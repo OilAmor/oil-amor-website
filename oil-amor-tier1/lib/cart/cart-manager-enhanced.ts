@@ -123,6 +123,7 @@ export class CartManager {
       quantity: input.quantity,
       attachment,
       customMix: input.customMix,
+      configuration: input.configuration,
       properties: input.properties,
       addedAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -343,7 +344,7 @@ export class CartManager {
            a.oils.length === b.oils.length &&
            a.oils.every((oil, i) => 
              oil.oilId === b.oils[i].oilId && 
-             oil.drops === b.oils[i].drops
+             (oil.ml === b.oils[i].ml || oil.drops === b.oils[i].drops)
            )
   }
 
