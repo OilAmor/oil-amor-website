@@ -209,6 +209,10 @@ const useCartStore = create<CartState>()(
           if (hasMockItems) {
             return { cart: null } as any
           }
+          // Also clear if items array is empty (stale data)
+          if (persistedState.cart.items.length === 0) {
+            return { cart: null } as any
+          }
         }
         return persistedState
       },
@@ -351,6 +355,12 @@ export function useCart() {
     try {
       const cart = await removeFromCartApi(store.cart.id, lineId)
       store.setCart(cart)
+      
+      // If cart is now empty, clear localStorage to prevent stale data
+      if (!cart.items || cart.items.length === 0) {
+        console.log('[useCart] Cart empty, clearing localStorage')
+        localStorage.removeItem('oil-amor-cart')
+      }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove item'
       store.setError(message)
@@ -374,6 +384,9 @@ export function useCart() {
     try {
       const cart = await clearCartApi(store.cart.id)
       store.setCart(cart)
+      // Clear localStorage to prevent stale data
+      localStorage.removeItem('oil-amor-cart')
+      console.log('[useCart] Cart cleared, localStorage wiped')
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to clear cart'
       store.setError(message)
