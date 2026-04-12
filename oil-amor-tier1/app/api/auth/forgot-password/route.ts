@@ -3,6 +3,7 @@ import { createClient } from '@/lib/db/client'
 import { customers } from '@/lib/db/schema'
 import { eq } from 'drizzle-orm'
 import crypto from 'crypto'
+import { sendPasswordResetEmail } from '@/lib/email/resend'
 
 // POST /api/auth/forgot-password
 export async function POST(request: NextRequest) {
@@ -43,10 +44,19 @@ export async function POST(request: NextRequest) {
         })
         .where(eq(customers.id, customer.id))
 
-      // In a real app, send email here
-      // For now, log the reset URL
+      // Send reset email
       const resetUrl = `${process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'}/reset-password?token=${resetToken}`
-      console.log('Password reset URL:', resetUrl)
+      
+      try {
+        await sendPasswordResetEmail({
+          to: customer.email,
+          resetUrl,
+          firstName: customer.firstName,
+        })
+      } catch (emailError) {
+        console.error('Failed to send reset email:', emailError)
+        // Still return success to prevent email enumeration
+      }
     }
 
     return Response.json({
