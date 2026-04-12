@@ -158,6 +158,8 @@ export async function POST(request: NextRequest) {
     if (action === 'remove') {
       const { cartId, lineId } = body
       
+      console.log('[Cart API] Remove request:', { cartId, lineId })
+      
       if (!cartId || !lineId) {
         return NextResponse.json(
           { error: 'Cart ID and line ID are required' },
@@ -166,16 +168,22 @@ export async function POST(request: NextRequest) {
       }
       
       try {
-        const cart = await cartManager.removeItem(cartId, lineId)
-        return NextResponse.json({ cart })
-      } catch (error) {
-        // If cart not found, create new empty cart
-        if (error instanceof Error && error.message === 'Cart not found') {
-          console.log('[Cart API] Cart not found, creating new empty cart')
+        // Check if cart exists first
+        const existingCart = await cartManager.getCart(cartId)
+        if (!existingCart) {
+          console.log('[Cart API] Cart not found, returning new empty cart')
           const cart = await cartManager.createCart()
           return NextResponse.json({ cart })
         }
-        throw error
+        
+        const cart = await cartManager.removeItem(cartId, lineId)
+        console.log('[Cart API] Item removed, new count:', cart.items.length)
+        return NextResponse.json({ cart })
+      } catch (error) {
+        console.error('[Cart API] Remove error:', error)
+        // Always return a valid cart even on error
+        const cart = await cartManager.createCart()
+        return NextResponse.json({ cart, warning: 'Cart reset due to error' })
       }
     }
     
