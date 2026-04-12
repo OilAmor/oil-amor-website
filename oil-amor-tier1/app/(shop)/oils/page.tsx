@@ -506,7 +506,7 @@ export default function OilsPage() {
               <span className="italic text-[#c9a227]">Crystal Infused</span>
             </h1>
             <p className="text-[#a69b8a] leading-relaxed">
-              Seventeen essential oils, each paired with three carefully selected crystals. 
+              Thirty-three essential oils, each paired with three carefully selected crystals. 
               Choose your format—pure essential oils or pre-diluted carrier blends.
             </p>
           </motion.div>
@@ -519,7 +519,7 @@ export default function OilsPage() {
             className="mt-12 grid grid-cols-3 gap-4 max-w-lg mx-auto"
           >
             {[
-              { value: '17', label: 'Sacred Oils' },
+              { value: '33', label: 'Sacred Oils' },
               { value: '51', label: 'Crystal Pairings' },
               { value: '15', label: 'Premium Crystals' },
             ].map((stat) => (
