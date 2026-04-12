@@ -1,5 +1,6 @@
 'use client'
 
+// Cache-busting version: v2 - Updated 33 oils with accurate plant images
 import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
@@ -410,6 +411,10 @@ function FilterBar({ filters, onFilterChange, totalOils, filteredCount }: Filter
     </div>
   )
 }
+
+// Force revalidation - update every hour or on-demand
+export const revalidate = 60
+export const dynamic = 'force-dynamic'
 
 // ============================================================================
 // MAIN PAGE
