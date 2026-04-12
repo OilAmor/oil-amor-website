@@ -99,23 +99,34 @@ async function updateCartItemApi(
 }
 
 async function removeFromCartApi(cartId: string, lineId: string): Promise<Cart> {
-  const response = await fetch('/api/cart', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ 
-      action: 'remove',
-      cartId,
-      lineId,
-    }),
-  })
-  
-  if (!response.ok) {
-    const error = await response.json()
-    throw new Error(error.message || 'Failed to remove item')
+  try {
+    const response = await fetch('/api/cart', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ 
+        action: 'remove',
+        cartId,
+        lineId,
+      }),
+    })
+    
+    // Even if response is not ok, try to parse it
+    const data = await response.json().catch(() => ({ error: 'Failed to parse response' }))
+    
+    if (!response.ok) {
+      console.warn('[removeFromCartApi] Server error:', response.status, data)
+      // If server returns error but includes a cart, use it
+      if (data.cart) {
+        return data.cart
+      }
+      throw new Error(data.error || data.message || `Server error: ${response.status}`)
+    }
+    
+    return data.cart
+  } catch (error) {
+    console.error('[removeFromCartApi] Fetch error:', error)
+    throw error
   }
-  
-  const data: CartApiResponse = await response.json()
-  return data.cart
 }
 
 async function clearCartApi(cartId: string): Promise<Cart> {
@@ -362,23 +373,32 @@ export function useCart() {
         localStorage.removeItem('oil-amor-cart')
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Failed to remove item'
+      console.error('[useCart] Remove failed, doing local removal:', error)
       
-      // If cart not found on server, reset everything
-      if (message.includes('Cart not found') || message.includes('500')) {
-        console.log('[useCart] Cart lost on server, resetting...')
-        localStorage.removeItem('oil-amor-cart')
-        // Create new cart
-        try {
-          const cart = await fetchCart()
-          store.setCart(cart)
-        } catch (e) {
-          console.error('[useCart] Failed to create new cart:', e)
+      // LOCAL FALLBACK: Remove item from local cart state
+      const currentCart = store.cart
+      if (currentCart) {
+        const newItems = currentCart.items.filter(item => item.id !== lineId)
+        const newCart = { ...currentCart, items: newItems }
+        
+        // Recalculate totals
+        let subtotal = 0
+        let totalQuantity = 0
+        for (const item of newItems) {
+          subtotal += item.unitPrice * item.quantity
+          totalQuantity += item.quantity
         }
-      } else {
-        store.setError(message)
-        logger.error('Remove cart item error', error as Error)
-        throw error
+        newCart.subtotal = Math.round(subtotal * 100) / 100
+        newCart.total = newCart.subtotal + newCart.taxTotal + newCart.shippingEstimate - newCart.discountTotal
+        newCart.itemCount = newItems.length
+        newCart.totalQuantity = totalQuantity
+        
+        store.setCart(newCart)
+        
+        // If empty, clear localStorage
+        if (newItems.length === 0) {
+          localStorage.removeItem('oil-amor-cart')
+        }
       }
     } finally {
       store.setLoading(false)
