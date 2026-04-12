@@ -424,6 +424,13 @@ export const fetchCache = 'force-no-store'
 
 export default function OilsPage() {
   const allOils = getAllOils()
+  
+  // Debug: Verify oil count and data freshness
+  console.log(`[OilsPage] Loaded ${allOils.length} oils`)
+  if (allOils.length > 0) {
+    console.log(`[OilsPage] First oil: ${allOils[0].commonName}, Image: ${allOils[0].image?.substring(0, 50)}...`)
+  }
+  
   const [filters, setFilters] = useState<Filters>({
     search: '',
     priceRange: 'all',
@@ -598,6 +605,9 @@ export default function OilsPage() {
           </div>
         </div>
       </section>
+      
+      {/* DATA_VERSION: 33-oils-updated-2024-04-12 - Forces fresh data load */}
+      <span className="hidden" data-version="33-oils-v2" />
     </div>
   )
 }
