@@ -5,6 +5,7 @@ import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import Image from 'next/image'
+// DATA_VERSION: 2024-04-12-v2 - Forces fresh bundle with updated 33 oils
 import { 
   getAllOils, 
   type OilProfile, 
@@ -413,8 +414,9 @@ function FilterBar({ filters, onFilterChange, totalOils, filteredCount }: Filter
 }
 
 // Force revalidation - update every hour or on-demand
-export const revalidate = 60
+export const revalidate = 0
 export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
 
 // ============================================================================
 // MAIN PAGE
