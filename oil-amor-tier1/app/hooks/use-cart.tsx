@@ -363,9 +363,23 @@ export function useCart() {
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Failed to remove item'
-      store.setError(message)
-      logger.error('Remove cart item error', error as Error)
-      throw error
+      
+      // If cart not found on server, reset everything
+      if (message.includes('Cart not found') || message.includes('500')) {
+        console.log('[useCart] Cart lost on server, resetting...')
+        localStorage.removeItem('oil-amor-cart')
+        // Create new cart
+        try {
+          const cart = await fetchCart()
+          store.setCart(cart)
+        } catch (e) {
+          console.error('[useCart] Failed to create new cart:', e)
+        }
+      } else {
+        store.setError(message)
+        logger.error('Remove cart item error', error as Error)
+        throw error
+      }
     } finally {
       store.setLoading(false)
     }

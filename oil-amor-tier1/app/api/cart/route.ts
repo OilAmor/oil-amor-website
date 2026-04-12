@@ -165,8 +165,18 @@ export async function POST(request: NextRequest) {
         )
       }
       
-      const cart = await cartManager.removeItem(cartId, lineId)
-      return NextResponse.json({ cart })
+      try {
+        const cart = await cartManager.removeItem(cartId, lineId)
+        return NextResponse.json({ cart })
+      } catch (error) {
+        // If cart not found, create new empty cart
+        if (error instanceof Error && error.message === 'Cart not found') {
+          console.log('[Cart API] Cart not found, creating new empty cart')
+          const cart = await cartManager.createCart()
+          return NextResponse.json({ cart })
+        }
+        throw error
+      }
     }
     
     // Update attachment only
