@@ -98,7 +98,7 @@ async function updateCartItemApi(
   return data.cart
 }
 
-async function removeFromCartApi(cartId: string, lineId: string): Promise<Cart> {
+async function removeFromCartApi(cartId: string, lineId: string): Promise<Cart & { _isNewCart?: boolean }> {
   try {
     const response = await fetch('/api/cart', {
       method: 'POST',
@@ -110,16 +110,19 @@ async function removeFromCartApi(cartId: string, lineId: string): Promise<Cart> 
       }),
     })
     
-    // Even if response is not ok, try to parse it
     const data = await response.json().catch(() => ({ error: 'Failed to parse response' }))
     
     if (!response.ok) {
       console.warn('[removeFromCartApi] Server error:', response.status, data)
-      // If server returns error but includes a cart, use it
       if (data.cart) {
         return data.cart
       }
       throw new Error(data.error || data.message || `Server error: ${response.status}`)
+    }
+    
+    // Mark if this is a new cart (old one expired)
+    if (data.warning && data.warning.includes('new cart') || data.warning?.includes('expired')) {
+      ;(data.cart as any)._isNewCart = true
     }
     
     return data.cart
@@ -268,6 +271,19 @@ export function useCart() {
       const currentCart = useCartStore.getState().cart
       if (currentCart && currentCart.items && currentCart.items.length > 0) {
         console.log('[useCart] Using hydrated cart:', currentCart.id, 'with', currentCart.items.length, 'items')
+        
+        // Validate cart exists on server (it may have expired)
+        try {
+          const serverCart = await fetchCart(currentCart.id)
+          if (!serverCart || serverCart.id !== currentCart.id) {
+            console.log('[useCart] Local cart expired on server, clearing')
+            localStorage.removeItem('oil-amor-cart')
+            store.setCart(serverCart)
+          }
+        } catch (e) {
+          console.log('[useCart] Could not validate cart, continuing with local')
+        }
+        
         store.setLoading(false)
         return
       }
@@ -367,7 +383,13 @@ export function useCart() {
       const cart = await removeFromCartApi(store.cart.id, lineId)
       store.setCart(cart)
       
-      // If cart is now empty, clear localStorage to prevent stale data
+      // If server created a new cart (old one expired), clear localStorage
+      if ((cart as any)._isNewCart) {
+        console.log('[useCart] Server created new cart, clearing localStorage')
+        localStorage.removeItem('oil-amor-cart')
+      }
+      
+      // If cart is now empty, clear localStorage
       if (!cart.items || cart.items.length === 0) {
         console.log('[useCart] Cart empty, clearing localStorage')
         localStorage.removeItem('oil-amor-cart')

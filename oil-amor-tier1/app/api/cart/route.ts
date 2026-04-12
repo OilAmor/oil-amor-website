@@ -1,6 +1,6 @@
 /**
  * Cart API Route
- * Handles cart operations with cord/charm attachments
+ * Handles cart operations with Redis persistence
  */
 
 import { NextRequest, NextResponse } from 'next/server'
@@ -8,7 +8,7 @@ import { cartManager } from '@/lib/cart/cart-manager-redis'
 import { getOilSafetyProfile } from '@/lib/safety'
 
 // ============================================================================
-// GET /api/cart - Get cart by ID
+// GET /api/cart - Get or create cart
 // ============================================================================
 
 export async function GET(request: NextRequest) {
@@ -22,90 +22,103 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ cart }, { status: 201 })
     }
     
-    const cart = await cartManager.getCart(cartId)
+    // Try to get existing cart
+    let cart = await cartManager.getCart(cartId)
     
     // If cart not found or expired, create a new one
     if (!cart) {
-      const cart = await cartManager.createCart()
+      console.log('[Cart API] Cart not found in GET, creating new cart')
+      cart = await cartManager.createCart()
       return NextResponse.json({ cart }, { status: 201 })
     }
     
     return NextResponse.json({ cart })
   } catch (error) {
-    console.error('Cart GET error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
+    console.error('[Cart API] GET error:', error)
+    // Always return a valid cart, even on error
+    try {
+      const cart = await cartManager.createCart()
+      return NextResponse.json({ cart, warning: 'Created new cart due to error' }, { status: 201 })
+    } catch {
+      // Ultimate fallback - return empty cart object
+      return NextResponse.json({ 
+        cart: {
+          id: `cart_fallback_${Date.now()}`,
+          items: [],
+          subtotal: 0,
+          taxTotal: 0,
+          shippingEstimate: 0,
+          discountTotal: 0,
+          total: 0,
+          currency: 'AUD',
+          itemCount: 0,
+          totalQuantity: 0,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        }
+      })
+    }
   }
 }
 
 // ============================================================================
-// POST /api/cart - Create new cart or add item
+// POST /api/cart - Cart operations
 // ============================================================================
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    let body: any
+    try {
+      body = await request.json()
+    } catch {
+      return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 })
+    }
+    
     const { action } = body
     
-    // Create new cart
+    // ==========================================================================
+    // CREATE CART
+    // ==========================================================================
     if (action === 'create') {
       const { customerId, email } = body
       const cart = await cartManager.createCart(customerId, email)
       return NextResponse.json({ cart }, { status: 201 })
     }
     
-    // Add item to cart
+    // ==========================================================================
+    // ADD ITEM
+    // ==========================================================================
     if (action === 'add') {
       let { cartId, product, quantity, attachment, customMix, configuration, properties } = body
       
-      console.log('[Cart API] Add item request:', { 
-        cartId, 
-        productId: product?.id, 
-        type: configuration?.type,
-        hasConfig: !!configuration,
-        configKeys: configuration ? Object.keys(configuration) : []
-      })
-      
       if (!product) {
-        return NextResponse.json(
-          { error: 'Product is required' },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: 'Product is required' }, { status: 400 })
       }
       
-      // If no cartId or cart not found, create a new cart
+      // Get or create cart
       let cart = cartId ? await cartManager.getCart(cartId) : null
       if (!cart) {
-        console.log('[Cart API] Cart not found, creating new cart...')
+        console.log('[Cart API] Cart not found for add, creating new cart')
         cart = await cartManager.createCart()
         cartId = cart.id
       }
       
-      // Validate attachment if provided
+      // Validate attachment
       if (attachment) {
         const validation = validateAttachment(attachment)
         if (!validation.valid) {
-          return NextResponse.json(
-            { error: validation.error },
-            { status: 400 }
-          )
+          return NextResponse.json({ error: validation.error }, { status: 400 })
         }
       }
       
-      // Validate custom mix if provided
+      // Validate custom mix
       if (customMix) {
         const validation = validateCustomMix(customMix)
         if (!validation.valid) {
-          return NextResponse.json(
-            { error: validation.error },
-            { status: 400 }
-          )
+          return NextResponse.json({ error: validation.error }, { status: 400 })
         }
       }
-      
-      console.log('[Cart API] Calling cartManager.addItem...')
       
       try {
         const result = await cartManager.addItem(
@@ -127,102 +140,124 @@ export async function POST(request: NextRequest) {
           }
         )
         
-        console.log('[Cart API] Item added successfully')
-        
-        return NextResponse.json({ 
-          cart: result.cart, 
-          item: result.item 
-        })
-      } catch (managerError) {
-        console.error('[Cart API] cartManager.addItem failed:', managerError)
-        throw managerError
+        return NextResponse.json({ cart: result.cart, item: result.item })
+      } catch (error) {
+        console.error('[Cart API] Add item error:', error)
+        return NextResponse.json({ error: 'Failed to add item' }, { status: 500 })
       }
     }
     
-    // Update item
+    // ==========================================================================
+    // UPDATE ITEM
+    // ==========================================================================
     if (action === 'update') {
       const { cartId, lineId, quantity, attachment } = body
       
       if (!cartId || !lineId) {
-        return NextResponse.json(
-          { error: 'Cart ID and line ID are required' },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: 'Cart ID and line ID required' }, { status: 400 })
       }
       
-      const cart = await cartManager.updateItem(cartId, { lineId, quantity, attachment })
-      return NextResponse.json({ cart })
+      // Get or create cart
+      let cart = await cartManager.getCart(cartId)
+      if (!cart) {
+        cart = await cartManager.createCart()
+        return NextResponse.json({ cart, warning: 'Created new cart' })
+      }
+      
+      try {
+        cart = await cartManager.updateItem(cartId, { lineId, quantity, attachment })
+        return NextResponse.json({ cart })
+      } catch (error) {
+        console.error('[Cart API] Update error:', error)
+        return NextResponse.json({ cart, warning: 'Update failed' })
+      }
     }
     
-    // Remove item
+    // ==========================================================================
+    // REMOVE ITEM - BULLETPROOF VERSION
+    // ==========================================================================
     if (action === 'remove') {
       const { cartId, lineId } = body
       
       console.log('[Cart API] Remove request:', { cartId, lineId })
       
       if (!cartId || !lineId) {
-        return NextResponse.json(
-          { error: 'Cart ID and line ID are required' },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: 'Cart ID and line ID required' }, { status: 400 })
       }
       
-      try {
-        // Check if cart exists first
-        const existingCart = await cartManager.getCart(cartId)
-        if (!existingCart) {
-          console.log('[Cart API] Cart not found, returning new empty cart')
-          const cart = await cartManager.createCart()
-          return NextResponse.json({ cart })
-        }
-        
-        const cart = await cartManager.removeItem(cartId, lineId)
-        console.log('[Cart API] Item removed, new count:', cart.items.length)
-        return NextResponse.json({ cart })
-      } catch (error) {
-        console.error('[Cart API] Remove error:', error)
-        // Always return a valid cart even on error
+      // Get cart (may be null if not found)
+      const existingCart = await cartManager.getCart(cartId)
+      
+      if (!existingCart) {
+        // Cart doesn't exist - create new empty one
+        console.log('[Cart API] Cart not found, returning new empty cart')
         const cart = await cartManager.createCart()
-        return NextResponse.json({ cart, warning: 'Cart reset due to error' })
+        return NextResponse.json({ cart, warning: 'Created new cart (old one expired)' })
+      }
+      
+      // Cart exists - try to remove item
+      try {
+        const cart = await cartManager.removeItem(cartId, lineId)
+        console.log('[Cart API] Item removed, count:', cart.items.length)
+        return NextResponse.json({ cart })
+      } catch (removeError) {
+        // Remove failed - return cart as-is
+        console.error('[Cart API] Remove failed:', removeError)
+        return NextResponse.json({ cart: existingCart, warning: 'Item may not exist' })
       }
     }
     
-    // Update attachment only
+    // ==========================================================================
+    // UPDATE ATTACHMENT
+    // ==========================================================================
     if (action === 'update-attachment') {
       const { cartId, lineId, attachment } = body
       
       if (!cartId || !lineId || !attachment) {
-        return NextResponse.json(
-          { error: 'Cart ID, line ID, and attachment are required' },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
       }
       
       const validation = validateAttachment(attachment)
       if (!validation.valid) {
-        return NextResponse.json(
-          { error: validation.error },
-          { status: 400 }
-        )
+        return NextResponse.json({ error: validation.error }, { status: 400 })
       }
       
-      const cart = await cartManager.updateAttachment(cartId, lineId, attachment)
-      return NextResponse.json({ cart })
+      let cart = await cartManager.getCart(cartId)
+      if (!cart) {
+        cart = await cartManager.createCart()
+        return NextResponse.json({ cart, warning: 'Created new cart' })
+      }
+      
+      try {
+        cart = await cartManager.updateAttachment(cartId, lineId, attachment)
+        return NextResponse.json({ cart })
+      } catch (error) {
+        return NextResponse.json({ cart, warning: 'Update failed' })
+      }
     }
     
-    return NextResponse.json(
-      { error: 'Invalid action' },
-      { status: 400 }
-    )
+    // Invalid action
+    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    
   } catch (error) {
-    console.error('Cart POST error:', error)
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    const errorStack = error instanceof Error ? error.stack : ''
-    console.error('Error details:', { message: errorMessage, stack: errorStack })
-    return NextResponse.json(
-      { error: 'Internal server error', details: errorMessage, stack: errorStack },
-      { status: 500 }
-    )
+    console.error('[Cart API] Unhandled error:', error)
+    // Ultimate fallback - always return a valid cart
+    try {
+      const cart = await cartManager.createCart()
+      return NextResponse.json({ cart, warning: 'Created new cart due to error' })
+    } catch {
+      return NextResponse.json({
+        cart: {
+          id: `cart_emergency_${Date.now()}`,
+          items: [],
+          subtotal: 0,
+          total: 0,
+          currency: 'AUD',
+          itemCount: 0,
+          totalQuantity: 0,
+        }
+      })
+    }
   }
 }
 
@@ -236,7 +271,7 @@ function validateAttachment(attachment: any): { valid: boolean; error?: string }
   }
   
   if (attachment.type === 'cord' && !attachment.cordId) {
-    return { valid: false, error: 'Cord ID is required for cord attachment' }
+    return { valid: false, error: 'Cord ID is required' }
   }
   
   if (attachment.type === 'charm' && !attachment.isMysteryCharm && !attachment.charmId) {
@@ -259,19 +294,16 @@ function validateCustomMix(mix: any): { valid: boolean; error?: string } {
     return { valid: false, error: 'Mix cannot contain more than 5 oils' }
   }
   
-  // Validate each oil
   for (const oil of mix.oils) {
     if (!oil.oilId) {
       return { valid: false, error: 'Oil ID is required for each oil' }
     }
-    // Accept either drops OR ml (drops takes precedence if both present)
     const hasValidDrops = oil.drops && oil.drops >= 1
     const hasValidMl = oil.ml && oil.ml > 0
     if (!hasValidDrops && !hasValidMl) {
-      return { valid: false, error: 'Valid drop count or ml amount is required for each oil' }
+      return { valid: false, error: 'Valid drop count or ml required' }
     }
     
-    // Check if oil exists in safety database
     const profile = getOilSafetyProfile(oil.oilId)
     if (!profile) {
       return { valid: false, error: `Oil ${oil.oilId} not found` }
