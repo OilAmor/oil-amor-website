@@ -7,6 +7,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { cartManager } from '@/lib/cart/cart-manager-redis'
 import { getOilSafetyProfile } from '@/lib/safety'
 
+export const dynamic = 'force-dynamic'
+
 // ============================================================================
 // GET /api/cart - Get or create cart
 // ============================================================================

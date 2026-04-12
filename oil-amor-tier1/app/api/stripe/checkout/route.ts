@@ -8,6 +8,8 @@ import Stripe from 'stripe'
 import { stripe, calculateShippingCost } from '@/lib/stripe/config'
 import { nanoid } from 'nanoid'
 
+export const dynamic = 'force-dynamic'
+
 export interface CheckoutItem {
   name: string
   description?: string
