@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
@@ -231,9 +231,17 @@ function CartItemCard({
     ? SIMPLE_CORD_OPTIONS.find(c => c.id === cordId)
     : null
 
-  const handleRemove = () => {
+  const handleRemove = async () => {
     setIsRemoving(true)
-    setTimeout(() => onRemove(item.id), 300)
+    // Wait for animation then remove
+    setTimeout(async () => {
+      try {
+        await onRemove(item.id)
+      } catch (error) {
+        console.error('[CartItemCard] Remove failed:', error)
+        setIsRemoving(false) // Reset if failed
+      }
+    }, 300)
   }
 
   return (
@@ -502,8 +510,22 @@ export default function CartPage() {
   const { cart, isLoading, updateItem, removeItem } = useCart()
   const [isCheckingOut, setIsCheckingOut] = useState(false)
 
-  // Get items from cart
-  const items = cart?.items || []
+  // Get items from cart - filter out any null/undefined items
+  const items = useMemo(() => {
+    const rawItems = cart?.items || []
+    // Filter out any invalid items
+    return rawItems.filter((item: any) => item && item.id && item.quantity > 0)
+  }, [cart?.items])
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[CartPage] Cart state:', {
+      cartId: cart?.id,
+      rawItemsCount: cart?.items?.length,
+      filteredItemsCount: items.length,
+      items: items.map((i: any) => ({ id: i.id, name: i.name, qty: i.quantity }))
+    })
+  }, [cart, items])
 
   // Calculate totals
   const { subtotal, shipping, total, itemCount, atelierCount } = useMemo(() => {
@@ -551,8 +573,14 @@ export default function CartPage() {
           <div>
             <h1 className="font-serif text-4xl text-[#f5f3ef]">Your Cart</h1>
             <p className="text-[#a69b8a] mt-1">
-              {itemCount} item{itemCount !== 1 ? 's' : ''}
-              {atelierCount > 0 && ` • ${atelierCount} custom blend${atelierCount !== 1 ? 's' : ''}`}
+              {items.length === 0 ? (
+                '0 items'
+              ) : (
+                <>
+                  {itemCount} item{itemCount !== 1 ? 's' : ''}
+                  {atelierCount > 0 && ` • ${atelierCount} custom blend${atelierCount !== 1 ? 's' : ''}`}
+                </>
+              )}
             </p>
           </div>
           <Link
@@ -564,10 +592,10 @@ export default function CartPage() {
           </Link>
         </motion.div>
 
-        {items.length === 0 ? (
+        {items.length === 0 || itemCount === 0 ? (
           <EmptyCart />
         ) : (
-          <div className="grid lg:grid-cols-3 gap-8">
+          <div className="grid lg:grid-cols-3 gap-8" key={cart?.id || 'empty'}>
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
               <TooltipProvider>
