@@ -1,232 +1,331 @@
 import { Resend } from 'resend'
+import {
+  passwordResetEmail,
+  welcomeEmail,
+  orderConfirmationEmail,
+  shippingConfirmationEmail,
+  abandonedCartEmail,
+  rewardsUpdateEmail,
+} from './templates'
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
-const FROM_EMAIL = process.env.FROM_EMAIL || process.env.EMAIL_FROM_DOMAIN 
-  ? `noreply@${process.env.EMAIL_FROM_DOMAIN}` 
+const FROM_EMAIL = process.env.FROM_EMAIL || process.env.EMAIL_FROM_DOMAIN
+  ? `noreply@${process.env.EMAIL_FROM_DOMAIN}`
   : 'noreply@oilamor.com'
-const APP_URL = process.env.NEXT_PUBLIC_URL || 'http://localhost:3000'
 
-interface PasswordResetEmailProps {
+// ============================================================================
+// SEND EMAIL WRAPPER
+// ============================================================================
+async function sendEmail({
+  to,
+  subject,
+  html,
+  text,
+}: {
   to: string
-  resetUrl: string
-  firstName?: string
+  subject: string
+  html: string
+  text: string
+}) {
+  // If no Resend API key, log to console (development mode)
+  if (!process.env.RESEND_API_KEY) {
+    console.warn('⚠️ RESEND_API_KEY not set - logging email instead of sending')
+    console.log('='.repeat(60))
+    console.log(`TO: ${to}`)
+    console.log(`SUBJECT: ${subject}`)
+    console.log('='.repeat(60))
+    return { success: true, id: 'dev-mode-logged', logged: true }
+  }
+
+  try {
+    const { data, error } = await resend.emails.send({
+      from: `Oil Amor <${FROM_EMAIL}>`,
+      to,
+      subject,
+      html,
+      text,
+    })
+
+    if (error) {
+      console.error('❌ Resend API error:', error)
+      throw new Error(error.message || 'Failed to send email')
+    }
+
+    console.log(`✅ Email sent to ${to} (ID: ${data?.id})`)
+    return { success: true, id: data?.id }
+  } catch (error) {
+    console.error('❌ Failed to send email:', error)
+    throw error
+  }
 }
 
+// ============================================================================
+// PASSWORD RESET
+// ============================================================================
 export async function sendPasswordResetEmail({
   to,
   resetUrl,
   firstName,
-}: PasswordResetEmailProps) {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set, logging email instead')
-    console.log(`[EMAIL] Password reset for ${to}: ${resetUrl}`)
-    return { success: true, id: 'logged-only' }
-  }
-
-  try {
-    const { data, error } = await resend.emails.send({
-      from: `Oil Amor <${FROM_EMAIL}>`,
-      to,
-      subject: 'Reset your Oil Amor password',
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Reset Your Password</title>
-        </head>
-        <body style="margin: 0; padding: 0; font-family: Georgia, serif; background-color: #0a080c;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0a080c;">
-            <tr>
-              <td align="center" style="padding: 40px 20px;">
-                <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #111; border-radius: 16px; border: 1px solid rgba(245, 243, 239, 0.1);">
-                  <!-- Header -->
-                  <tr>
-                    <td style="padding: 40px 40px 20px; text-align: center;">
-                      <div style="width: 64px; height: 64px; background: rgba(201, 162, 39, 0.1); border: 1px solid rgba(201, 162, 39, 0.3); border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-                        <span style="font-size: 32px;">👑</span>
-                      </div>
-                      <h1 style="color: #f5f3ef; font-size: 28px; margin: 0 0 10px; font-weight: normal;">Oil Amor</h1>
-                    </td>
-                  </tr>
-                  
-                  <!-- Content -->
-                  <tr>
-                    <td style="padding: 20px 40px;">
-                      <h2 style="color: #f5f3ef; font-size: 24px; margin: 0 0 20px; font-weight: normal;">Reset Your Password</h2>
-                      <p style="color: #a69b8a; font-size: 16px; line-height: 1.6; margin: 0 0 20px;">
-                        Hi ${firstName || 'there'},
-                      </p>
-                      <p style="color: #a69b8a; font-size: 16px; line-height: 1.6; margin: 0 0 30px;">
-                        We received a request to reset your password. Click the button below to create a new password. This link will expire in 1 hour.
-                      </p>
-                      
-                      <!-- Button -->
-                      <table width="100%" cellpadding="0" cellspacing="0" style="margin: 30px 0;">
-                        <tr>
-                          <td align="center">
-                            <a href="${resetUrl}" style="display: inline-block; background-color: #c9a227; color: #0a080c; text-decoration: none; padding: 16px 32px; border-radius: 12px; font-size: 16px; font-weight: 500;">
-                              Reset Password
-                            </a>
-                          </td>
-                        </tr>
-                      </table>
-                      
-                      <p style="color: #a69b8a; font-size: 14px; line-height: 1.6; margin: 30px 0 20px;">
-                        Or copy and paste this link into your browser:
-                      </p>
-                      <p style="color: #f5f3ef; font-size: 14px; word-break: break-all; margin: 0 0 30px;">
-                        <a href="${resetUrl}" style="color: #c9a227; text-decoration: underline;">${resetUrl}</a>
-                      </p>
-                      
-                      <p style="color: #a69b8a; font-size: 14px; line-height: 1.6; margin: 0;">
-                        If you didn't request this password reset, you can safely ignore this email. Your password will remain unchanged.
-                      </p>
-                    </td>
-                  </tr>
-                  
-                  <!-- Footer -->
-                  <tr>
-                    <td style="padding: 30px 40px 40px; text-align: center; border-top: 1px solid rgba(245, 243, 239, 0.1);">
-                      <p style="color: #6b655a; font-size: 12px; margin: 0;">
-                        © ${new Date().getFullYear()} Oil Amor. All rights reserved.
-                      </p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>
-      `,
-      text: `Oil Amor - Reset Your Password
+}: {
+  to: string
+  resetUrl: string
+  firstName?: string
+}) {
+  const html = passwordResetEmail({ firstName, resetUrl })
+  
+  return sendEmail({
+    to,
+    subject: 'Reset your Oil Amor password',
+    html,
+    text: `Oil Amor - Reset Your Password
 
 Hi ${firstName || 'there'},
 
-We received a request to reset your password. Visit this link to create a new password:
-
+We received a request to reset your password. Visit this link:
 ${resetUrl}
 
-This link will expire in 1 hour.
+This link expires in 1 hour.
 
-If you didn't request this password reset, you can safely ignore this email.
+If you didn't request this, ignore this email.
 
-© ${new Date().getFullYear()} Oil Amor`,
-    })
-
-    if (error) {
-      console.error('Resend error:', error)
-      throw new Error('Failed to send email')
-    }
-
-    return { success: true, id: data?.id }
-  } catch (error) {
-    console.error('Failed to send password reset email:', error)
-    throw error
-  }
+Oil Amor`,
+  })
 }
 
-interface OrderConfirmationEmailProps {
+// ============================================================================
+// WELCOME EMAIL
+// ============================================================================
+export async function sendWelcomeEmail({
+  to,
+  firstName,
+}: {
   to: string
-  orderId: string
+  firstName: string
+}) {
+  const html = welcomeEmail({ firstName })
+  
+  return sendEmail({
+    to,
+    subject: `Welcome to Oil Amor, ${firstName}!`,
+    html,
+    text: `Welcome to Oil Amor, ${firstName}!
+
+Your account has been created. Start exploring our collection of luxury essential oils.
+
+Visit: ${process.env.NEXT_PUBLIC_URL}/collections
+
+With love,
+The Oil Amor Team`,
+  })
+}
+
+// ============================================================================
+// ORDER CONFIRMATION
+// ============================================================================
+export async function sendOrderConfirmationEmail({
+  to,
+  firstName,
+  orderNumber,
+  orderDate,
+  items,
+  subtotal,
+  shipping,
+  total,
+  shippingAddress,
+  trackingUrl,
+}: {
+  to: string
+  firstName: string
   orderNumber: string
+  orderDate: string
   items: Array<{
     name: string
+    variant?: string
     quantity: number
     price: number
   }>
+  subtotal: number
+  shipping: number
   total: number
-  firstName?: string
-}
-
-export async function sendOrderConfirmationEmail({
-  to,
-  orderNumber,
-  items,
-  total,
-  firstName,
-}: OrderConfirmationEmailProps) {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('RESEND_API_KEY not set, logging email instead')
-    console.log(`[EMAIL] Order confirmation for ${to}: Order #${orderNumber}`)
-    return { success: true, id: 'logged-only' }
+  shippingAddress: {
+    name: string
+    line1: string
+    line2?: string
+    city: string
+    state: string
+    postalCode: string
+    country: string
   }
-
-  const itemsList = items
-    .map((item) => `• ${item.name} x${item.quantity} - $${(item.price / 100).toFixed(2)}`)
+  trackingUrl?: string
+}) {
+  const html = orderConfirmationEmail({
+    firstName,
+    orderNumber,
+    orderDate,
+    items,
+    subtotal,
+    shipping,
+    total,
+    shippingAddress,
+    trackingUrl,
+  })
+  
+  const itemsText = items
+    .map(i => `- ${i.name}${i.variant ? ` (${i.variant})` : ''} x${i.quantity} - $${(i.price / 100).toFixed(2)}`)
     .join('\n')
+  
+  return sendEmail({
+    to,
+    subject: `Order Confirmed #${orderNumber}`,
+    html,
+    text: `Order Confirmed #${orderNumber}
 
-  try {
-    const { data, error } = await resend.emails.send({
-      from: `Oil Amor <${FROM_EMAIL}>`,
-      to,
-      subject: `Order Confirmation #${orderNumber}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <title>Order Confirmation</title>
-        </head>
-        <body style="margin: 0; padding: 0; font-family: Georgia, serif; background-color: #0a080c;">
-          <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #0a080c;">
-            <tr>
-              <td align="center" style="padding: 40px 20px;">
-                <table width="600" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #111; border-radius: 16px; border: 1px solid rgba(245, 243, 239, 0.1);">
-                  <tr>
-                    <td style="padding: 40px 40px 20px; text-align: center;">
-                      <h1 style="color: #f5f3ef; font-size: 28px; margin: 0;">Order Confirmed</h1>
-                    </td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 20px 40px;">
-                      <p style="color: #a69b8a; font-size: 16px;">Thank you for your order, ${firstName || 'valued customer'}!</p>
-                      <p style="color: #c9a227; font-size: 20px; margin: 20px 0;">Order #${orderNumber}</p>
-                      <div style="color: #f5f3ef; font-size: 14px; line-height: 2;">
-                        ${items.map(item => `
-                          <div style="display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(245, 243, 239, 0.1);">
-                            <span>${item.name} x${item.quantity}</span>
-                            <span>$${(item.price / 100).toFixed(2)}</span>
-                          </div>
-                        `).join('')}
-                      </div>
-                      <p style="color: #c9a227; font-size: 18px; text-align: right; margin-top: 20px;">
-                        Total: $${(total / 100).toFixed(2)}
-                      </p>
-                    </td>
-                  </tr>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </body>
-        </html>
-      `,
-      text: `Oil Amor - Order Confirmation
+Thank you ${firstName}!
 
-Thank you for your order, ${firstName || 'valued customer'}!
+${itemsText}
 
-Order #${orderNumber}
-
-${itemsList}
-
+Subtotal: $${(subtotal / 100).toFixed(2)}
+Shipping: ${shipping === 0 ? 'FREE' : '$' + (shipping / 100).toFixed(2)}
 Total: $${(total / 100).toFixed(2)}
 
-© ${new Date().getFullYear()} Oil Amor`,
-    })
+Shipping to:
+${shippingAddress.name}
+${shippingAddress.line1}
+${shippingAddress.line2 ? shippingAddress.line2 + '\n' : ''}${shippingAddress.city}, ${shippingAddress.state} ${shippingAddress.postalCode}
 
-    if (error) {
-      console.error('Resend error:', error)
-      throw new Error('Failed to send email')
-    }
+Track: ${trackingUrl || 'Coming soon'}
 
-    return { success: true, id: data?.id }
-  } catch (error) {
-    console.error('Failed to send order confirmation:', error)
-    throw error
-  }
+Oil Amor`,
+  })
+}
+
+// ============================================================================
+// SHIPPING CONFIRMATION
+// ============================================================================
+export async function sendShippingConfirmationEmail({
+  to,
+  firstName,
+  orderNumber,
+  trackingNumber,
+  trackingUrl,
+  carrier,
+  estimatedDelivery,
+}: {
+  to: string
+  firstName: string
+  orderNumber: string
+  trackingNumber: string
+  trackingUrl: string
+  carrier: string
+  estimatedDelivery?: string
+}) {
+  const html = shippingConfirmationEmail({
+    firstName,
+    orderNumber,
+    trackingNumber,
+    trackingUrl,
+    carrier,
+    estimatedDelivery,
+  })
+  
+  return sendEmail({
+    to,
+    subject: `Your order #${orderNumber} has shipped!`,
+    html,
+    text: `Your Oil Amor order has shipped!
+
+Order #${orderNumber}
+${carrier}: ${trackingNumber}
+${estimatedDelivery ? `Est. delivery: ${estimatedDelivery}\n` : ''}
+Track: ${trackingUrl}
+
+Oil Amor`,
+  })
+}
+
+// ============================================================================
+// ABANDONED CART
+// ============================================================================
+export async function sendAbandonedCartEmail({
+  to,
+  firstName,
+  items,
+  cartUrl,
+}: {
+  to: string
+  firstName?: string
+  items: Array<{ name: string; price: number }>
+  cartUrl: string
+}) {
+  const html = abandonedCartEmail({ firstName, items, cartUrl })
+  
+  const itemsText = items.map(i => `- ${i.name} - $${(i.price / 100).toFixed(2)}`).join('\n')
+  
+  return sendEmail({
+    to,
+    subject: 'Your cart is waiting at Oil Amor',
+    html,
+    text: `You left something behind at Oil Amor
+
+${itemsText}
+
+Complete your order: ${cartUrl}
+
+Oil Amor`,
+  })
+}
+
+// ============================================================================
+// REWARDS UPDATE
+// ============================================================================
+export async function sendRewardsUpdateEmail({
+  to,
+  firstName,
+  pointsBalance,
+  pointsEarned,
+  tier,
+  nextReward,
+}: {
+  to: string
+  firstName: string
+  pointsBalance: number
+  pointsEarned?: number
+  tier: string
+  nextReward?: string
+}) {
+  const html = rewardsUpdateEmail({
+    firstName,
+    pointsBalance,
+    pointsEarned,
+    tier,
+    nextReward,
+  })
+  
+  return sendEmail({
+    to,
+    subject: `You have ${pointsBalance.toLocaleString()} Crystal Points!`,
+    html,
+    text: `Crystal Circle Rewards Update
+
+Hi ${firstName},
+
+You now have ${pointsBalance.toLocaleString()} points as a ${tier} member!
+${pointsEarned ? `You just earned ${pointsEarned.toLocaleString()} points.` : ''}
+${nextReward ? `Unlock ${nextReward} with your next purchase!` : ''}
+
+View rewards: ${process.env.NEXT_PUBLIC_URL}/account/rewards
+
+Oil Amor`,
+  })
+}
+
+// Export all functions
+export {
+  passwordResetEmail,
+  welcomeEmail,
+  orderConfirmationEmail,
+  shippingConfirmationEmail,
+  abandonedCartEmail,
+  rewardsUpdateEmail,
 }
