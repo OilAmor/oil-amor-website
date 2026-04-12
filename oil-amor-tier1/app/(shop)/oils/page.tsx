@@ -86,6 +86,7 @@ interface OilCardProps {
   index: number
 }
 
+// v2-2024-04-12 - Updated with 33 oils and accurate plant images
 function OilCard({ oil, index }: OilCardProps) {
   const [isHovered, setIsHovered] = useState(false)
   const prices = getOilPrices(oil.id)
