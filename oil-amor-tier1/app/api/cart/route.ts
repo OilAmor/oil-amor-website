@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
-import { cartManager } from '@/lib/cart/cart-manager-enhanced'
+import { cartManager } from '@/lib/cart/cart-manager-redis'
 import { getOilSafetyProfile } from '@/lib/safety'
 
 // ============================================================================
