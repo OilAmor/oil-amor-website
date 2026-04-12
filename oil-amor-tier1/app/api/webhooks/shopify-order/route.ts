@@ -4,13 +4,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
 import { env } from '@/env';
 
 import { registerForeverBottle } from '@/lib/refill/forever-bottle';
 import { unlockRefillForCustomer } from '@/lib/refill/eligibility';
 
 export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
 
 // ============================================================================
 // WEBHOOK HANDLER
@@ -23,8 +23,7 @@ export const runtime = 'nodejs'
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // 1. Verify webhook signature
-    const headersList = headers();
-    const hmac = headersList.get('X-Shopify-Hmac-Sha256');
+    const hmac = request.headers.get('X-Shopify-Hmac-Sha256');
     
     if (!hmac) {
       return NextResponse.json(

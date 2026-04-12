@@ -4,7 +4,6 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { headers } from 'next/headers';
 import crypto from 'crypto';
 
 import { handleTrackingWebhook, verifyBottleReceived } from '@/lib/shipping/auspost';
@@ -12,6 +11,7 @@ import { processBottleReturn } from '@/lib/refill/return-workflow';
 
 // Use Node.js runtime for crypto support
 export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
 
 // Webhook secret for AusPost
 const AUSPOST_WEBHOOK_SECRET = process.env.AUSPOST_WEBHOOK_SECRET;
@@ -30,8 +30,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const bodyText = await request.text();
     
     // 1. Verify webhook signature (if Australia Post provides one)
-    const headersList = headers();
-    const signature = headersList.get('X-AusPost-Signature');
+    const signature = request.headers.get('X-AusPost-Signature');
     
     if (AUSPOST_WEBHOOK_SECRET && signature) {
       const isValid = verifyWebhookSignature(bodyText, signature);
@@ -45,7 +44,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     }
 
     // 2. Check for replay attacks (webhook must be within last 10 minutes for AusPost)
-    const timestamp = headersList.get('X-AusPost-Timestamp');
+    const timestamp = request.headers.get('X-AusPost-Timestamp');
     if (!verifyTimestamp(timestamp)) {
       return NextResponse.json(
         { error: 'Webhook expired' },
