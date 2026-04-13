@@ -9,6 +9,8 @@ import { orders, unlockedOils, customers } from '@/lib/db/schema-refill'
 import { eq } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 
+export const dynamic = 'force-dynamic'
+
 // ============================================================================
 // POST /api/orders - Create new order
 // ============================================================================

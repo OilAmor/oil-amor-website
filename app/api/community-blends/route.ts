@@ -8,6 +8,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCommunityBlends } from '@/lib/community-blends/data';
+
+export const dynamic = 'force-dynamic'
 import { recordBlendPurchase } from '@/lib/community-blends/actions';
 import { getCreatorEarnings, getCreatorCommissionHistory } from '@/lib/community-blends/commissions';
 

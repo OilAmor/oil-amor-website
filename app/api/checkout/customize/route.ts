@@ -10,6 +10,7 @@ import { customizeCheckout, applyCreditToCheckout } from '@/lib/shopify/checkout
 import { getCustomerMetafields } from '@/lib/shopify/metafields'
 import { getCustomerIdFromCookie } from '@/lib/shopify/customer-auth'
 
+export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 /**

@@ -8,6 +8,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUserBlends, saveBlendToLibrary } from '@/lib/brand-ambassador'
 import { getBrandAmbassadorStats } from '@/lib/brand-ambassador'
 
+export const dynamic = 'force-dynamic'
+
 // GET /api/user-blends?userId=xxx
 export async function GET(request: NextRequest) {
   try {

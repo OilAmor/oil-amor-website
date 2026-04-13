@@ -8,6 +8,8 @@ import { db } from '@/lib/db'
 import { orders, unlockedOils, customers } from '@/lib/db/schema-refill'
 import { eq, desc } from 'drizzle-orm'
 
+export const dynamic = 'force-dynamic'
+
 // ============================================================================
 // GET /api/user/orders - Get current user's orders
 // ============================================================================

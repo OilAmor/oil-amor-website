@@ -10,6 +10,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getUnlockedRefills, recordRefillPurchase } from '@/lib/refill/unlocked-refills'
 import { scaleToRefill } from '@/lib/refill/recipe-scaling'
 
+export const dynamic = 'force-dynamic'
+
 // ============================================================================
 // Authentication Helper
 // In production, this should validate session tokens, JWT, or cookies
