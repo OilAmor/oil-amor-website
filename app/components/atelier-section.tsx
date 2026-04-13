@@ -17,15 +17,15 @@ function ProductCard({ product, index }: { product: ShopifyProduct; index: numbe
   
   const crystalName = getMetafieldValue(product, 'custom', 'crystal_name') 
     || product.tags?.find(t => t.includes('crystal'))?.split(':')[1] 
-    || 'Clear Quartz'
+    || ''
   
   const origin = getMetafieldValue(product, 'custom', 'origin')
     || product.tags?.find(t => t.includes('origin'))?.split(':')[1]
-    || 'Bulgaria'
+    || ''
 
   const price = product.priceRange?.minVariantPrice?.amount
     ? `$${parseFloat(product.priceRange.minVariantPrice.amount).toFixed(0)}`
-    : '$48'
+    : ''
 
   // Alternate layout for editorial feel
   const isLarge = index === 0 || index === 3
@@ -73,14 +73,16 @@ function ProductCard({ product, index }: { product: ShopifyProduct; index: numbe
           <div className="absolute inset-0 bg-gradient-to-t from-[#0a080c]/60 via-transparent to-transparent" />
 
           {/* Origin badge — minimal */}
-          <div className="absolute top-6 left-6">
-            <span className="text-[0.625rem] uppercase tracking-[0.25em] text-[#f5f3ef]/80">
-              {origin}
-            </span>
-          </div>
+          {origin && (
+            <div className="absolute top-6 left-6">
+              <span className="text-[0.625rem] uppercase tracking-[0.25em] text-[#f5f3ef]/80">
+                {origin}
+              </span>
+            </div>
+          )}
 
           {/* Crystal badge — if large card */}
-          {isLarge && (
+          {isLarge && crystalName && (
             <div className="absolute top-6 right-6">
               <span className="text-[0.625rem] uppercase tracking-[0.25em] text-[#c9a227]">
                 {crystalName}
@@ -95,13 +97,17 @@ function ProductCard({ product, index }: { product: ShopifyProduct; index: numbe
             <h3 className="font-display text-2xl lg:text-3xl text-[#f5f3ef] font-light tracking-tight">
               {product.title}
             </h3>
-            <p className="mt-1 text-[0.75rem] text-[#a69b8a] uppercase tracking-[0.15em]">
-              {crystalName} Infusion
-            </p>
+            {crystalName && (
+              <p className="mt-1 text-[0.75rem] text-[#a69b8a] uppercase tracking-[0.15em]">
+                {crystalName} Infusion
+              </p>
+            )}
           </div>
-          <span className="font-display text-xl text-[#c9a227]">
-            {price}
-          </span>
+          {price && (
+            <span className="font-display text-xl text-[#c9a227]">
+              {price}
+            </span>
+          )}
         </div>
       </Link>
     </motion.div>
