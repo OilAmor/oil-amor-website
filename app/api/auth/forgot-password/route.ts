@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/db/client'
-import { customers } from '@/lib/db/schema'
+import { db } from '@/lib/db'
+import { customers } from '@/lib/db/schema-refill'
 import { eq } from 'drizzle-orm'
 import crypto from 'crypto'
 import { sendPasswordResetEmail } from '@/lib/email/resend'
@@ -16,8 +16,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    const db = createClient()
 
     // Find customer
     const customer = await db.query.customers.findFirst({
@@ -36,7 +34,7 @@ export async function POST(request: NextRequest) {
         .update(customers)
         .set({
           metadata: {
-            ...customer.metadata,
+            ...(customer.metadata || {}),
             resetToken,
             resetTokenExpiry: resetTokenExpiry.toISOString(),
           },

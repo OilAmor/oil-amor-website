@@ -1,6 +1,6 @@
 import { NextRequest } from 'next/server'
-import { createClient } from '@/lib/db/client'
-import { customers } from '@/lib/db/schema'
+import { db } from '@/lib/db'
+import { customers } from '@/lib/db/schema-refill'
 import { eq } from 'drizzle-orm'
 
 // POST /api/auth/reset-password
@@ -21,8 +21,6 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
-
-    const db = createClient()
 
     // Find customer with matching reset token
     const allCustomers = await db.query.customers.findMany()
@@ -52,7 +50,7 @@ export async function POST(request: NextRequest) {
       .set({
         password,
         metadata: {
-          ...customer.metadata,
+          ...(customer.metadata || {}),
           resetToken: null,
           resetTokenExpiry: null,
         },
