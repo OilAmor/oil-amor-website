@@ -26,20 +26,7 @@
       "maxDuration": 60
     }
   },
-  "crons": [
-    {
-      "path": "/api/cron/sync-inventory",
-      "schedule": "0 */6 * * *"
-    },
-    {
-      "path": "/api/cron/cleanup-sessions",
-      "schedule": "0 2 * * *"
-    },
-    {
-      "path": "/api/cron/generate-reports",
-      "schedule": "0 9 * * 1"
-    }
-  ],
+
   "headers": [
     {
       "source": "/api/(.*)",
