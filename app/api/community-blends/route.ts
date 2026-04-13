@@ -38,9 +38,10 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Return community blends
+    // Return community blends — filter out demo data so fake blends never appear on the site
     const blends = await getCommunityBlends(sortBy, limit);
-    return NextResponse.json({ blends });
+    const realBlends = (blends || []).filter((b) => !b.id.startsWith('demo-'));
+    return NextResponse.json({ blends: realBlends });
   } catch (error) {
     console.error('Error fetching community blends:', error);
     return NextResponse.json(

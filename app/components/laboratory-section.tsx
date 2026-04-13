@@ -136,8 +136,10 @@ export function LaboratorySection() {
     fetch('/api/community-blends?sort=purchased&limit=3')
       .then((r) => r.json())
       .then((data) => {
-        if (Array.isArray(data)) setBlends(data.slice(0, 3))
-        else if (data.blends) setBlends(data.blends.slice(0, 3))
+        const raw = Array.isArray(data) ? data : data.blends || []
+        // Safety net: never render demo blends as real data
+        const real = raw.filter((b: BlendWithRating) => !b.id.startsWith('demo-'))
+        setBlends(real.slice(0, 3))
       })
       .catch(() => setBlends([]))
   }, [])
