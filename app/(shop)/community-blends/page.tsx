@@ -17,10 +17,11 @@ export default async function CommunityBlendsPage({
 }) {
   const sortBy = (searchParams.sort as 'popular' | 'newest' | 'rated' | 'purchased') || 'popular'
   const blends = await getCommunityBlends(sortBy, 24)
+  const realBlends = blends.filter((b) => !b.id.startsWith('demo-'))
 
   return (
     <Suspense fallback={<div className="min-h-screen bg-[#0a080c]" />}>
-      <CommunityBlendsClient initialBlends={blends} initialSort={sortBy} />
+      <CommunityBlendsClient initialBlends={realBlends} initialSort={sortBy} />
     </Suspense>
   )
 }

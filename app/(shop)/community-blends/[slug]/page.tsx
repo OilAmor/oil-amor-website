@@ -10,7 +10,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const blend = await getBlendDetail(params.slug)
   
-  if (!blend) {
+  if (!blend || blend.id.startsWith('demo-')) {
     return {
       title: 'Blend Not Found | Oil Amor',
     }
@@ -25,7 +25,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function BlendDetailPage({ params }: Props) {
   const blend = await getBlendDetail(params.slug)
   
-  if (!blend) {
+  if (!blend || blend.id.startsWith('demo-')) {
     notFound()
   }
   
