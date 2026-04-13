@@ -1,100 +1,22 @@
 {
-  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "name": "oil-amor",
-  "regions": ["syd1"],
-  "framework": "nextjs",
-  "buildCommand": "pnpm build",
-  "installCommand": "pnpm install",
-  "outputDirectory": ".next",
-  "env": {
-    "NEXT_TELEMETRY_DISABLED": "1"
-  },
-  "build": {
-    "env": {
-      "NEXT_TELEMETRY_DISABLED": "1"
-    }
-  },
-  "functions": {
-    "app/api/**/*.ts": {
-      "maxDuration": 30
-    },
-    "app/api/webhooks/**/*.ts": {
-      "maxDuration": 60
-    },
-    "app/api/admin/**/*.ts": {
-      "maxDuration": 60
-    }
-  },
-
   "headers": [
     {
-      "source": "/api/(.*)",
+      "source": "/(.*)",
       "headers": [
         {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
         },
         {
-          "key": "Access-Control-Allow-Methods",
-          "value": "GET, POST, PUT, DELETE, OPTIONS"
+          "key": "X-Frame-Options",
+          "value": "DENY"
         },
         {
-          "key": "Access-Control-Allow-Headers",
-          "value": "Content-Type, Authorization"
-        }
-      ]
-    },
-    {
-      "source": "/static/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=31536000, immutable"
-        }
-      ]
-    },
-    {
-      "source": "/images/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=86400"
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
         }
       ]
     }
-  ],
-  "rewrites": [
-    {
-      "source": "/sitemap.xml",
-      "destination": "/api/sitemap"
-    },
-    {
-      "source": "/robots.txt",
-      "destination": "/api/robots"
-    },
-    {
-      "source": "/admin",
-      "destination": "https://oil-amor.sanity.studio"
-    }
-  ],
-  "redirects": [
-    {
-      "source": "/shop",
-      "destination": "/collections/all",
-      "permanent": true
-    },
-    {
-      "source": "/product/:slug",
-      "destination": "/products/:slug",
-      "permanent": true
-    },
-    {
-      "source": "/blog",
-      "destination": "/journal",
-      "permanent": true
-    }
-  ],
-  "cleanUrls": true,
-  "trailingSlash": false
+  ]
 }
