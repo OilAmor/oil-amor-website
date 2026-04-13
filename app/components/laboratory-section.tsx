@@ -1,57 +1,15 @@
 'use client'
 
 import { useRef, useState, useEffect } from 'react'
-import { motion, useInView, useScroll, useTransform } from 'framer-motion'
+import { motion, useInView } from 'framer-motion'
 import Link from 'next/link'
-import { FlaskConical, Sparkles, Users, ArrowRight } from 'lucide-react'
+import { FlaskConical, ShieldCheck, ArrowRight, Beaker } from 'lucide-react'
 import type { BlendWithRating } from '@/lib/community-blends/data'
 
 const EASE_LUXURY = [0.16, 1, 0.3, 1] as const
 
-// Animated stat counter
-function AnimatedCounter({ value, label }: { value: number; label: string }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const isInView = useInView(ref, { once: true })
-  const [count, setCount] = useState(0)
-
-  useEffect(() => {
-    if (!isInView) return
-    const duration = 2000
-    const startTime = performance.now()
-    const animate = (now: number) => {
-      const progress = Math.min((now - startTime) / duration, 1)
-      const eased = 1 - Math.pow(1 - progress, 4)
-      setCount(Math.floor(eased * value))
-      if (progress < 1) requestAnimationFrame(animate)
-    }
-    requestAnimationFrame(animate)
-  }, [isInView, value])
-
-  return (
-    <div ref={ref} className="text-center">
-      <div className="font-display text-4xl sm:text-5xl lg:text-6xl text-[#c9a227]">
-        {count.toLocaleString()}
-      </div>
-      <div className="mt-2 text-[0.625rem] uppercase tracking-[0.25em] text-[#a69b8a]">
-        {label}
-      </div>
-    </div>
-  )
-}
-
-// Animated Beaker with falling droplets
+// Animated Beaker — visual metaphor only, no fake revelations
 function BeakerAnimation() {
-  const [droplets, setDroplets] = useState<{ id: number; color: string; delay: number }[]>([])
-
-  useEffect(() => {
-    const oils = [
-      { color: '#c9a227', delay: 0 },
-      { color: '#8b7355', delay: 1.2 },
-      { color: '#d4af37', delay: 2.4 },
-    ]
-    setDroplets(oils.map((o, i) => ({ id: i, ...o })))
-  }, [])
-
   return (
     <div className="relative mx-auto h-80 w-48 sm:h-96 sm:w-56">
       {/* Glass beaker */}
@@ -64,43 +22,39 @@ function BeakerAnimation() {
             'inset -12px 0 24px rgba(0,0,0,0.5), inset 8px 0 16px rgba(255,255,255,0.04), 0 0 40px rgba(201,162,39,0.15)',
         }}
       >
-        {/* Liquid fill with animated surface */}
+        {/* Liquid fill */}
         <motion.div
           className="absolute bottom-0 left-0 right-0 rounded-b-3xl"
           initial={{ height: '15%' }}
-          animate={{ height: ['15%', '45%', '40%'] }}
-          transition={{ duration: 8, times: [0, 0.7, 1], ease: 'easeInOut' }}
+          animate={{ height: ['15%', '40%', '35%'] }}
+          transition={{ duration: 8, times: [0, 0.7, 1], ease: 'easeInOut', repeat: Infinity, repeatDelay: 2 }}
           style={{
             background:
-              'linear-gradient(180deg, rgba(201,162,39,0.35) 0%, rgba(139,115,85,0.55) 100%)',
+              'linear-gradient(180deg, rgba(201,162,39,0.25) 0%, rgba(139,115,85,0.45) 100%)',
           }}
         >
-          {/* Liquid surface shimmer */}
           <motion.div
             className="absolute left-0 right-0 top-0 h-px"
-            style={{
-              background:
-                'linear-gradient(90deg, transparent, #c9a227, transparent)',
-            }}
-            animate={{ opacity: [0.4, 1, 0.4] }}
+            style={{ background: 'linear-gradient(90deg, transparent, #c9a227, transparent)' }}
+            animate={{ opacity: [0.4, 0.9, 0.4] }}
             transition={{ duration: 2, repeat: Infinity, ease: 'easeInOut' }}
           />
         </motion.div>
 
-        {/* Reflection streak */}
         <div
           className="absolute bottom-4 left-4 top-4 w-px opacity-30"
-          style={{
-            background:
-              'linear-gradient(180deg, transparent, #c9a227, transparent)',
-          }}
+          style={{ background: 'linear-gradient(180deg, transparent, #c9a227, transparent)' }}
         />
       </div>
 
-      {/* Falling droplets */}
-      {droplets.map((d) => (
+      {/* Droplets falling */}
+      {[
+        { color: '#c9a227', delay: 0 },
+        { color: '#a69b8a', delay: 1.5 },
+        { color: '#d4af37', delay: 3 },
+      ].map((d) => (
         <motion.div
-          key={d.id}
+          key={d.delay}
           className="absolute left-1/2 h-3 w-3 -translate-x-1/2 rounded-full"
           style={{
             background: `radial-gradient(circle at 35% 35%, #fff 0%, ${d.color} 40%, ${d.color} 100%)`,
@@ -108,71 +62,33 @@ function BeakerAnimation() {
             top: 0,
           }}
           initial={{ y: -20, opacity: 0 }}
-          animate={{
-            y: [0, 180, 180],
-            opacity: [0, 1, 0],
-            scale: [0.8, 1, 0.4],
-          }}
+          animate={{ y: [0, 180, 180], opacity: [0, 1, 0], scale: [0.8, 1, 0.4] }}
           transition={{
             duration: 2.5,
             delay: d.delay,
             repeat: Infinity,
-            repeatDelay: 3.5,
+            repeatDelay: 4,
             ease: [0.25, 0.1, 0.25, 1],
             times: [0, 0.85, 1],
           }}
         />
       ))}
 
-      {/* Bubbles rising from liquid */}
+      {/* Bubbles */}
       {[0, 1, 2, 3].map((i) => (
         <motion.div
           key={`bubble-${i}`}
           className="absolute rounded-full bg-[#c9a227]/20"
-          style={{
-            left: `${35 + i * 10}%`,
-            bottom: `${15 + i * 8}%`,
-            width: 4 + i * 2,
-            height: 4 + i * 2,
-          }}
-          animate={{
-            y: [0, -60 - i * 20],
-            opacity: [0.3, 0],
-            scale: [1, 1.5],
-          }}
-          transition={{
-            duration: 2 + i * 0.5,
-            repeat: Infinity,
-            delay: i * 0.6,
-            ease: 'easeOut',
-          }}
+          style={{ left: `${35 + i * 10}%`, bottom: `${15 + i * 8}%`, width: 4 + i * 2, height: 4 + i * 2 }}
+          animate={{ y: [0, -60 - i * 20], opacity: [0.3, 0], scale: [1, 1.5] }}
+          transition={{ duration: 2 + i * 0.5, repeat: Infinity, delay: i * 0.6, ease: 'easeOut' }}
         />
       ))}
-
-      {/* Revelation card that fades in */}
-      <motion.div
-        className="absolute -right-24 top-1/2 w-40 -translate-y-1/2 rounded-sm border border-[#c9a227]/30 bg-[#0a080c]/90 p-4 backdrop-blur-sm sm:-right-32 sm:w-48"
-        initial={{ opacity: 0, x: 30 }}
-        whileInView={{ opacity: 1, x: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 1.2, delay: 3, ease: EASE_LUXURY }}
-      >
-        <Sparkles className="mb-2 h-4 w-4 text-[#c9a227]" />
-        <p className="text-[0.625rem] uppercase tracking-[0.2em] text-[#a69b8a]">
-          Revelation
-        </p>
-        <p className="mt-1 font-display text-lg text-[#f5f3ef]">
-          Awakened Crown
-        </p>
-        <p className="mt-1 text-[0.65rem] leading-relaxed text-[#a69b8a]/80">
-          Frankincense · Myrrh · Gold
-        </p>
-      </motion.div>
     </div>
   )
 }
 
-// Community blend mini card
+// Real community blend card
 function BlendMiniCard({ blend, index }: { blend: BlendWithRating; index: number }) {
   return (
     <motion.div
@@ -214,7 +130,6 @@ function BlendMiniCard({ blend, index }: { blend: BlendWithRating; index: number
 }
 
 export function LaboratorySection() {
-  const sectionRef = useRef<HTMLElement>(null)
   const [blends, setBlends] = useState<BlendWithRating[]>([])
 
   useEffect(() => {
@@ -228,17 +143,12 @@ export function LaboratorySection() {
   }, [])
 
   return (
-    <section
-      ref={sectionRef}
-      className="relative overflow-hidden bg-[#0a080c] py-32 lg:py-48"
-    >
+    <section className="relative overflow-hidden bg-[#0a080c] py-32 lg:py-48">
       {/* Background aura */}
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
         <motion.div
           className="h-[80vh] w-[80vh] rounded-full opacity-10"
-          style={{
-            background: 'radial-gradient(circle, #1a0f2e 0%, transparent 60%)',
-          }}
+          style={{ background: 'radial-gradient(circle, #1a0f2e 0%, transparent 60%)' }}
           animate={{ scale: [1, 1.15, 1] }}
           transition={{ duration: 15, repeat: Infinity, ease: 'linear' }}
         />
@@ -246,7 +156,7 @@ export function LaboratorySection() {
 
       <div className="relative z-10 mx-auto max-w-7xl px-6 lg:px-12">
         {/* Header */}
-        <div className="mb-20 text-center lg:mb-32">
+        <div className="mb-20 text-center lg:mb-28">
           <motion.span
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -276,23 +186,11 @@ export function LaboratorySection() {
             transition={{ duration: 0.8, delay: 0.2, ease: EASE_LUXURY }}
             className="mx-auto mt-8 max-w-xl text-base leading-relaxed text-[#a69b8a]"
           >
-            Blend from 33 sacred oils. Select your ratios. Receive a safety-checked
-            revelation. Then share your creation with the world.
+            Blend from 33 sacred oils. Select your ratios. Our safety engine checks
+            every combination in real time. When you are ready, purchase your unique
+            formula — or share it with the world.
           </motion.p>
         </div>
-
-        {/* Stats row */}
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.8, delay: 0.3, ease: EASE_LUXURY }}
-          className="mb-24 grid grid-cols-3 gap-8 border-y border-[#c9a227]/10 py-12 lg:mb-32"
-        >
-          <AnimatedCounter value={12847} label="Blends Created" />
-          <AnimatedCounter value={3842} label="Active Creators" />
-          <AnimatedCounter value={96420} label="Commission Earned" />
-        </motion.div>
 
         {/* Main content grid */}
         <div className="grid items-center gap-16 lg:grid-cols-2 lg:gap-24">
@@ -320,9 +218,7 @@ export function LaboratorySection() {
                   <FlaskConical className="h-5 w-5 text-[#c9a227]" />
                 </div>
                 <div>
-                  <h3 className="font-display text-2xl text-[#f5f3ef]">
-                    Mixing Atelier
-                  </h3>
+                  <h3 className="font-display text-2xl text-[#f5f3ef]">Mixing Atelier</h3>
                   <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[#a69b8a]">
                     Safety-Checked · Crystal-Infused
                   </p>
@@ -333,19 +229,15 @@ export function LaboratorySection() {
                 {[
                   'Choose from 33 sacred oils and 15 crystals',
                   'Set your ratios with real-time safety validation',
-                  'Receive a personalized blend revelation',
-                  'Purchase your formula or share it for 10% commission',
+                  'Receive a personalized blend revelation based on your selections',
+                  'Purchase your formula or share it to Community Blends',
                 ].map((item, i) => (
                   <motion.li
                     key={i}
                     initial={{ opacity: 0, x: -20 }}
                     whileInView={{ opacity: 1, x: 0 }}
                     viewport={{ once: true }}
-                    transition={{
-                      duration: 0.6,
-                      delay: 0.4 + i * 0.1,
-                      ease: EASE_LUXURY,
-                    }}
+                    transition={{ duration: 0.6, delay: 0.4 + i * 0.1, ease: EASE_LUXURY }}
                     className="flex items-start gap-4 text-[#a69b8a]"
                   >
                     <span className="mt-1.5 h-1.5 w-1.5 rounded-full bg-[#c9a227]" />
@@ -374,7 +266,7 @@ export function LaboratorySection() {
         </div>
 
         {/* Featured community blends */}
-        <div className="mt-32 lg:mt-40">
+        <div className="mt-28 lg:mt-36">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -404,90 +296,23 @@ export function LaboratorySection() {
                 <BlendMiniCard key={blend.id} blend={blend} index={i} />
               ))
             ) : (
-              <>
-                <BlendMiniCard
-                  index={0}
-                  blend={{
-                    id: 'demo-1',
-                    name: 'Sunrise Clarity',
-                    slug: 'sunrise-clarity',
-                    description: 'Morning focus blend',
-                    creatorName: 'Alexandra Rose',
-                    creatorAvatar: null,
-                    price: 3500,
-                    recipe: {
-                      mode: 'carrier',
-                      bottleSize: 10,
-                      strength: 5,
-                      oils: [
-                        { oilId: 'lemon', name: 'Lemon', ml: 0.5 },
-                        { oilId: 'rosemary', name: 'Rosemary', ml: 0.3 },
-                        { oilId: 'peppermint', name: 'Peppermint', ml: 0.2 },
-                      ],
-                    },
-                    viewCount: 128,
-                    purchaseCount: 23,
-                    ratingCount: 12,
-                    averageRating: 4.8,
-                    publishedAt: new Date('2026-03-01'),
-                  }}
-                />
-                <BlendMiniCard
-                  index={1}
-                  blend={{
-                    id: 'demo-2',
-                    name: 'Midnight Lavender',
-                    slug: 'midnight-lavender',
-                    description: 'Deep relaxation blend',
-                    creatorName: 'Jordan Smith',
-                    creatorAvatar: null,
-                    price: 3800,
-                    recipe: {
-                      mode: 'carrier',
-                      bottleSize: 15,
-                      strength: 3,
-                      oils: [
-                        { oilId: 'lavender', name: 'Lavender', ml: 0.8 },
-                        { oilId: 'chamomile', name: 'Chamomile', ml: 0.4 },
-                        { oilId: 'cedarwood', name: 'Cedarwood', ml: 0.3 },
-                      ],
-                    },
-                    viewCount: 256,
-                    purchaseCount: 45,
-                    ratingCount: 28,
-                    averageRating: 4.9,
-                    publishedAt: new Date('2026-02-15'),
-                  }}
-                />
-                <BlendMiniCard
-                  index={2}
-                  blend={{
-                    id: 'demo-3',
-                    name: 'Forest Guardian',
-                    slug: 'forest-guardian',
-                    description: 'Grounding blend',
-                    creatorName: 'Maya Chen',
-                    creatorAvatar: null,
-                    price: 4200,
-                    recipe: {
-                      mode: 'pure',
-                      bottleSize: 5,
-                      strength: 100,
-                      oils: [
-                        { oilId: 'pine', name: 'Pine', ml: 2.0 },
-                        { oilId: 'eucalyptus', name: 'Eucalyptus', ml: 1.5 },
-                        { oilId: 'tea-tree', name: 'Tea Tree', ml: 1.5 },
-                        { oilId: 'cedarwood', name: 'Cedarwood', ml: 1.0 },
-                      ],
-                    },
-                    viewCount: 89,
-                    purchaseCount: 15,
-                    ratingCount: 8,
-                    averageRating: 4.6,
-                    publishedAt: new Date('2026-03-10'),
-                  }}
-                />
-              </>
+              <motion.div
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                className="col-span-full rounded-sm border border-[#c9a227]/10 bg-[#0a080c]/40 p-10 text-center"
+              >
+                <Beaker className="mx-auto mb-4 h-8 w-8 text-[#c9a227]/50" />
+                <p className="text-[#a69b8a]">
+                  The first community blends are brewing. Enter the Atelier and create the inaugural formula.
+                </p>
+                <Link
+                  href="/mixing-atelier"
+                  className="mt-4 inline-block text-[0.75rem] uppercase tracking-[0.15em] text-[#c9a227] hover:text-[#f5f3ef]"
+                >
+                  Be the First Creator
+                </Link>
+              </motion.div>
             )}
           </div>
         </div>

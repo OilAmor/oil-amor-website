@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useEffect } from 'react'
+import { useRef } from 'react'
 import { motion, useInView } from 'framer-motion'
 import Link from 'next/link'
 import { RefreshCcw, Share2, Droplets, ArrowRight, Sparkles } from 'lucide-react'
@@ -33,20 +33,8 @@ function OrbitParticle({
         boxShadow: `0 0 ${size * 2}px ${color}`,
       }}
       animate={{
-        x: [
-          0,
-          radius,
-          0,
-          -radius,
-          0,
-        ],
-        y: [
-          -radius,
-          0,
-          radius,
-          0,
-          -radius,
-        ],
+        x: [0, radius, 0, -radius, 0],
+        y: [-radius, 0, radius, 0, -radius],
       }}
       transition={{
         duration,
@@ -93,34 +81,6 @@ function GlowingRing({
         />
       ))}
     </div>
-  )
-}
-
-// Count up animation
-function CountUp({ target, prefix = '', suffix = '' }: { target: number; prefix?: string; suffix?: string }) {
-  const ref = useRef<HTMLSpanElement>(null)
-  const isInView = useInView(ref, { once: true })
-  const [value, setValue] = useState(0)
-
-  useEffect(() => {
-    if (!isInView) return
-    const duration = 2000
-    const start = performance.now()
-    const tick = (now: number) => {
-      const p = Math.min((now - start) / duration, 1)
-      const eased = 1 - Math.pow(1 - p, 4)
-      setValue(Math.floor(eased * target))
-      if (p < 1) requestAnimationFrame(tick)
-    }
-    requestAnimationFrame(tick)
-  }, [isInView, target])
-
-  return (
-    <span ref={ref}>
-      {prefix}
-      {value.toLocaleString()}
-      {suffix}
-    </span>
   )
 }
 
@@ -223,35 +183,6 @@ export function CircleSection() {
                 <Sparkles className="h-6 w-6 text-[#c9a227]" />
               </motion.div>
             </div>
-
-            {/* Floating stat labels around rings */}
-            <motion.div
-              className="absolute right-0 top-0 rounded-sm border border-[#c9a227]/20 bg-[#0a080c]/80 px-4 py-3 backdrop-blur-sm"
-              initial={{ opacity: 0, x: 20 }}
-              animate={isInView ? { opacity: 1, x: 0 } : {}}
-              transition={{ duration: 0.8, delay: 0.6, ease: EASE_LUXURY }}
-            >
-              <div className="font-display text-2xl text-[#c9a227]">
-                <CountUp target={847} prefix="$" />
-              </div>
-              <div className="text-[0.6rem] uppercase tracking-[0.15em] text-[#a69b8a]">
-                Earned this week
-              </div>
-            </motion.div>
-
-            <motion.div
-              className="absolute bottom-8 left-0 rounded-sm border border-[#c9a227]/20 bg-[#0a080c]/80 px-4 py-3 backdrop-blur-sm"
-              initial={{ opacity: 0, x: -20 }}
-              animate={isInView ? { opacity: 1, x: 0 } : {}}
-              transition={{ duration: 0.8, delay: 0.8, ease: EASE_LUXURY }}
-            >
-              <div className="font-display text-2xl text-[#c9a227]">
-                <CountUp target={3421} />
-              </div>
-              <div className="text-[0.6rem] uppercase tracking-[0.15em] text-[#a69b8a]">
-                Bottles returned
-              </div>
-            </motion.div>
           </motion.div>
 
           {/* Right: Feature cards */}
