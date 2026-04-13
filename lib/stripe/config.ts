@@ -14,10 +14,35 @@ if (!process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY) {
   console.warn('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not set. Stripe payments will not work.')
 }
 
-// Server-side Stripe instance
-export const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2026-03-25.dahlia' as any,
-  typescript: true,
+// Server-side Stripe instance — lazy init to prevent build crashes when key is missing
+let _stripe: Stripe | undefined
+
+function getStripe(): Stripe {
+  if (_stripe) return _stripe
+  const key = process.env.STRIPE_SECRET_KEY
+  if (!key) {
+    throw new Error('STRIPE_SECRET_KEY is not configured')
+  }
+  _stripe = new Stripe(key, {
+    apiVersion: '2026-03-25.dahlia' as any,
+    typescript: true,
+  })
+  return _stripe
+}
+
+export { getStripe }
+
+// Backward-compatible export — routes that import `stripe` directly should migrate to `getStripe()`
+// For now we export a Proxy so `stripe.checkout.sessions.create()` works at runtime but doesn't crash at build time
+export const stripe = new Proxy({} as Stripe, {
+  get(_, prop) {
+    const client = getStripe()
+    const value = (client as any)[prop]
+    if (typeof value === 'function') {
+      return value.bind(client)
+    }
+    return value
+  },
 })
 
 // Price IDs for common products (create these in Stripe Dashboard)
