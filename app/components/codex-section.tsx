@@ -1,9 +1,9 @@
 'use client'
 
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { motion, useInView, useScroll, useTransform } from 'framer-motion'
 import Link from 'next/link'
-import { ArrowRight, Gem, MapPin, Droplets } from 'lucide-react'
+import { ArrowRight, ArrowLeft, Gem, MapPin, Droplets } from 'lucide-react'
 import { OIL_DATABASE } from '@/lib/content/oil-crystal-synergies'
 
 const EASE_LUXURY = [0.16, 1, 0.3, 1] as const
@@ -20,6 +20,7 @@ function OilCodexCard({ oil, index }: { oil: typeof OIL_DATABASE[0]; index: numb
       initial={{ opacity: 0, x: 80 }}
       animate={isInView ? { opacity: 1, x: 0 } : {}}
       transition={{ duration: 1, ease: EASE_LUXURY, delay: 0.1 }}
+      data-codex-card
       className="relative flex h-[70vh] min-w-[85vw] snap-center flex-col overflow-hidden rounded-sm border border-[#c9a227]/10 bg-[#0a080c] sm:min-w-[70vw] lg:min-w-[55vw] lg:flex-row"
     >
       {/* Image Side */}
@@ -101,6 +102,9 @@ export function CodexSection() {
   const sectionRef = useRef<HTMLElement>(null)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
   const isInView = useInView(sectionRef, { once: true, margin: '-100px' })
+  const [isDragging, setIsDragging] = useState(false)
+  const [startX, setStartX] = useState(0)
+  const [scrollLeft, setScrollLeft] = useState(0)
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
@@ -108,6 +112,34 @@ export function CodexSection() {
   })
 
   const lineWidth = useTransform(scrollYProgress, [0.1, 0.4], ['0%', '100%'])
+
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (!scrollContainerRef.current) return
+    setIsDragging(true)
+    setStartX(e.pageX - scrollContainerRef.current.offsetLeft)
+    setScrollLeft(scrollContainerRef.current.scrollLeft)
+  }
+
+  const handleMouseUp = () => {
+    setIsDragging(false)
+  }
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDragging || !scrollContainerRef.current) return
+    e.preventDefault()
+    const x = e.pageX - scrollContainerRef.current.offsetLeft
+    const walk = (x - startX) * 1.5
+    scrollContainerRef.current.scrollLeft = scrollLeft - walk
+  }
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (!scrollContainerRef.current) return
+    const cardWidth = scrollContainerRef.current.querySelector('[data-codex-card]')?.clientWidth || 800
+    scrollContainerRef.current.scrollBy({
+      left: direction === 'left' ? -cardWidth - 24 : cardWidth + 24,
+      behavior: 'smooth',
+    })
+  }
 
   return (
     <section ref={sectionRef} className="relative overflow-hidden bg-[#0a080c] py-32 lg:py-40">
@@ -156,39 +188,64 @@ export function CodexSection() {
         </div>
       </div>
 
-      {/* Horizontal scroll gallery */}
-      <div
-        ref={scrollContainerRef}
-        className="scrollbar-hide flex snap-x snap-mandatory gap-6 overflow-x-auto px-6 pb-8 lg:gap-10 lg:px-12"
-      >
-        {OIL_DATABASE.map((oil, index) => (
-          <OilCodexCard key={oil.id} oil={oil} index={index} />
-        ))}
-
-        {/* End card */}
-        <motion.div
-          initial={{ opacity: 0, x: 80 }}
-          whileInView={{ opacity: 1, x: 0 }}
-          viewport={{ once: true, margin: '-20%' }}
-          transition={{ duration: 1, ease: EASE_LUXURY }}
-          className="flex h-[70vh] min-w-[70vw] snap-center flex-col items-center justify-center rounded-sm border border-[#c9a227]/10 bg-[#0a080c] p-12 sm:min-w-[50vw] lg:min-w-[35vw]"
+      {/* Horizontal scroll gallery with drag + arrows */}
+      <div className="relative">
+        <div
+          ref={scrollContainerRef}
+          onMouseDown={handleMouseDown}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onMouseMove={handleMouseMove}
+          className={`scrollbar-hide flex snap-x snap-mandatory gap-6 overflow-x-auto px-6 pb-8 select-none lg:gap-10 lg:px-12 ${
+            isDragging ? 'cursor-grabbing' : 'cursor-grab'
+          }`}
         >
-          <span className="mb-6 text-[0.625rem] uppercase tracking-[0.3em] text-[#a69b8a]">
-            The Complete Collection
-          </span>
-          <h3 className="text-center font-display text-3xl text-[#f5f3ef] sm:text-4xl">
-            Every oil tells a story.
-            <br />
-            <span className="italic text-[#c9a227]">Which is yours?</span>
-          </h3>
-          <Link
-            href="/oils"
-            className="group mt-10 inline-flex items-center gap-2 overflow-hidden btn-luxury px-10 py-4"
+          {OIL_DATABASE.map((oil, index) => (
+            <OilCodexCard key={oil.id} oil={oil} index={index} />
+          ))}
+
+          {/* End card */}
+          <motion.div
+            initial={{ opacity: 0, x: 80 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            viewport={{ once: true, margin: '-20%' }}
+            transition={{ duration: 1, ease: EASE_LUXURY }}
+            data-codex-card
+            className="flex h-[70vh] min-w-[70vw] snap-center flex-col items-center justify-center rounded-sm border border-[#c9a227]/10 bg-[#0a080c] p-12 sm:min-w-[50vw] lg:min-w-[35vw]"
           >
-            <span className="relative z-10">Enter the Collection</span>
-            <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Link>
-        </motion.div>
+            <span className="mb-6 text-[0.625rem] uppercase tracking-[0.3em] text-[#a69b8a]">
+              The Complete Collection
+            </span>
+            <h3 className="text-center font-display text-3xl text-[#f5f3ef] sm:text-4xl">
+              Every oil tells a story.
+              <br />
+              <span className="italic text-[#c9a227]">Which is yours?</span>
+            </h3>
+            <Link
+              href="/oils"
+              className="group mt-10 inline-flex items-center gap-2 overflow-hidden btn-luxury px-10 py-4"
+            >
+              <span className="relative z-10">Enter the Collection</span>
+              <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
+            </Link>
+          </motion.div>
+        </div>
+
+        {/* Desktop scroll arrows */}
+        <button
+          onClick={() => scroll('left')}
+          className="absolute left-4 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full border border-[#c9a227]/30 bg-[#0a080c]/80 p-3 text-[#c9a227] backdrop-blur-sm transition-all hover:border-[#c9a227] hover:bg-[#0a080c] lg:flex"
+          aria-label="Scroll left"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <button
+          onClick={() => scroll('right')}
+          className="absolute right-4 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full border border-[#c9a227]/30 bg-[#0a080c]/80 p-3 text-[#c9a227] backdrop-blur-sm transition-all hover:border-[#c9a227] hover:bg-[#0a080c] lg:flex"
+          aria-label="Scroll right"
+        >
+          <ArrowRight className="h-5 w-5" />
+        </button>
       </div>
     </section>
   )
