@@ -2734,41 +2734,121 @@ export default function MixingAtelierPage() {
     setShowProfileForm(!isProfileComplete)
   }, [isProfileComplete])
 
-  // Load shared blend from URL query param
+  const hasLoadedDraftRef = useRef(false)
+
+  // Load draft: URL param takes precedence, otherwise localStorage
   useEffect(() => {
-    const encoded = searchParams.get('blend')
-    if (!encoded) return
-    try {
-      const json = atob(encoded)
-      const data = JSON.parse(json)
-      if (data.oils && Array.isArray(data.oils)) {
-        setSelectedOils(data.oils.map((o: any) => ({ oilId: o.oilId, ml: o.ml })))
+    if (typeof window === 'undefined') return
+    if (hasLoadedDraftRef.current) return
+    hasLoadedDraftRef.current = true
+    const params = new URLSearchParams(window.location.search)
+    const encoded = params.get('blend')
+    if (encoded) {
+      try {
+        const json = atob(encoded)
+        const data = JSON.parse(json)
+        if (data.oils && Array.isArray(data.oils)) {
+          setSelectedOils(data.oils.map((o: any) => ({ oilId: o.oilId, ml: o.ml })))
+        }
+        if (data.mode === 'pure' || data.mode === 'carrier') {
+          setMode(data.mode)
+        }
+        if (typeof data.bottleSize === 'number') {
+          setBottleSize(data.bottleSize)
+        }
+        if (typeof data.carrierRatio === 'number') {
+          setCarrierRatio(data.carrierRatio)
+        }
+        if (data.carrierOilId) {
+          setSelectedCarrierOilId(data.carrierOilId)
+        }
+        if (data.crystalId) {
+          setSelectedCrystalId(data.crystalId)
+        }
+        if (data.cordId) {
+          setSelectedCordId(data.cordId)
+        }
+        if (data.name) {
+          setRecipeName(data.name)
+        }
+        // Also persist this shared blend to localStorage so it survives refresh
+        localStorage.setItem('oil-amor-atelier-draft', json)
+      } catch {
+        // ignore invalid blend param
       }
-      if (data.mode === 'pure' || data.mode === 'carrier') {
-        setMode(data.mode)
+      return
+    }
+
+    // No URL param: try to restore from localStorage
+    const saved = localStorage.getItem('oil-amor-atelier-draft')
+    if (saved) {
+      try {
+        const data = JSON.parse(saved)
+        if (data.oils && Array.isArray(data.oils)) {
+          setSelectedOils(data.oils.map((o: any) => ({ oilId: o.oilId, ml: o.ml })))
+        }
+        if (data.mode === 'pure' || data.mode === 'carrier') {
+          setMode(data.mode)
+        }
+        if (typeof data.bottleSize === 'number') {
+          setBottleSize(data.bottleSize)
+        }
+        if (typeof data.carrierRatio === 'number') {
+          setCarrierRatio(data.carrierRatio)
+        }
+        if (data.carrierOilId) {
+          setSelectedCarrierOilId(data.carrierOilId)
+        }
+        if (data.crystalId) {
+          setSelectedCrystalId(data.crystalId)
+        }
+        if (data.cordId) {
+          setSelectedCordId(data.cordId)
+        }
+        if (data.name || data.recipeName) {
+          setRecipeName(data.name || data.recipeName || '')
+        }
+        if (data.blendDescription || data.description) {
+          setBlendDescription(data.blendDescription || data.description || '')
+        }
+        if (data.blendStory || data.story) {
+          setBlendStory(data.blendStory || data.story || '')
+        }
+        if (data.intendedUse) {
+          setIntendedUse(data.intendedUse)
+        }
+        if (data.tags && Array.isArray(data.tags)) {
+          setTags(data.tags)
+        }
+        if (typeof data.consentToShare === 'boolean') {
+          setConsentToShare(data.consentToShare)
+        }
+      } catch {
+        // ignore corrupted draft
       }
-      if (typeof data.bottleSize === 'number') {
-        setBottleSize(data.bottleSize)
-      }
-      if (typeof data.carrierRatio === 'number') {
-        setCarrierRatio(data.carrierRatio)
-      }
-      if (data.carrierOilId) {
-        setSelectedCarrierOilId(data.carrierOilId)
-      }
-      if (data.crystalId) {
-        setSelectedCrystalId(data.crystalId)
-      }
-      if (data.cordId) {
-        setSelectedCordId(data.cordId)
-      }
-      if (data.name) {
-        setRecipeName(data.name)
-      }
-    } catch {
-      // ignore invalid blend param
     }
   }, [searchParams])
+
+  // Persist atelier state to localStorage so refresh doesn't lose work
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const draft = {
+      oils: selectedOils,
+      mode,
+      bottleSize,
+      carrierRatio,
+      carrierOilId: selectedCarrierOilId,
+      crystalId: selectedCrystalId,
+      cordId: selectedCordId,
+      name: recipeName,
+      blendDescription,
+      blendStory,
+      intendedUse,
+      tags,
+      consentToShare,
+    }
+    localStorage.setItem('oil-amor-atelier-draft', JSON.stringify(draft))
+  }, [selectedOils, mode, bottleSize, carrierRatio, selectedCarrierOilId, selectedCrystalId, selectedCordId, recipeName, blendDescription, blendStory, intendedUse, tags, consentToShare])
   
   const [selectedOils, setSelectedOils] = useState<{ oilId: string; ml: number }[]>([])
   const [carrierRatio, setCarrierRatio] = useState<number>(25)
