@@ -3,6 +3,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { motion, useInView } from 'framer-motion'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { ArrowRight } from 'lucide-react'
 import { OIL_DATABASE } from '@/lib/content/oil-crystal-synergies'
 
@@ -15,18 +16,106 @@ const RINGS = [
   { radius: 310, duration: 240, oils: OIL_DATABASE.slice(22, 33) },
 ]
 
+function OilNode({
+  oil,
+  angle,
+  radius,
+  isHovered,
+  setHoveredOil,
+  isMobile,
+}: {
+  oil: (typeof OIL_DATABASE)[0]
+  angle: number
+  radius: number
+  isHovered: boolean
+  setHoveredOil: (id: string | null) => void
+  isMobile: boolean
+}) {
+  const router = useRouter()
+  const href = `/oil/${oil.handle || oil.id}`
+  const mainCrystal = oil.crystalPairings[0]
+
+  const content = (
+    <>
+      <span
+        className={`whitespace-nowrap text-[10px] uppercase tracking-[0.2em] transition-all duration-300 lg:text-[11px] ${
+          isHovered
+            ? 'scale-110 text-[#f5f3ef]'
+            : 'text-[#a69b8a]/50 hover:text-[#a69b8a]'
+        }`}
+      >
+        {oil.commonName}
+      </span>
+      {isHovered && (
+        <motion.span
+          initial={{ opacity: 0, y: 4 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mt-1 whitespace-nowrap text-[9px] tracking-[0.15em] text-[#c9a227]"
+        >
+          {mainCrystal?.name}
+        </motion.span>
+      )}
+      <span
+        className={`mt-1.5 h-1 w-1 rounded-full transition-all duration-300 ${
+          isHovered
+            ? 'scale-150 bg-[#c9a227] shadow-[0_0_8px_rgba(201,162,39,0.8)]'
+            : 'bg-[#a69b8a]/30'
+        }`}
+      />
+    </>
+  )
+
+  const style = {
+    transform: `translate(-50%, -50%) rotate(${angle}deg) translateX(${radius}px) rotate(${-angle}deg)`,
+  } as React.CSSProperties
+
+  if (isMobile) {
+    return (
+      <button
+        key={oil.id}
+        onClick={() => {
+          if (isHovered) {
+            router.push(href)
+          } else {
+            setHoveredOil(oil.id)
+          }
+        }}
+        className="absolute left-0 top-0 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center bg-transparent p-2"
+        style={style}
+      >
+        {content}
+      </button>
+    )
+  }
+
+  return (
+    <Link
+      key={oil.id}
+      href={href}
+      onMouseEnter={() => setHoveredOil(oil.id)}
+      onMouseLeave={() => setHoveredOil(null)}
+      className="absolute left-0 top-0 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center p-2"
+      style={style}
+    >
+      {content}
+    </Link>
+  )
+}
+
 function OrbitalRing({
   ring,
   ringIndex,
   hoveredOil,
   setHoveredOil,
   radius,
+  isMobile,
 }: {
   ring: (typeof RINGS)[0]
   ringIndex: number
   hoveredOil: string | null
   setHoveredOil: (id: string | null) => void
   radius: number
+  isMobile: boolean
 }) {
   const direction = ringIndex % 2 === 0 ? 1 : -1
 
@@ -39,47 +128,16 @@ function OrbitalRing({
     >
       {ring.oils.map((oil, i) => {
         const angle = (360 / ring.oils.length) * i
-        const isHovered = hoveredOil === oil.id
-        const mainCrystal = oil.crystalPairings[0]
-
         return (
-          <Link
+          <OilNode
             key={oil.id}
-            href={`/oil/${oil.id}`}
-            onMouseEnter={() => setHoveredOil(oil.id)}
-            onMouseLeave={() => setHoveredOil(null)}
-            onClick={() => setHoveredOil(oil.id)}
-            className="absolute left-0 top-0 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
-            style={{
-              transform: `translate(-50%, -50%) rotate(${angle}deg) translateX(${radius}px) rotate(${-angle}deg)`,
-            }}
-          >
-            <span
-              className={`whitespace-nowrap text-[10px] uppercase tracking-[0.2em] transition-all duration-300 lg:text-[11px] ${
-                isHovered
-                  ? 'scale-110 text-[#f5f3ef]'
-                  : 'text-[#a69b8a]/50 hover:text-[#a69b8a]'
-              }`}
-            >
-              {oil.commonName}
-            </span>
-            {isHovered && (
-              <motion.span
-                initial={{ opacity: 0, y: 4 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-1 whitespace-nowrap text-[9px] tracking-[0.15em] text-[#c9a227]"
-              >
-                {mainCrystal?.name}
-              </motion.span>
-            )}
-            <span
-              className={`mt-1.5 h-1 w-1 rounded-full transition-all duration-300 ${
-                isHovered
-                  ? 'scale-150 bg-[#c9a227] shadow-[0_0_8px_rgba(201,162,39,0.8)]'
-                  : 'bg-[#a69b8a]/30'
-              }`}
-            />
-          </Link>
+            oil={oil}
+            angle={angle}
+            radius={radius}
+            isHovered={hoveredOil === oil.id}
+            setHoveredOil={setHoveredOil}
+            isMobile={isMobile}
+          />
         )
       })}
     </motion.div>
@@ -161,6 +219,7 @@ export function CodexSection() {
               hoveredOil={hoveredOil}
               setHoveredOil={setHoveredOil}
               radius={radii[i]}
+              isMobile={isMobile}
             />
           ))}
         </div>
