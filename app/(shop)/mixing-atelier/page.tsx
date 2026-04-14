@@ -2853,27 +2853,7 @@ export default function MixingAtelierPage() {
     }
   }, [searchParams])
 
-  // Persist atelier state to localStorage so refresh doesn't lose work
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    const draft = {
-      oils: selectedOils,
-      mode,
-      bottleSize,
-      carrierRatio,
-      carrierOilId: selectedCarrierOilId,
-      crystalId: selectedCrystalId,
-      cordId: selectedCordId,
-      name: recipeName,
-      blendDescription,
-      blendStory,
-      intendedUse,
-      tags,
-      consentToShare,
-    }
-    localStorage.setItem('oil-amor-atelier-draft', JSON.stringify(draft))
-  }, [selectedOils, mode, bottleSize, carrierRatio, selectedCarrierOilId, selectedCrystalId, selectedCordId, recipeName, blendDescription, blendStory, intendedUse, tags, consentToShare])
-  
+
   // Cord & Revelation State
   const [selectedCordId, setSelectedCordId] = useState<string>(DEFAULT_SIMPLE_CORD.id)
   const [showRevelationModal, setShowRevelationModal] = useState(false)
@@ -2905,6 +2885,27 @@ export default function MixingAtelierPage() {
   
   // Recipe name validation
   const [recipeNameError, setRecipeNameError] = useState<string | null>(null)
+  
+  // Persist atelier state to localStorage so refresh doesn't lose work
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const draft = {
+      oils: selectedOils,
+      mode,
+      bottleSize,
+      carrierRatio,
+      carrierOilId: selectedCarrierOilId,
+      crystalId: selectedCrystalId,
+      cordId: selectedCordId,
+      name: recipeName,
+      blendDescription,
+      blendStory,
+      intendedUse,
+      tags,
+      consentToShare,
+    }
+    localStorage.setItem('oil-amor-atelier-draft', JSON.stringify(draft))
+  }, [selectedOils, mode, bottleSize, carrierRatio, selectedCarrierOilId, selectedCrystalId, selectedCordId, recipeName, blendDescription, blendStory, intendedUse, tags, consentToShare])
   
   // Calculate maximum essential oil capacity
   const maxEssentialOilMl = useMemo(() => {
