@@ -5,6 +5,7 @@ import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/next'
 import { Navigation } from './components/navigation'
 import { Footer } from './components/layout/Footer'
+import { GlobalAtmosphere } from './components/global-atmosphere'
 // Cart is now handled by Zustand store in hooks/use-cart.tsx - no provider needed
 import { UserProvider } from '@/lib/context/user-context'
 import { HealthProfileProvider } from '@/lib/context/health-profile-context'
@@ -108,6 +109,8 @@ export default function RootLayout({
         <link rel="dns-prefetch" href="https://cdn.sanity.io" />
       </head>
       <body className="font-body bg-[#0a080c] text-[#f5f3ef] antialiased">
+        <GlobalAtmosphere />
+        
         {/* Skip Link for Accessibility */}
         <a href="#main-content" className="skip-link">
           Skip to main content

@@ -1,86 +1,11 @@
 'use client'
 
 import { useRef } from 'react'
-import { motion, useInView } from 'framer-motion'
+import { motion, useInView, useScroll, useTransform } from 'framer-motion'
 import Link from 'next/link'
-import { RefreshCcw, Share2, Droplets, ArrowRight, Sparkles } from 'lucide-react'
+import { RefreshCcw, Share2, Droplets, ArrowRight } from 'lucide-react'
 
 const EASE_LUXURY = [0.16, 1, 0.3, 1] as const
-
-function OrbitParticle({
-  radius,
-  duration,
-  delay,
-  size,
-  color,
-}: {
-  radius: number
-  duration: number
-  delay: number
-  size: number
-  color: string
-}) {
-  return (
-    <motion.div
-      className="absolute left-1/2 top-1/2 rounded-full"
-      style={{
-        width: size,
-        height: size,
-        marginLeft: -size / 2,
-        marginTop: -size / 2,
-        background: color,
-        boxShadow: `0 0 ${size * 2}px ${color}`,
-      }}
-      animate={{
-        x: [0, radius, 0, -radius, 0],
-        y: [-radius, 0, radius, 0, -radius],
-      }}
-      transition={{
-        duration,
-        delay,
-        repeat: Infinity,
-        ease: 'linear',
-      }}
-    />
-  )
-}
-
-function GlowingRing({
-  radius,
-  particleCount,
-  baseDuration,
-  color,
-  opacity = 0.3,
-}: {
-  radius: number
-  particleCount: number
-  baseDuration: number
-  color: string
-  opacity?: number
-}) {
-  return (
-    <div
-      className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
-      style={{
-        width: radius * 2,
-        height: radius * 2,
-        border: `1px solid ${color}`,
-        opacity,
-      }}
-    >
-      {Array.from({ length: particleCount }).map((_, i) => (
-        <OrbitParticle
-          key={i}
-          radius={radius}
-          duration={baseDuration + i * 3}
-          delay={(i / particleCount) * baseDuration}
-          size={4 + (i % 3) * 2}
-          color={color}
-        />
-      ))}
-    </div>
-  )
-}
 
 function OrbitCard({
   icon: Icon,
@@ -101,32 +26,31 @@ function OrbitCard({
 }) {
   const isLeft = position === 'left'
   const isRight = position === 'right'
-  const isBottom = position === 'bottom'
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 40 }}
+      initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true, margin: '-50px' }}
-      transition={{ duration: 0.8, delay, ease: EASE_LUXURY }}
+      transition={{ duration: 0.9, delay, ease: EASE_LUXURY }}
       className={`
-        group absolute w-72 rounded-[2rem] rounded-tl-sm border border-[#c9a227]/10 
-        bg-[#0a080c]/60 p-8 backdrop-blur-sm transition-all 
-        hover:border-[#c9a227]/30 hover:bg-[#0a080c]/80
-        lg:w-80
-        ${isLeft ? 'left-0 top-[8%] lg:left-[5%] lg:top-[15%]' : ''}
-        ${isRight ? 'right-0 top-[8%] lg:right-[5%] lg:top-[15%]' : ''}
-        ${isBottom ? 'bottom-[5%] left-1/2 -translate-x-1/2 lg:bottom-[8%]' : ''}
+        group absolute w-72 border border-[#f5f3ef]/10 bg-[#050505]/80 p-6 backdrop-blur-sm
+        transition-all hover:border-[#c9a227]/40 lg:w-80 lg:p-7
+        ${isLeft ? 'left-0 top-[18%] lg:left-[5%] lg:top-[22%]' : ''}
+        ${isRight ? 'right-0 top-[18%] lg:right-[5%] lg:top-[22%]' : ''}
+        ${position === 'bottom' ? 'bottom-[4%] left-1/2 -translate-x-1/2 lg:bottom-[8%]' : ''}
       `}
     >
-      <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-full border border-[#c9a227]/20">
-        <Icon className="h-5 w-5 text-[#c9a227]" />
+      <div className="mb-4 flex h-10 w-10 items-center justify-center border border-[#c9a227]/20">
+        <Icon className="h-4 w-4 text-[#c9a227]" />
       </div>
-      <h3 className="mb-2 font-display text-xl text-[#f5f3ef]">{title}</h3>
-      <p className="mb-5 text-sm leading-relaxed text-[#a69b8a]/90">{description}</p>
+      <h3 className="mb-2 font-display text-lg text-[#f5f3ef]">{title}</h3>
+      <p className="mb-4 text-sm font-light leading-relaxed text-[#a69b8a]/80">
+        {description}
+      </p>
       <Link
         href={href}
-        className="inline-flex items-center gap-2 text-[0.7rem] uppercase tracking-[0.15em] text-[#c9a227] transition-colors hover:text-[#f5f3ef]"
+        className="inline-flex items-center gap-2 text-[0.65rem] uppercase tracking-[0.15em] text-[#c9a227] transition-colors hover:text-[#f5f3ef]"
       >
         {cta}
         <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-1" />
@@ -139,24 +63,33 @@ export function CircleSection() {
   const sectionRef = useRef<HTMLElement>(null)
   const isInView = useInView(sectionRef, { once: true, margin: '-100px' })
 
+  const { scrollYProgress } = useScroll({
+    target: sectionRef,
+    offset: ['start end', 'end start'],
+  })
+
+  const mandalaScale = useTransform(scrollYProgress, [0, 0.5], [0.9, 1])
+
   return (
     <section
       ref={sectionRef}
-      className="relative overflow-hidden bg-[#0a080c] py-40 lg:h-screen lg:min-h-[900px] lg:py-0"
+      className="relative overflow-hidden bg-[#050505] py-32 lg:h-screen lg:min-h-[1000px] lg:py-0"
     >
-      {/* Deep radial glow behind mandala */}
-      <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-        <motion.div
+      {/* Deep radial field */}
+      <motion.div
+        className="pointer-events-none absolute inset-0 flex items-center justify-center"
+        initial={{ opacity: 0 }}
+        animate={isInView ? { opacity: 1 } : {}}
+        transition={{ duration: 2, ease: EASE_LUXURY }}
+      >
+        <div
           className="h-[120vh] w-[120vh] rounded-full"
           style={{
             background:
-              'radial-gradient(circle, rgba(26,15,46,0.5) 0%, rgba(10,8,12,0.9) 50%, transparent 70%)',
+              'radial-gradient(circle, rgba(26,15,46,0.35) 0%, rgba(5,5,5,0.9) 50%, transparent 70%)',
           }}
-          initial={{ scale: 0.8, opacity: 0 }}
-          animate={isInView ? { scale: 1, opacity: 1 } : {}}
-          transition={{ duration: 2, ease: EASE_LUXURY }}
         />
-      </div>
+      </motion.div>
 
       <div className="relative z-10 mx-auto flex h-full max-w-7xl flex-col items-center justify-center px-6 lg:px-12">
         {/* Header */}
@@ -165,7 +98,7 @@ export function CircleSection() {
             initial={{ opacity: 0, y: 20 }}
             animate={isInView ? { opacity: 1, y: 0 } : {}}
             transition={{ duration: 0.8, ease: EASE_LUXURY }}
-            className="mb-4 block text-[0.625rem] uppercase tracking-[0.3em] text-[#a69b8a]"
+            className="mb-4 block text-[0.6rem] uppercase tracking-[0.3em] text-[#a69b8a]"
           >
             The Circle
           </motion.span>
@@ -180,64 +113,81 @@ export function CircleSection() {
           </motion.h2>
         </div>
 
-        {/* Mandala + Orbiting Cards Container */}
+        {/* Mandala + Architecture */}
         <div className="relative flex w-full items-center justify-center lg:h-[600px]">
-          {/* The Living Mandala — centered */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.7 }}
-            animate={isInView ? { opacity: 1, scale: 1 } : {}}
-            transition={{ duration: 1.6, ease: EASE_LUXURY }}
-            className="relative aspect-square w-[320px] sm:w-[400px] lg:w-[480px]"
+          {/* SVG connecting lines */}
+          <svg
+            className="pointer-events-none absolute inset-0 hidden lg:block"
+            style={{ opacity: 0.12 }}
           >
-            {/* Outermost ring — Community */}
-            <GlowingRing
-              radius={160}
-              particleCount={4}
-              baseDuration={24}
-              color="rgba(201, 162, 39, 0.5)"
-              opacity={0.15}
+            <motion.line
+              x1="50%"
+              y1="50%"
+              x2="18%"
+              y2="32%"
+              stroke="#c9a227"
+              strokeWidth="1"
+              initial={{ pathLength: 0 }}
+              animate={isInView ? { pathLength: 1 } : {}}
+              transition={{ duration: 1.5, delay: 0.6, ease: EASE_LUXURY }}
             />
-            <GlowingRing
-              radius={180}
-              particleCount={3}
-              baseDuration={30}
-              color="rgba(201, 162, 39, 0.3)"
-              opacity={0.1}
+            <motion.line
+              x1="50%"
+              y1="50%"
+              x2="82%"
+              y2="32%"
+              stroke="#c9a227"
+              strokeWidth="1"
+              initial={{ pathLength: 0 }}
+              animate={isInView ? { pathLength: 1 } : {}}
+              transition={{ duration: 1.5, delay: 0.8, ease: EASE_LUXURY }}
             />
+            <motion.line
+              x1="50%"
+              y1="50%"
+              x2="50%"
+              y2="86%"
+              stroke="#c9a227"
+              strokeWidth="1"
+              initial={{ pathLength: 0 }}
+              animate={isInView ? { pathLength: 1 } : {}}
+              transition={{ duration: 1.5, delay: 1, ease: EASE_LUXURY }}
+            />
+          </svg>
 
-            {/* Middle ring — Refill */}
-            <GlowingRing
-              radius={120}
-              particleCount={3}
-              baseDuration={18}
-              color="rgba(232, 213, 163, 0.5)"
-              opacity={0.2}
-            />
-            <GlowingRing
-              radius={100}
-              particleCount={2}
-              baseDuration={14}
-              color="rgba(232, 213, 163, 0.4)"
-              opacity={0.15}
-            />
+          {/* The Living Mandala */}
+          <motion.div
+            style={{ scale: mandalaScale }}
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={isInView ? { opacity: 1, scale: 1 } : {}}
+            transition={{ duration: 1.8, ease: EASE_LUXURY }}
+            className="relative aspect-square w-[260px] sm:w-[320px] lg:w-[360px]"
+          >
+            {/* Rings — pure light only */}
+            {[220, 180, 140, 100, 60].map((r) => (
+              <div
+                key={r}
+                className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#f5f3ef]/[0.06]"
+                style={{ width: r * 2, height: r * 2 }}
+              />
+            ))}
 
-            {/* Inner ring — Return/Credit */}
-            <GlowingRing
-              radius={60}
-              particleCount={2}
-              baseDuration={10}
-              color="rgba(139, 115, 85, 0.6)"
-              opacity={0.25}
+            {/* Rotating gradient ring */}
+            <motion.div
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-transparent"
+              style={{
+                width: 280,
+                height: 280,
+                borderImage:
+                  'conic-gradient(from 0deg, transparent, rgba(201,162,39,0.4), transparent, rgba(201,162,39,0.4), transparent) 1',
+              }}
+              animate={{ rotate: 360 }}
+              transition={{ duration: 40, repeat: Infinity, ease: 'linear' }}
             />
 
             {/* Center core */}
-            <div className="absolute left-1/2 top-1/2 flex h-24 w-24 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#c9a227]/30 bg-[#0a080c] shadow-[0_0_60px_rgba(201,162,39,0.2)]">
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-              >
-                <Sparkles className="h-7 w-7 text-[#c9a227]" />
-              </motion.div>
+            <div className="absolute left-1/2 top-1/2 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border border-[#c9a227]/20 bg-[#050505]">
+              <div className="h-2 w-2 rounded-full bg-[#c9a227] shadow-[0_0_30px_rgba(201,162,39,0.6)]" />
             </div>
           </motion.div>
 
@@ -250,16 +200,16 @@ export function CircleSection() {
               href="/refill"
               cta="Enter the Circle"
               position="left"
-              delay={0.3}
+              delay={0.5}
             />
             <OrbitCard
               icon={Share2}
               title="Blend. Share. Earn."
-              description="Create in the Atelier. Share your code. Earn 10% on every purchase made with your blend."
+              description="Create in the Atelier. Share your code. Earn 10% store credit on every purchase made with your blend."
               href="/community-blends"
               cta="Start Earning"
               position="right"
-              delay={0.5}
+              delay={0.7}
             />
             <OrbitCard
               icon={Droplets}
@@ -268,52 +218,47 @@ export function CircleSection() {
               href="/sustainability"
               cta="Our Promise"
               position="bottom"
-              delay={0.7}
+              delay={0.9}
             />
           </div>
         </div>
 
-        {/* Mobile cards — stacked below mandala */}
-        <div className="mt-12 flex w-full flex-col gap-5 lg:hidden">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.2, ease: EASE_LUXURY }}
-            className="rounded-[2rem] rounded-tl-sm border border-[#c9a227]/10 bg-[#0a080c]/60 p-6"
-          >
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-[#c9a227]/20">
-              <RefreshCcw className="h-4 w-4 text-[#c9a227]" />
-            </div>
-            <h3 className="mb-1 font-display text-lg text-[#f5f3ef]">Forever Refills</h3>
-            <p className="text-sm text-[#a69b8a]/80">Return your Miron vessel for a $5 credit.</p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.3, ease: EASE_LUXURY }}
-            className="rounded-[2rem] rounded-tr-sm border border-[#c9a227]/10 bg-[#0a080c]/60 p-6"
-          >
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-[#c9a227]/20">
-              <Share2 className="h-4 w-4 text-[#c9a227]" />
-            </div>
-            <h3 className="mb-1 font-display text-lg text-[#f5f3ef]">Blend. Share. Earn.</h3>
-            <p className="text-sm text-[#a69b8a]/80">Earn 10% on every purchase with your code.</p>
-          </motion.div>
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.4, ease: EASE_LUXURY }}
-            className="rounded-[2rem] rounded-bl-sm border border-[#c9a227]/10 bg-[#0a080c]/60 p-6"
-          >
-            <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-[#c9a227]/20">
-              <Droplets className="h-4 w-4 text-[#c9a227]" />
-            </div>
-            <h3 className="mb-1 font-display text-lg text-[#f5f3ef]">Close the Loop</h3>
-            <p className="text-sm text-[#a69b8a]/80">Zero waste. Every bottle is reborn.</p>
-          </motion.div>
+        {/* Mobile cards */}
+        <div className="mt-12 flex w-full flex-col gap-3 lg:hidden">
+          {[
+            {
+              icon: RefreshCcw,
+              title: 'Forever Refills',
+              desc: 'Return your Miron vessel for a $5 credit.',
+            },
+            {
+              icon: Share2,
+              title: 'Blend. Share. Earn.',
+              desc: 'Earn 10% store credit on every purchase with your code.',
+            },
+            {
+              icon: Droplets,
+              title: 'Close the Loop',
+              desc: 'Zero waste. Every bottle is reborn.',
+            },
+          ].map((card, i) => (
+            <motion.div
+              key={card.title}
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.2 + i * 0.1, ease: EASE_LUXURY }}
+              className="border border-[#f5f3ef]/10 bg-[#050505]/60 p-5 backdrop-blur-sm"
+            >
+              <div className="mb-3 flex h-9 w-9 items-center justify-center border border-[#c9a227]/20">
+                <card.icon className="h-4 w-4 text-[#c9a227]" />
+              </div>
+              <h3 className="mb-1 font-display text-base text-[#f5f3ef]">
+                {card.title}
+              </h3>
+              <p className="text-sm font-light text-[#a69b8a]/80">{card.desc}</p>
+            </motion.div>
+          ))}
         </div>
       </div>
     </section>

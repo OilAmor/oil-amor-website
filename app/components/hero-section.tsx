@@ -1,253 +1,140 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
+import { motion, useMotionValue, useSpring, useScroll, useTransform } from 'framer-motion'
 import Link from 'next/link'
 
-const EASE_LUXURY = [0.16, 1, 0.3, 1] as const
-
 export function HeroSection() {
-  const [mounted, setMounted] = useState(false)
-  const [dropletHit, setDropletHit] = useState(false)
-  const [showContent, setShowContent] = useState(false)
+  const { scrollY } = useScroll()
+  const opacity = useTransform(scrollY, [0, 400], [1, 0])
+  const y = useTransform(scrollY, [0, 400], [0, -120])
 
   const mouseX = useMotionValue(0.5)
   const mouseY = useMotionValue(0.5)
-  const smoothX = useSpring(mouseX, { stiffness: 40, damping: 30 })
-  const smoothY = useSpring(mouseY, { stiffness: 40, damping: 30 })
+  const springX = useSpring(mouseX, { stiffness: 25, damping: 30 })
+  const springY = useSpring(mouseY, { stiffness: 25, damping: 30 })
 
-  const auroraX = useTransform(smoothX, [0, 1], ['-10%', '10%'])
-  const auroraY = useTransform(smoothY, [0, 1], ['-10%', '10%'])
-
-  useEffect(() => {
-    setMounted(true)
-
-    const handleMouseMove = (e: MouseEvent) => {
-      mouseX.set(e.clientX / window.innerWidth)
-      mouseY.set(e.clientY / window.innerHeight)
-    }
-
-    window.addEventListener('mousemove', handleMouseMove)
-    return () => window.removeEventListener('mousemove', handleMouseMove)
-  }, [mouseX, mouseY])
-
-  // Orchestrate the entrance sequence
-  useEffect(() => {
-    if (!mounted) return
-
-    const timers = [
-      setTimeout(() => setDropletHit(true), 2200),
-      setTimeout(() => setShowContent(true), 2800),
-    ]
-
-    return () => timers.forEach(clearTimeout)
-  }, [mounted])
-
-  if (!mounted) {
-    return (
-      <section className="h-screen w-full bg-[#0a080c] flex items-center justify-center">
-        <div className="sr-only">Oil Amor — Essence Transcended</div>
-      </section>
-    )
-  }
+  const auroraX = useTransform(springX, [0, 1], ['-12%', '12%'])
+  const auroraY = useTransform(springY, [0, 1], ['-12%', '12%'])
 
   return (
-    <section className="relative h-screen w-full overflow-hidden bg-[#0a080c]">
-      {/* ===== Fluid Aurora — Follows Cursor ===== */}
+    <section
+      className="relative h-screen w-full overflow-hidden bg-[#050505]"
+      onMouseMove={(e) => {
+        mouseX.set(e.clientX / window.innerWidth)
+        mouseY.set(e.clientY / window.innerHeight)
+      }}
+    >
+      {/* Cinematic breathing aurora */}
       <motion.div
-        className="pointer-events-none absolute inset-0 opacity-40"
-        style={{
-          background:
-            'radial-gradient(circle at 50% 50%, rgba(201, 162, 39, 0.12) 0%, rgba(26, 15, 46, 0.2) 35%, transparent 70%)',
-          x: auroraX,
-          y: auroraY,
-        }}
-      />
-
-      {/* ===== Deep Void Orbs ===== */}
-      <motion.div
-        className="pointer-events-none absolute -right-[20vw] top-[10vh] h-[60vw] w-[60vw] rounded-full opacity-20"
-        style={{
-          background: 'radial-gradient(circle, #1a0f2e 0%, transparent 60%)',
-        }}
-        animate={{ scale: [1, 1.05, 1], rotate: [0, 10, 0] }}
-        transition={{ duration: 20, repeat: Infinity, ease: 'linear' }}
-      />
-      <motion.div
-        className="pointer-events-none absolute -left-[15vw] bottom-[5vh] h-[50vw] w-[50vw] rounded-full opacity-15"
-        style={{
-          background: 'radial-gradient(circle, #141218 0%, transparent 60%)',
-        }}
-        animate={{ scale: [1, 1.03, 1], rotate: [0, -10, 0] }}
-        transition={{ duration: 25, repeat: Infinity, ease: 'linear' }}
-      />
-
-      {/* ===== SVG Displacement Filter for Liquid Ripples ===== */}
-      <svg className="absolute h-0 w-0">
-        <defs>
-          <filter id="liquid-ripple">
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.01"
-              numOctaves="3"
-              result="noise"
-            />
-            <feDisplacementMap
-              in="SourceGraphic"
-              in2="noise"
-              scale="0"
-              xChannelSelector="R"
-              yChannelSelector="G"
-            />
-          </filter>
-        </defs>
-      </svg>
-
-      {/* ===== The Droplet ===== */}
-      <div className="absolute inset-0 flex items-center justify-center">
+        className="pointer-events-none absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
+        style={{ x: auroraX, y: auroraY }}
+      >
         <motion.div
-          className="relative z-20"
-          initial={{ y: '-40vh', opacity: 0, scale: 0.5 }}
-          animate={
-            dropletHit
-              ? { y: 0, opacity: 0, scale: 0.2 }
-              : { y: 0, opacity: 1, scale: 1 }
-          }
-          transition={{
-            y: { duration: 2, ease: [0.25, 0.1, 0.25, 1] },
-            opacity: { duration: 0.6, delay: 1.8 },
-            scale: { duration: 0.8, delay: 1.8 },
+          className="h-[150vh] w-[150vh] rounded-full"
+          style={{
+            background:
+              'radial-gradient(circle at center, rgba(26,15,46,0.55) 0%, rgba(5,5,5,0) 60%)',
           }}
-        >
-          <div
-            className="h-6 w-6 rounded-full shadow-2xl"
-            style={{
-              background:
-                'radial-gradient(circle at 35% 35%, #e8d5a3 0%, #c9a227 40%, #8b7355 100%)',
-              boxShadow: '0 0 30px rgba(201, 162, 39, 0.6)',
-            }}
-          />
-        </motion.div>
-      </div>
+          animate={{ scale: [1, 1.1, 1] }}
+          transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
+        />
+        <motion.div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background:
+              'radial-gradient(circle at center, rgba(201,162,39,0.12) 0%, transparent 45%)',
+          }}
+          animate={{ scale: [1.15, 1, 1.15] }}
+          transition={{ duration: 14, repeat: Infinity, ease: 'easeInOut' }}
+        />
+      </motion.div>
 
-      {/* ===== Impact Ripples ===== */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-        {[0, 1, 2].map((i) => (
-          <motion.div
-            key={i}
-            className="absolute rounded-full border border-[#c9a227]/40"
-            initial={{ width: 0, height: 0, opacity: 0 }}
-            animate={
-              dropletHit
-                ? { width: 800 + i * 400, height: 800 + i * 400, opacity: [0, 0.6, 0] }
-                : {}
-            }
-            transition={{
-              duration: 2.5,
-              delay: i * 0.25,
-              ease: EASE_LUXURY,
-            }}
-            style={{
-              boxShadow: `inset 0 0 60px rgba(201, 162, 39, ${0.15 - i * 0.05})`,
-            }}
-          />
-        ))}
-      </div>
+      {/* Grain texture overlay — subtle */}
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
+        }}
+      />
 
-      {/* ===== Headline — Emerges Through Liquid ===== */}
-      <div className="relative z-10 flex h-full flex-col items-center justify-center px-6 text-center">
-        {/* Eyebrow */}
-        <motion.p
-          initial={{ opacity: 0, y: 20, filter: 'blur(10px)' }}
-          animate={
-            showContent
-              ? { opacity: 1, y: 0, filter: 'blur(0px)' }
-              : {}
-          }
-          transition={{ duration: 1.2, ease: EASE_LUXURY, delay: 0 }}
-          className="mb-8 text-[0.625rem] uppercase tracking-[0.35em] text-[#a69b8a]"
+      {/* Main content */}
+      <motion.div
+        className="relative z-10 flex h-full flex-col items-center justify-center px-6 pt-20 text-center"
+        style={{ opacity, y }}
+      >
+        <motion.span
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-10 text-[0.6rem] uppercase tracking-[0.4em] text-[#a69b8a]"
         >
           Est. 2026 — Central Coast, NSW
-        </motion.p>
+        </motion.span>
 
-        {/* Main Title */}
-        <motion.h1
-          initial={{ opacity: 0, y: 60, filter: 'blur(20px)', scale: 0.95 }}
-          animate={
-            showContent
-              ? { opacity: 1, y: 0, filter: 'blur(0px)', scale: 1 }
-              : {}
-          }
-          transition={{ duration: 1.6, ease: EASE_LUXURY, delay: 0.2 }}
-          className="font-display text-[clamp(3.5rem,12vw,10rem)] leading-[0.9] tracking-[-0.04em] text-[#f5f3ef]"
-        >
-          Essence
-          <br />
-          <span className="italic text-[#c9a227]">Transcended</span>
-        </motion.h1>
+        <div className="overflow-hidden">
+          <motion.h1
+            className="font-display text-[clamp(3.2rem,11vw,10rem)] leading-[0.85] tracking-[-0.04em] text-[#f5f3ef]"
+            initial={{ y: '110%' }}
+            animate={{ y: 0 }}
+            transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1], delay: 0.2 }}
+          >
+            Essence
+          </motion.h1>
+        </div>
+        <div className="overflow-hidden">
+          <motion.h1
+            className="font-display text-[clamp(3.2rem,11vw,10rem)] leading-[0.85] tracking-[-0.04em] text-[#c9a227]"
+            initial={{ y: '110%' }}
+            animate={{ y: 0 }}
+            transition={{ duration: 1.4, ease: [0.16, 1, 0.3, 1], delay: 0.38 }}
+          >
+            <span className="italic">Transcended</span>
+          </motion.h1>
+        </div>
 
-        {/* Subline — Writes Itself */}
         <motion.p
-          initial={{ opacity: 0, y: 30, filter: 'blur(10px)' }}
-          animate={
-            showContent
-              ? { opacity: 1, y: 0, filter: 'blur(0px)' }
-              : {}
-          }
-          transition={{ duration: 1.2, ease: EASE_LUXURY, delay: 0.8 }}
-          className="mt-10 max-w-lg text-sm leading-relaxed text-[#a69b8a]"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 0.9 }}
+          className="mt-12 max-w-md text-sm font-light leading-relaxed tracking-wide text-[#a69b8a]"
         >
-          Essential oils that culminate in crystal jewelry.
-          <br />
-          A journey from bottle to keepsake.
+          Australian organic essential oils. Paired with sacred crystals.
+          Culminating in jewelry that carries intention.
         </motion.p>
 
-        {/* CTAs — Floating Runes */}
         <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={showContent ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 1.2, ease: EASE_LUXURY, delay: 1.2 }}
-          className="mt-14 flex flex-col items-center gap-5 sm:flex-row sm:gap-8"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 1.1 }}
+          className="mt-14 flex flex-col gap-4 sm:flex-row sm:gap-6"
         >
           <Link
             href="/oils"
-            className="group relative overflow-hidden btn-luxury px-10 py-4"
+            className="group relative overflow-hidden border border-[#c9a227] bg-[#c9a227] px-12 py-4 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[#050505] transition-all hover:bg-transparent hover:text-[#c9a227]"
           >
-            <span className="relative z-10">Enter the Collection</span>
-            <motion.div
-              className="absolute inset-0 bg-[#f5f3ef]"
-              initial={{ x: '-100%' }}
-              whileHover={{ x: '0%' }}
-              transition={{ duration: 0.5, ease: EASE_LUXURY }}
-            />
+            Enter the Collection
           </Link>
-
           <Link
             href="/mixing-atelier"
-            className="group relative overflow-hidden btn-luxury-dark px-10 py-4"
+            className="group relative overflow-hidden border border-[#f5f3ef]/20 px-12 py-4 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[#f5f3ef] transition-all hover:border-[#c9a227] hover:text-[#c9a227]"
           >
-            <span className="relative z-10">Become the Alchemist</span>
-            <motion.div
-              className="absolute inset-0 bg-[#c9a227]"
-              initial={{ x: '-100%' }}
-              whileHover={{ x: '0%' }}
-              transition={{ duration: 0.5, ease: EASE_LUXURY }}
-            />
+            Become the Alchemist
           </Link>
         </motion.div>
-      </div>
+      </motion.div>
 
-      {/* ===== Scroll Indicator ===== */}
+      {/* Scroll indicator */}
       <motion.div
-        className="absolute bottom-10 left-1/2 -translate-x-1/2"
+        className="absolute bottom-12 left-1/2 -translate-x-1/2"
+        style={{ opacity }}
         initial={{ opacity: 0 }}
-        animate={showContent ? { opacity: 1 } : {}}
-        transition={{ delay: 2, duration: 1 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 1.6, duration: 1 }}
       >
         <motion.div
-          className="h-16 w-px bg-gradient-to-b from-[#c9a227] to-transparent"
-          animate={{ scaleY: [1, 0.4, 1] }}
-          transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+          className="h-20 w-px bg-gradient-to-b from-[#c9a227] to-transparent"
+          animate={{ scaleY: [1, 0.3, 1] }}
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
         />
       </motion.div>
     </section>

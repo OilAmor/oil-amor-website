@@ -18,6 +18,7 @@
 
 import { OIL_WISDOM, OilWisdomProfile } from './oil-wisdom'
 import { OIL_ARCHETYPES } from './oil-archetypes'
+import { SafetyValidationResult } from '@/lib/safety/comprehensive-safety-v2'
 
 // ═══════════════════════════════════════════════════════════════════════════════
 // CRYSTAL WISDOM - The Energetic Amplifiers
@@ -286,10 +287,10 @@ export const CARRIER_WISDOM: Record<string, CarrierWisdom> = {
     id: 'pure',
     name: 'Pure Essential (No Carrier)',
     absorption: 'fast',
-    texture: 'volatile',
-    feel: 'intense and immediate',
-    therapeutic: ['maximum potency', 'rapid action', 'targeted intervention'],
-    extendsNotes: 'all notes evaporate quickly but intensely—use within 15 minutes of opening',
+    texture: 'concentrated',
+    feel: 'highly concentrated — respect potency',
+    therapeutic: ['maximum potency', 'targeted intervention'],
+    extendsNotes: 'always dilute before skin contact and use sparingly in well-ventilated spaces',
     skinType: ['experienced users only', 'not for direct skin contact']
   },
   'jojoba': {
@@ -413,6 +414,9 @@ export interface BlendCodex {
     ageRestriction?: string
     contraindications: string[]
   }
+  
+  // Comprehensive safety validation from the safety engine
+  safetyValidation?: SafetyValidationResult
   
   // The Ritual
   ritual: {

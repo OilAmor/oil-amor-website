@@ -255,10 +255,10 @@ const CARRIER_WISDOM: Record<string, {
   'pure': {
     role: 'Uncompromised Potency',
     synergy: 'Amplifies the purest expression of each oil',
-    skinBenefits: ['Maximum therapeutic concentration', 'Direct aromatic impact'],
-    textureProfile: 'Light, volatile, intensely aromatic',
-    absorptionQuality: 'Rapid dermal penetration, immediate effect',
-    bestFor: ['Advanced practitioners', 'Targeted therapy', 'Inhalation work']
+    skinBenefits: ['Maximum therapeutic concentration', 'Requires dilution for skin contact'],
+    textureProfile: 'Light, concentrated, highly aromatic',
+    absorptionQuality: 'Not for direct skin contact without proper dilution',
+    bestFor: ['Advanced practitioners', 'Diffusion', 'Inhalation work']
   },
   'jojoba': {
     role: 'The Golden Balancer',

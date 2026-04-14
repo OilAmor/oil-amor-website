@@ -1,251 +1,209 @@
 'use client'
 
 import { useRef, useState } from 'react'
-import { motion, useInView, useScroll, useTransform } from 'framer-motion'
+import { motion, useInView } from 'framer-motion'
 import Link from 'next/link'
-import { ArrowRight, ArrowLeft, Gem, MapPin, Droplets } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import { OIL_DATABASE } from '@/lib/content/oil-crystal-synergies'
 
 const EASE_LUXURY = [0.16, 1, 0.3, 1] as const
 
-function OilCodexCard({ oil, index }: { oil: typeof OIL_DATABASE[0]; index: number }) {
-  const cardRef = useRef<HTMLDivElement>(null)
-  const isInView = useInView(cardRef, { once: true, margin: '-20%' })
+// Distribute 33 oils across 3 rings
+const RINGS = [
+  { radius: 130, duration: 120, oils: OIL_DATABASE.slice(0, 11) },
+  { radius: 220, duration: 180, oils: OIL_DATABASE.slice(11, 22) },
+  { radius: 310, duration: 240, oils: OIL_DATABASE.slice(22, 33) },
+]
 
-  const mainCrystal = oil.crystalPairings[0]
+function OrbitalRing({
+  ring,
+  ringIndex,
+  hoveredOil,
+  setHoveredOil,
+}: {
+  ring: (typeof RINGS)[0]
+  ringIndex: number
+  hoveredOil: string | null
+  setHoveredOil: (id: string | null) => void
+}) {
+  const direction = ringIndex % 2 === 0 ? 1 : -1
 
   return (
     <motion.div
-      ref={cardRef}
-      initial={{ opacity: 0, x: 80 }}
-      animate={isInView ? { opacity: 1, x: 0 } : {}}
-      transition={{ duration: 1, ease: EASE_LUXURY, delay: 0.1 }}
-      data-codex-card
-      className="relative flex h-[70vh] min-w-[85vw] snap-center flex-col overflow-hidden rounded-sm border border-[#c9a227]/10 bg-[#0a080c] sm:min-w-[70vw] lg:min-w-[55vw] lg:flex-row"
+      className="absolute left-1/2 top-1/2"
+      style={{ marginLeft: 0, marginTop: 0 }}
+      animate={{ rotate: direction * 360 }}
+      transition={{ duration: ring.duration, repeat: Infinity, ease: 'linear' }}
     >
-      {/* Image Side */}
-      <div className="relative h-1/2 w-full lg:h-full lg:w-1/2">
-        <img
-          src={oil.image}
-          alt={oil.commonName}
-          className="h-full w-full object-cover"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a080c] via-[#0a080c]/20 to-transparent lg:bg-gradient-to-r" />
+      {ring.oils.map((oil, i) => {
+        const angle = (360 / ring.oils.length) * i
+        const isHovered = hoveredOil === oil.id
+        const mainCrystal = oil.crystalPairings[0]
 
-        {/* Number badge */}
-        <div className="absolute left-6 top-6">
-          <span className="text-[0.625rem] uppercase tracking-[0.3em] text-[#a69b8a]">
-            No. {String(index + 1).padStart(2, '0')}
-          </span>
-        </div>
-      </div>
-
-      {/* Content Side */}
-      <div className="flex h-1/2 flex-col justify-center p-8 lg:h-full lg:w-1/2 lg:p-12">
-        <motion.div
-          initial={{ opacity: 0, y: 30 }}
-          animate={isInView ? { opacity: 1, y: 0 } : {}}
-          transition={{ duration: 0.8, delay: 0.3, ease: EASE_LUXURY }}
-        >
-          <div className="mb-6 flex items-center gap-4 text-[0.65rem] uppercase tracking-[0.2em] text-[#a69b8a]">
-            <span className="flex items-center gap-1.5">
-              <MapPin className="h-3 w-3" />
-              {oil.origin}
-            </span>
-            <span className="h-px w-4 bg-[#c9a227]/30" />
-            <span className="flex items-center gap-1.5">
-              <Droplets className="h-3 w-3" />
-              {oil.extractionMethod}
-            </span>
-          </div>
-
-          <h3 className="font-display text-4xl text-[#f5f3ef] sm:text-5xl lg:text-6xl">
-            {oil.commonName}
-          </h3>
-          <p className="mt-2 text-[0.75rem] italic text-[#a69b8a]">
-            {oil.technicalName}
-          </p>
-
-          <p className="mt-6 max-w-sm text-sm leading-relaxed text-[#a69b8a]">
-            {oil.description}
-          </p>
-
-          {mainCrystal && (
-            <div className="mt-8 border-t border-[#c9a227]/10 pt-6">
-              <div className="mb-3 flex items-center gap-2 text-[0.65rem] uppercase tracking-[0.2em] text-[#c9a227]">
-                <Gem className="h-3.5 w-3.5" />
-                Sacred Pairing
-              </div>
-              <p className="font-display text-xl text-[#f5f3ef]">
-                {mainCrystal.name}
-              </p>
-              <p className="mt-1 max-w-xs text-[0.8rem] leading-relaxed text-[#a69b8a]/80">
-                {mainCrystal.synergyDescription}
-              </p>
-            </div>
-          )}
-
+        return (
           <Link
+            key={oil.id}
             href={`/oil/${oil.id}`}
-            className="group mt-8 inline-flex items-center gap-2 text-[0.75rem] uppercase tracking-[0.15em] text-[#c9a227] transition-colors hover:text-[#f5f3ef]"
+            onMouseEnter={() => setHoveredOil(oil.id)}
+            onMouseLeave={() => setHoveredOil(null)}
+            className="absolute left-0 top-0 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
+            style={{
+              transform: `translate(-50%, -50%) rotate(${angle}deg) translateX(${ring.radius}px) rotate(${-angle}deg)`,
+            }}
           >
-            Discover {oil.commonName}
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+            <span
+              className={`whitespace-nowrap text-[10px] uppercase tracking-[0.2em] transition-all duration-300 lg:text-[11px] ${
+                isHovered
+                  ? 'scale-110 text-[#f5f3ef]'
+                  : 'text-[#a69b8a]/50 hover:text-[#a69b8a]'
+              }`}
+            >
+              {oil.commonName}
+            </span>
+            {isHovered && (
+              <motion.span
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-1 whitespace-nowrap text-[9px] tracking-[0.15em] text-[#c9a227]"
+              >
+                {mainCrystal?.name}
+              </motion.span>
+            )}
+            <span
+              className={`mt-1.5 h-1 w-1 rounded-full transition-all duration-300 ${
+                isHovered
+                  ? 'scale-150 bg-[#c9a227] shadow-[0_0_8px_rgba(201,162,39,0.8)]'
+                  : 'bg-[#a69b8a]/30'
+              }`}
+            />
           </Link>
-        </motion.div>
-      </div>
+        )
+      })}
     </motion.div>
   )
 }
 
 export function CodexSection() {
   const sectionRef = useRef<HTMLElement>(null)
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const isInView = useInView(sectionRef, { once: true, margin: '-100px' })
-  const [isDragging, setIsDragging] = useState(false)
-  const [startX, setStartX] = useState(0)
-  const [scrollLeft, setScrollLeft] = useState(0)
-
-  const { scrollYProgress } = useScroll({
-    target: sectionRef,
-    offset: ['start end', 'end start'],
-  })
-
-  const lineWidth = useTransform(scrollYProgress, [0.1, 0.4], ['0%', '100%'])
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    if (!scrollContainerRef.current) return
-    setIsDragging(true)
-    setStartX(e.pageX - scrollContainerRef.current.offsetLeft)
-    setScrollLeft(scrollContainerRef.current.scrollLeft)
-  }
-
-  const handleMouseUp = () => {
-    setIsDragging(false)
-  }
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (!isDragging || !scrollContainerRef.current) return
-    e.preventDefault()
-    const x = e.pageX - scrollContainerRef.current.offsetLeft
-    const walk = (x - startX) * 1.5
-    scrollContainerRef.current.scrollLeft = scrollLeft - walk
-  }
-
-  const scroll = (direction: 'left' | 'right') => {
-    if (!scrollContainerRef.current) return
-    const cardWidth = scrollContainerRef.current.querySelector('[data-codex-card]')?.clientWidth || 800
-    scrollContainerRef.current.scrollBy({
-      left: direction === 'left' ? -cardWidth - 24 : cardWidth + 24,
-      behavior: 'smooth',
-    })
-  }
+  const [hoveredOil, setHoveredOil] = useState<string | null>(null)
 
   return (
-    <section ref={sectionRef} className="relative overflow-hidden bg-[#0a080c] py-32 lg:py-40">
+    <section ref={sectionRef} className="relative overflow-hidden bg-[#050505] py-32 lg:py-40">
+      {/* Radial glow behind mandala */}
+      <motion.div
+        className="pointer-events-none absolute left-1/2 top-1/2 h-[80vh] w-[80vh] -translate-x-1/2 -translate-y-1/2 rounded-full"
+        style={{
+          background:
+            'radial-gradient(circle, rgba(26,15,46,0.4) 0%, transparent 60%)',
+        }}
+        initial={{ opacity: 0 }}
+        animate={isInView ? { opacity: 1 } : {}}
+        transition={{ duration: 2, ease: EASE_LUXURY }}
+      />
+
       {/* Header */}
-      <div className="mb-16 px-6 lg:mb-24 lg:px-12">
-        <div className="mx-auto max-w-7xl">
-          <motion.span
-            initial={{ opacity: 0, y: 20 }}
-            animate={isInView ? { opacity: 1, y: 0 } : {}}
-            transition={{ duration: 0.8, ease: EASE_LUXURY }}
-            className="mb-6 block text-[0.625rem] uppercase tracking-[0.3em] text-[#a69b8a]"
-          >
-            The Codex
-          </motion.span>
+      <div className="relative z-10 mb-16 px-6 text-center lg:mb-0 lg:absolute lg:left-0 lg:right-0 lg:top-14">
+        <motion.span
+          initial={{ opacity: 0, y: 20 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.8, ease: EASE_LUXURY }}
+          className="mb-4 block text-[0.6rem] uppercase tracking-[0.3em] text-[#a69b8a]"
+        >
+          The Codex
+        </motion.span>
 
-          <div className="flex flex-col gap-8 lg:flex-row lg:items-end lg:justify-between">
-            <motion.h2
-              initial={{ opacity: 0, y: 40 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 1, delay: 0.1, ease: EASE_LUXURY }}
-              className="font-display text-4xl sm:text-5xl lg:text-6xl leading-[1.05] tracking-tight text-[#f5f3ef]"
-            >
-              Thirty-Three
-              <br />
-              <span className="italic text-[#c9a227]">Sacred Oils</span>
-            </motion.h2>
-
-            <motion.p
-              initial={{ opacity: 0, y: 30 }}
-              animate={isInView ? { opacity: 1, y: 0 } : {}}
-              transition={{ duration: 0.8, delay: 0.2, ease: EASE_LUXURY }}
-              className="max-w-md text-sm leading-relaxed text-[#a69b8a] lg:text-right"
-            >
-              Each oil is paired with crystals chosen by energetic resonance.
-              Scroll to explore the complete collection.
-            </motion.p>
-          </div>
-
-          {/* Progress line */}
-          <div className="relative mt-12 h-px w-full bg-[#c9a227]/10">
-            <motion.div
-              className="absolute left-0 top-0 h-full bg-[#c9a227]"
-              style={{ width: lineWidth }}
-            />
-          </div>
-        </div>
+        <motion.h2
+          initial={{ opacity: 0, y: 40 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 1, delay: 0.1, ease: EASE_LUXURY }}
+          className="font-display text-4xl leading-[1.05] tracking-tight text-[#f5f3ef] sm:text-5xl lg:text-6xl"
+        >
+          Thirty-Three
+          <br />
+          <span className="italic text-[#c9a227]">Sacred Oils</span>
+        </motion.h2>
       </div>
 
-      {/* Horizontal scroll gallery with drag + arrows */}
-      <div className="relative">
-        <div
-          ref={scrollContainerRef}
-          onMouseDown={handleMouseDown}
-          onMouseUp={handleMouseUp}
-          onMouseLeave={handleMouseUp}
-          onMouseMove={handleMouseMove}
-          className={`scrollbar-hide flex snap-x snap-mandatory gap-6 overflow-x-auto px-6 pb-8 select-none lg:gap-10 lg:px-12 ${
-            isDragging ? 'cursor-grabbing' : 'cursor-grab'
-          }`}
-        >
-          {OIL_DATABASE.map((oil, index) => (
-            <OilCodexCard key={oil.id} oil={oil} index={index} />
-          ))}
-
-          {/* End card */}
+      {/* Desktop: Rotating constellation */}
+      <div className="relative mx-auto hidden h-[700px] w-full max-w-5xl lg:block">
+        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
+          {/* Center core */}
           <motion.div
-            initial={{ opacity: 0, x: 80 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true, margin: '-20%' }}
-            transition={{ duration: 1, ease: EASE_LUXURY }}
-            data-codex-card
-            className="flex h-[70vh] min-w-[70vw] snap-center flex-col items-center justify-center rounded-sm border border-[#c9a227]/10 bg-[#0a080c] p-12 sm:min-w-[50vw] lg:min-w-[35vw]"
+            className="relative flex h-20 w-20 items-center justify-center rounded-full border border-[#c9a227]/20 bg-[#050505]"
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={isInView ? { scale: 1, opacity: 1 } : {}}
+            transition={{ duration: 1.2, ease: EASE_LUXURY }}
           >
-            <span className="mb-6 text-[0.625rem] uppercase tracking-[0.3em] text-[#a69b8a]">
-              The Complete Collection
-            </span>
-            <h3 className="text-center font-display text-3xl text-[#f5f3ef] sm:text-4xl">
-              Every oil tells a story.
-              <br />
-              <span className="italic text-[#c9a227]">Which is yours?</span>
-            </h3>
-            <Link
-              href="/oils"
-              className="group mt-10 inline-flex items-center gap-2 overflow-hidden btn-luxury px-10 py-4"
-            >
-              <span className="relative z-10">Enter the Collection</span>
-              <ArrowRight className="relative z-10 h-4 w-4 transition-transform group-hover:translate-x-1" />
-            </Link>
+            <div className="h-2 w-2 rounded-full bg-[#c9a227] shadow-[0_0_30px_rgba(201,162,39,0.6)]" />
           </motion.div>
+
+          {/* Rings */}
+          {RINGS.map((ring, i) => (
+            <OrbitalRing
+              key={i}
+              ring={ring}
+              ringIndex={i}
+              hoveredOil={hoveredOil}
+              setHoveredOil={setHoveredOil}
+            />
+          ))}
         </div>
 
-        {/* Desktop scroll arrows */}
-        <button
-          onClick={() => scroll('left')}
-          className="absolute left-4 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full border border-[#c9a227]/30 bg-[#0a080c]/80 p-3 text-[#c9a227] backdrop-blur-sm transition-all hover:border-[#c9a227] hover:bg-[#0a080c] lg:flex"
-          aria-label="Scroll left"
+        {/* Bottom CTA */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={isInView ? { opacity: 1, y: 0 } : {}}
+          transition={{ duration: 0.8, delay: 0.6, ease: EASE_LUXURY }}
+          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-center"
         >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
-        <button
-          onClick={() => scroll('right')}
-          className="absolute right-4 top-1/2 hidden -translate-y-1/2 items-center justify-center rounded-full border border-[#c9a227]/30 bg-[#0a080c]/80 p-3 text-[#c9a227] backdrop-blur-sm transition-all hover:border-[#c9a227] hover:bg-[#0a080c] lg:flex"
-          aria-label="Scroll right"
-        >
-          <ArrowRight className="h-5 w-5" />
-        </button>
+          <p className="mb-4 text-xs tracking-wide text-[#a69b8a]/60">
+            Hover to reveal crystal pairings
+          </p>
+          <Link
+            href="/oils"
+            className="group inline-flex items-center gap-2 border border-[#c9a227] bg-[#c9a227] px-8 py-3 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[#050505] transition-all hover:bg-transparent hover:text-[#c9a227]"
+          >
+            Explore the Collection
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </Link>
+        </motion.div>
+      </div>
+
+      {/* Mobile: Elegant vertical list */}
+      <div className="mx-auto max-w-md px-6 lg:hidden">
+        <div className="grid grid-cols-1 gap-1">
+          {OIL_DATABASE.map((oil, i) => (
+            <motion.div
+              key={oil.id}
+              initial={{ opacity: 0, x: -10 }}
+              whileInView={{ opacity: 1, x: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: i * 0.02, ease: EASE_LUXURY }}
+            >
+              <Link
+                href={`/oil/${oil.id}`}
+                className="group flex items-center justify-between border-b border-[#f5f3ef]/5 py-2 transition-colors hover:border-[#c9a227]/20"
+              >
+                <span className="text-sm text-[#a69b8a] transition-colors group-hover:text-[#f5f3ef]">
+                  {oil.commonName}
+                </span>
+                <span className="text-[10px] tracking-wider text-[#a69b8a]/40 transition-colors group-hover:text-[#c9a227]">
+                  {oil.crystalPairings[0]?.name}
+                </span>
+              </Link>
+            </motion.div>
+          ))}
+        </div>
+        <div className="mt-10 text-center">
+          <Link
+            href="/oils"
+            className="group inline-flex items-center gap-2 border border-[#c9a227] bg-[#c9a227] px-8 py-3 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[#050505] transition-all hover:bg-transparent hover:text-[#c9a227]"
+          >
+            Explore the Collection
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </Link>
+        </div>
       </div>
     </section>
   )

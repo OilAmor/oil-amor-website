@@ -1,0 +1,28 @@
+<svg width="340" height="340" viewBox="0 0 340 340" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="crystal1" x1="170" y1="20" x2="170" y2="320" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#e8d5a3" stop-opacity="0.9"/>
+      <stop offset="50%" stop-color="#c9a227" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#8b7355" stop-opacity="0.4"/>
+    </linearGradient>
+    <linearGradient id="crystal2" x1="100" y1="80" x2="140" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#f5f3ef" stop-opacity="0.7"/>
+      <stop offset="100%" stop-color="#c9a227" stop-opacity="0.3"/>
+    </linearGradient>
+    <linearGradient id="crystal3" x1="240" y1="100" x2="200" y2="300" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#e8d5a3" stop-opacity="0.6"/>
+      <stop offset="100%" stop-color="#a69b8a" stop-opacity="0.2"/>
+    </linearGradient>
+  </defs>
+  <!-- Central tall crystal -->
+  <polygon points="170,20 210,300 170,320 130,300" fill="url(#crystal1)" stroke="#c9a227" stroke-width="1" stroke-opacity="0.5"/>
+  <polygon points="170,20 190,180 170,200 150,180" fill="#f5f3ef" fill-opacity="0.2"/>
+  <!-- Left crystal -->
+  <polygon points="120,80 160,300 120,310 90,290" fill="url(#crystal2)" stroke="#c9a227" stroke-width="1" stroke-opacity="0.4"/>
+  <!-- Right crystal -->
+  <polygon points="220,100 250,290 220,305 190,290" fill="url(#crystal3)" stroke="#c9a227" stroke-width="1" stroke-opacity="0.4"/>
+  <!-- Small front crystal -->
+  <polygon points="170,180 200,320 170,340 140,320" fill="url(#crystal1)" fill-opacity="0.3" stroke="#c9a227" stroke-width="1" stroke-opacity="0.3"/>
+  <!-- Glow -->
+  <circle cx="170" cy="200" r="100" fill="#c9a227" fill-opacity="0.05" filter="blur(20px)"/>
+</svg>

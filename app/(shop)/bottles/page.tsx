@@ -1,16 +1,14 @@
 'use client'
 
 import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
-import { 
-  Wine, 
-  Shield, 
-  Sparkles, 
-  Droplets, 
+import {
+  Shield,
+  Sparkles,
+  Droplets,
   Wind,
-  Sun,
   ArrowRight,
   Check,
   Info,
@@ -21,93 +19,184 @@ import {
   Star,
   ChevronDown,
   ChevronUp,
-  ExternalLink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // ============================================================================
-// MIRON VIOLET GLASS BOTTLE DATA
+// BOTTLE & CAP DATA
 // ============================================================================
 
 interface BottleProduct {
   id: string
   name: string
   description: string
-  size: string
+  size?: string
   price: number
   features: string[]
   image: string
-  type: 'dropper' | 'roller' | 'spray'
+  type: 'bottle' | 'cap' | 'pipette'
   inStock: boolean
 }
 
 const BOTTLE_PRODUCTS: BottleProduct[] = [
   {
-    id: 'miron-30ml-dropper',
-    name: 'Miron Violet Glass Dropper Bottle',
-    description: 'The perfect vessel for your pure essential oil blends. Includes precision glass dropper for accurate dispensing.',
-    size: '30ml',
-    price: 24.95,
-    features: [
-      'Precision glass dropper included',
-      'Blocks 100% of UV-A & UV-B rays',
-      'Allows beneficial violet & infrared light',
-      'Preserves potency for 2+ years',
-      'Reusable & refillable',
-    ],
-    image: '/images/bottles/miron-dropper-30ml.jpg',
-    type: 'dropper',
+    id: 'bottle-5ml',
+    name: '5ml Orion MIRON Violetglass DIN18 Bottle',
+    description: 'Compact Miron violet glass bottle. Perfect for samples, travel sizes, and precious blends.',
+    size: '5ml',
+    price: 4.95,
+    features: ['Genuine Miron Violetglass', 'Blocks 100% of UV-A & UV-B rays', 'DIN18 neck finish', 'Preserves potency for years'],
+    image: '/images/bottles/bottle-5ml.webp',
+    type: 'bottle',
     inStock: true,
   },
   {
-    id: 'miron-50ml-dropper',
-    name: 'Miron Violet Glass Dropper Bottle',
-    description: 'Our most popular size for custom blends. Generous capacity with the same protective properties.',
-    size: '50ml',
-    price: 34.95,
-    features: [
-      'Precision glass dropper included',
-      'Blocks 100% of UV-A & UV-B rays',
-      'Allows beneficial violet & infrared light',
-      'Preserves potency for 2+ years',
-      'Reusable & refillable',
-    ],
-    image: '/images/bottles/miron-dropper-50ml.jpg',
-    type: 'dropper',
-    inStock: true,
-  },
-  {
-    id: 'miron-10ml-roller',
-    name: 'Miron Violet Glass Roller Bottle',
-    description: 'Elegant roller bottle for on-the-go application. Stainless steel roller ball for smooth, even distribution.',
+    id: 'bottle-10ml',
+    name: '10ml Orion MIRON Violetglass DIN18 Bottle',
+    description: 'The ideal size for roller applications and small custom blends.',
     size: '10ml',
-    price: 19.95,
-    features: [
-      'Stainless steel roller ball',
-      'Perfect for carrier oil blends',
-      'Blocks harmful light spectrum',
-      'Pocket & purse friendly',
-      'Leak-proof design',
-    ],
-    image: '/images/bottles/miron-roller-10ml.jpg',
-    type: 'roller',
+    price: 5.95,
+    features: ['Genuine Miron Violetglass', 'Blocks 100% of UV-A & UV-B rays', 'DIN18 neck finish', 'Preserves potency for years'],
+    image: '/images/bottles/bottle-10ml.webp',
+    type: 'bottle',
     inStock: true,
   },
   {
-    id: 'miron-100ml-refill',
-    name: 'Miron Violet Glass Refill Bottle',
-    description: 'Part of our Forever Bottle program. Large capacity for refills with wide mouth for easy filling.',
-    size: '100ml',
-    price: 49.95,
-    features: [
-      'Wide mouth for easy refilling',
-      'Part of Forever Bottle program',
-      '$5 credit when returned empty',
-      'Laboratory-grade glass',
-      'Lifetime durability',
-    ],
-    image: '/images/bottles/miron-refill-100ml.jpg',
-    type: 'dropper',
+    id: 'bottle-15ml',
+    name: '15ml Orion MIRON Violetglass DIN18 Bottle',
+    description: 'A versatile mid-size bottle for everyday essential oil storage.',
+    size: '15ml',
+    price: 6.95,
+    features: ['Genuine Miron Violetglass', 'Blocks 100% of UV-A & UV-B rays', 'DIN18 neck finish', 'Preserves potency for years'],
+    image: '/images/bottles/bottle-15ml.webp',
+    type: 'bottle',
+    inStock: true,
+  },
+  {
+    id: 'bottle-20ml',
+    name: '20ml Orion MIRON Violetglass DIN18 Bottle',
+    description: 'Generous capacity for custom blends while maintaining compact portability.',
+    size: '20ml',
+    price: 7.95,
+    features: ['Genuine Miron Violetglass', 'Blocks 100% of UV-A & UV-B rays', 'DIN18 neck finish', 'Preserves potency for years'],
+    image: '/images/bottles/bottle-20ml.webp',
+    type: 'bottle',
+    inStock: true,
+  },
+  {
+    id: 'bottle-30ml',
+    name: '30ml Orion MIRON Violetglass DIN18 Bottle',
+    description: 'Our most popular bottle size for dedicated blends and daily use.',
+    size: '30ml',
+    price: 8.95,
+    features: ['Genuine Miron Violetglass', 'Blocks 100% of UV-A & UV-B rays', 'DIN18 neck finish', 'Preserves potency for years'],
+    image: '/images/bottles/bottle-30ml.webp',
+    type: 'bottle',
+    inStock: true,
+  },
+  {
+    id: 'cap-rollon',
+    name: 'Screw Cap Black with Glass Roll-On Fitment',
+    description: 'Premium black screw cap with glass roll-on fitment for DIN18 bottles. Smooth, even application.',
+    price: 2.95,
+    features: ['Glass roll-on fitment', 'For DIN18 bottles', 'Smooth application', 'Leak-proof design'],
+    image: '/images/bottles/cap-rollon.webp',
+    type: 'cap',
+    inStock: true,
+  },
+  {
+    id: 'cap-dropper-ribbed',
+    name: 'Screw Cap with Vertical Dropper 1.0mm — Ribbed Wall',
+    description: 'Black tamper-evident screw cap with 1.0mm vertical dropper. Ribbed wall design.',
+    price: 1.95,
+    features: ['1.0mm vertical dropper', 'Tamper-evident', 'DIN18 black cap', 'Ribbed wall'],
+    image: '/images/bottles/cap-dropper-ribbed.webp',
+    type: 'cap',
+    inStock: true,
+  },
+  {
+    id: 'cap-dropper-smooth',
+    name: 'Screw Cap with Vertical Dropper 2.0mm — Smooth Wall',
+    description: 'Black tamper-evident screw cap with 2.0mm vertical dropper. Smooth wall design.',
+    price: 1.95,
+    features: ['2.0mm vertical dropper', 'Tamper-evident', 'DIN18 black cap', 'Smooth wall'],
+    image: '/images/bottles/cap-dropper-smooth.webp',
+    type: 'cap',
+    inStock: true,
+  },
+  {
+    id: 'cap-pourer-ribbed',
+    name: 'Tamper Evident Screw Cap with Pourer — Ribbed Wall',
+    description: 'Black tamper-evident screw cap III with integrated pourer for DIN18 bottles. Ribbed wall.',
+    price: 2.45,
+    features: ['Integrated pourer', 'Tamper-evident', 'DIN18 black cap', 'Ribbed wall'],
+    image: '/images/bottles/cap-pourer-ribbed.webp',
+    type: 'cap',
+    inStock: true,
+  },
+  {
+    id: 'cap-pourer-smooth',
+    name: 'Tamper Evident Screw Cap with Pourer — Smooth Wall',
+    description: 'Black tamper-evident screw cap III with integrated pourer for DIN18 bottles. Smooth wall.',
+    price: 2.45,
+    features: ['Integrated pourer', 'Tamper-evident', 'DIN18 black cap', 'Smooth wall'],
+    image: '/images/bottles/cap-pourer-smooth.webp',
+    type: 'cap',
+    inStock: true,
+  },
+  {
+    id: 'pipette-5ml',
+    name: 'TE III Pipette Black — for 5ml Orion Bottle',
+    description: 'Black TE III pipette with 0.7ml TPE bulb and glass stem. Fits 5ml Orion bottle.',
+    size: '5ml',
+    price: 1.95,
+    features: ['0.7ml TPE bulb', 'Glass stem', 'TE III tamper-evident', 'For 5ml Orion'],
+    image: '/images/bottles/pipette-5ml.webp',
+    type: 'pipette',
+    inStock: true,
+  },
+  {
+    id: 'pipette-10ml',
+    name: 'TE III Pipette Black — for 10ml Orion Bottle',
+    description: 'Black TE III pipette with 0.7ml TPE bulb and glass stem. Fits 10ml Orion bottle.',
+    size: '10ml',
+    price: 2.10,
+    features: ['0.7ml TPE bulb', 'Glass stem', 'TE III tamper-evident', 'For 10ml Orion'],
+    image: '/images/bottles/pipette-10ml.webp',
+    type: 'pipette',
+    inStock: true,
+  },
+  {
+    id: 'pipette-15ml',
+    name: 'TE III Pipette Black — for 15ml Orion Bottle',
+    description: 'Black TE III pipette with 0.7ml TPE bulb and glass stem. Fits 15ml Orion bottle.',
+    size: '15ml',
+    price: 2.25,
+    features: ['0.7ml TPE bulb', 'Glass stem', 'TE III tamper-evident', 'For 15ml Orion'],
+    image: '/images/bottles/pipette-15ml.webp',
+    type: 'pipette',
+    inStock: true,
+  },
+  {
+    id: 'pipette-20ml',
+    name: 'TE III Pipette Black — for 20ml Orion Bottle',
+    description: 'Black TE III pipette with 0.7ml TPE bulb and glass stem. Fits 20ml Orion bottle.',
+    size: '20ml',
+    price: 2.40,
+    features: ['0.7ml TPE bulb', 'Glass stem', 'TE III tamper-evident', 'For 20ml Orion'],
+    image: '/images/bottles/pipette-20ml.webp',
+    type: 'pipette',
+    inStock: true,
+  },
+  {
+    id: 'pipette-30ml',
+    name: 'TE III Pipette Black — for 30ml Orion Bottle',
+    description: 'Black TE III pipette with 0.7ml TPE bulb and glass stem. Fits 30ml Orion bottle.',
+    size: '30ml',
+    price: 2.55,
+    features: ['0.7ml TPE bulb', 'Glass stem', 'TE III tamper-evident', 'For 30ml Orion'],
+    image: '/images/bottles/pipette-30ml.webp',
+    type: 'pipette',
     inStock: true,
   },
 ]
@@ -120,7 +209,7 @@ const MIRON_SCIENCE = [
   {
     title: 'Violet Light Protection',
     description: 'Miron glass blocks the complete spectrum of visible light except for violet and infrared rays, which have been shown to enhance the molecular structure of organic materials.',
-    icon: Sun,
+    icon: Sparkles,
   },
   {
     title: 'UV Radiation Blocking',
@@ -133,9 +222,9 @@ const MIRON_SCIENCE = [
     icon: Leaf,
   },
   {
-    title: 'Energetic Enhancement',
-    description: 'Violet light has the highest frequency in the visible spectrum. Miron glass allows these high-frequency rays to penetrate, potentially enhancing the energetic properties of your oils.',
-    icon: Sparkles,
+    title: 'Laboratory Grade',
+    description: 'Developed in Europe and used by laboratories worldwide, Miron glass offers unmatched protection for sensitive organic materials like essential oils.',
+    icon: Beaker,
   },
 ]
 
@@ -163,22 +252,36 @@ function ScienceCard({ fact, index }: { fact: typeof MIRON_SCIENCE[0]; index: nu
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
-      className="p-6 rounded-2xl bg-gradient-to-br from-[#2d1b4e]/50 to-[#1a1033] border border-[#8B5CF6]/30"
+      className="rounded-2xl border border-[#8B5CF6]/30 bg-gradient-to-br from-[#2d1b4e]/50 to-[#1a1033] p-6"
     >
-      <div className="w-12 h-12 rounded-xl bg-[#8B5CF6]/20 flex items-center justify-center mb-4">
-        <Icon className="w-6 h-6 text-[#A855F7]" />
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-[#8B5CF6]/20">
+        <Icon className="h-6 w-6 text-[#A855F7]" />
       </div>
-      <h3 className="text-lg font-medium text-white mb-2">{fact.title}</h3>
-      <p className="text-sm text-[#c4b5fd] leading-relaxed">{fact.description}</p>
+      <h3 className="mb-2 text-lg font-medium text-white">{fact.title}</h3>
+      <p className="text-sm leading-relaxed text-[#c4b5fd]">{fact.description}</p>
     </motion.div>
   )
 }
 
 // ============================================================================
-// COMPONENT: Bottle Card
+// COMPONENT: Product Card
 // ============================================================================
 
-function BottleCard({ bottle, index }: { bottle: BottleProduct; index: number }) {
+function highlightName(name: string) {
+  const parts = name.split(/(5ml|10ml|15ml|20ml|30ml|dropper|pourer|roll[- ]?on)/gi)
+  return parts.map((part, i) => {
+    if (/^(5ml|10ml|15ml|20ml|30ml|dropper|pourer|roll[- ]?on)$/i.test(part)) {
+      return (
+        <span key={i} className="text-[#c9a227]">
+          {part}
+        </span>
+      )
+    }
+    return <span key={i}>{part}</span>
+  })
+}
+
+function ProductCard({ product, index }: { product: BottleProduct; index: number }) {
   const [isHovered, setIsHovered] = useState(false)
   const [showFeatures, setShowFeatures] = useState(false)
 
@@ -186,43 +289,40 @@ function BottleCard({ bottle, index }: { bottle: BottleProduct; index: number })
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.1 }}
+      transition={{ delay: index * 0.05 }}
       className="group relative"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      <div className={cn(
-        "relative rounded-2xl border transition-all duration-300 overflow-hidden",
-        isHovered 
-          ? 'bg-[#2d1b4e]/80 border-[#8B5CF6] shadow-xl shadow-[#8B5CF6]/20' 
-          : 'bg-[#111] border-[#f5f3ef]/10'
-      )}>
-        {/* Product Image Placeholder */}
-        <div className="relative aspect-square bg-gradient-to-br from-[#2d1b4e] to-[#1a1033] flex items-center justify-center">
+      <div
+        className={cn(
+          'relative overflow-hidden rounded-2xl border transition-all duration-300',
+          isHovered
+            ? 'border-[#8B5CF6] bg-[#2d1b4e]/80 shadow-xl shadow-[#8B5CF6]/20'
+            : 'border-[#f5f3ef]/10 bg-[#111]'
+        )}
+      >
+        {/* Product Image */}
+        <div className="relative flex aspect-square items-center justify-center bg-gradient-to-br from-[#2d1b4e] to-[#1a1033] p-8">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-[#8B5CF6]/10 via-transparent to-transparent" />
-          
-          {/* Bottle Icon Representation */}
-          <div className="relative z-10">
-            <div className={cn(
-              "w-24 h-32 rounded-full bg-gradient-to-b from-[#4c1d95] via-[#2d1b4e] to-[#1a1033] border-2 border-[#8B5CF6]/50 flex items-center justify-center transition-transform duration-300",
+          <Image
+            src={product.image}
+            alt={product.name}
+            fill
+            className={cn(
+              'object-contain p-6 transition-transform duration-500',
               isHovered && 'scale-110'
-            )}>
-              {bottle.type === 'dropper' ? (
-                <Droplets className="w-10 h-10 text-[#A855F7]/70" />
-              ) : (
-                <Wind className="w-10 h-10 text-[#A855F7]/70" />
-              )}
+            )}
+            sizes="(max-width: 768px) 50vw, 25vw"
+          />
+          {product.size && (
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-[#8B5CF6] px-3 py-1 text-xs font-medium text-white">
+              {product.size}
             </div>
-            {/* Size Label */}
-            <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full bg-[#8B5CF6] text-white text-xs font-medium">
-              {bottle.size}
-            </div>
-          </div>
-
-          {/* Stock Badge */}
-          {!bottle.inStock && (
-            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-              <span className="px-4 py-2 rounded-full bg-[#f5f3ef]/10 text-[#f5f3ef] text-sm font-medium">
+          )}
+          {!product.inStock && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+              <span className="rounded-full bg-[#f5f3ef]/10 px-4 py-2 text-sm font-medium text-[#f5f3ef]">
                 Out of Stock
               </span>
             </div>
@@ -231,60 +331,67 @@ function BottleCard({ bottle, index }: { bottle: BottleProduct; index: number })
 
         {/* Product Info */}
         <div className="p-5">
-          <div className="flex items-start justify-between gap-3 mb-2">
-            <h3 className="font-serif text-lg text-[#f5f3ef]">{bottle.name}</h3>
-            <span className="text-[#c9a227] font-display text-xl whitespace-nowrap">
-              ${bottle.price.toFixed(2)}
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <h3 className="font-serif text-base leading-snug text-[#f5f3ef]">
+              {highlightName(product.name)}
+            </h3>
+            <span className="whitespace-nowrap font-display text-xl text-[#c9a227]">
+              ${product.price.toFixed(2)}
             </span>
           </div>
-          
-          <p className="text-sm text-[#a69b8a] mb-4 line-clamp-2">
-            {bottle.description}
+
+          <p className="mb-4 line-clamp-2 text-sm text-[#a69b8a]">
+            {product.description}
           </p>
 
           {/* Features Toggle */}
           <button
             onClick={() => setShowFeatures(!showFeatures)}
-            className="flex items-center gap-1 text-xs text-[#8B5CF6] hover:text-[#A855F7] transition-colors mb-3"
+            className="mb-3 flex items-center gap-1 text-xs text-[#8B5CF6] transition-colors hover:text-[#A855F7]"
           >
             {showFeatures ? (
-              <>Hide features <ChevronUp className="w-3 h-3" /></>
+              <>
+                Hide features <ChevronUp className="h-3 w-3" />
+              </>
             ) : (
-              <>View features <ChevronDown className="w-3 h-3" /></>
+              <>
+                View features <ChevronDown className="h-3 w-3" />
+              </>
             )}
           </button>
 
-          {/* Features List */}
-          {showFeatures && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="mb-4"
-            >
-              <ul className="space-y-2">
-                {bottle.features.map((feature, i) => (
-                  <li key={i} className="flex items-start gap-2 text-xs text-[#a69b8a]">
-                    <Check className="w-3.5 h-3.5 text-[#8B5CF6] flex-shrink-0 mt-0.5" />
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          )}
+          <AnimatePresence>
+            {showFeatures && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="mb-4 overflow-hidden"
+              >
+                <ul className="space-y-2">
+                  {product.features.map((feature, i) => (
+                    <li key={i} className="flex items-start gap-2 text-xs text-[#a69b8a]">
+                      <Check className="mt-0.5 h-3.5 w-3.5 flex-shrink-0 text-[#8B5CF6]" />
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Add to Cart Button */}
           <button
-            disabled={!bottle.inStock}
+            disabled={!product.inStock}
             className={cn(
-              "w-full py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2",
-              bottle.inStock
+              'flex w-full items-center justify-center gap-2 rounded-xl py-3 font-medium transition-all',
+              product.inStock
                 ? 'bg-[#c9a227] text-[#0a080c] hover:bg-[#f5f3ef]'
-                : 'bg-[#f5f3ef]/10 text-[#a69b8a] cursor-not-allowed'
+                : 'cursor-not-allowed bg-[#f5f3ef]/10 text-[#a69b8a]'
             )}
           >
-            <ShoppingBag className="w-4 h-4" />
-            {bottle.inStock ? 'Add to Cart' : 'Out of Stock'}
+            <ShoppingBag className="h-4 w-4" />
+            {product.inStock ? 'Add to Cart' : 'Out of Stock'}
           </button>
         </div>
       </div>
@@ -297,62 +404,57 @@ function BottleCard({ bottle, index }: { bottle: BottleProduct; index: number })
 // ============================================================================
 
 export default function BottlesPage() {
-  const [activeTab, setActiveTab] = useState<'all' | 'dropper' | 'roller'>('all')
+  const [activeTab, setActiveTab] = useState<'all' | 'bottle' | 'cap' | 'pipette'>('all')
   const [showComparison, setShowComparison] = useState(false)
 
-  const filteredBottles = BOTTLE_PRODUCTS.filter(bottle => 
-    activeTab === 'all' || bottle.type === activeTab
+  const filteredProducts = BOTTLE_PRODUCTS.filter(
+    (product) => activeTab === 'all' || product.type === activeTab
   )
 
   return (
     <main className="min-h-screen bg-[#0a080c]">
-      {/* Hero Section - Miron Violet Theme */}
-      <section className="relative pt-32 pb-20 px-6 overflow-hidden">
-        {/* Background Effects */}
+      {/* Hero Section */}
+      <section className="relative overflow-hidden px-6 pb-20 pt-32">
         <div className="absolute inset-0 bg-gradient-to-b from-[#2d1b4e]/30 via-transparent to-transparent" />
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[800px] bg-[#8B5CF6]/10 rounded-full blur-[150px]" />
-        
-        <div className="relative max-w-6xl mx-auto">
-          {/* Badge */}
+        <div className="absolute left-1/2 top-0 h-[800px] w-[800px] -translate-x-1/2 rounded-full bg-[#8B5CF6]/10 blur-[150px]" />
+
+        <div className="relative mx-auto max-w-6xl">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center justify-center gap-2 mb-6"
+            className="mb-6 flex items-center justify-center gap-2"
           >
-            <span className="px-4 py-1.5 rounded-full bg-[#8B5CF6]/20 border border-[#8B5CF6]/40 text-[#A855F7] text-sm font-medium flex items-center gap-2">
-              <Crown className="w-4 h-4" />
+            <span className="flex items-center gap-2 rounded-full border border-[#8B5CF6]/40 bg-[#8B5CF6]/20 px-4 py-1.5 text-sm font-medium text-[#A855F7]">
+              <Crown className="h-4 w-4" />
               Premium Collection
             </span>
           </motion.div>
 
-          {/* Title */}
           <motion.h1
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="font-serif text-4xl md:text-6xl text-center text-white mb-6"
+            className="mb-6 text-center font-serif text-4xl text-white md:text-6xl"
           >
             Miron Violet Glass
-            <span className="block text-[#A855F7]">Bottles & Accessories</span>
+            <span className="block text-[#A855F7]">Bottles & Caps</span>
           </motion.h1>
 
-          {/* Subtitle */}
           <motion.p
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
-            className="text-center text-[#c4b5fd] text-lg max-w-2xl mx-auto mb-8"
+            className="mx-auto mb-8 max-w-2xl text-center text-lg text-[#c4b5fd]"
           >
-            The same laboratory-grade violet glass we use for our essential oils, 
-            now available for your own blends and precious contents.
+            The same laboratory-grade Orion MIRON violet glass and premium closures
+            we use for our essential oils, now available for your own blends.
           </motion.p>
 
-          {/* Key Benefits Pills */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3 }}
-            className="flex flex-wrap justify-center gap-3 mb-12"
+            className="mb-12 flex flex-wrap justify-center gap-3"
           >
             {[
               { icon: Shield, text: 'UV Protection' },
@@ -360,17 +462,16 @@ export default function BottlesPage() {
               { icon: Leaf, text: 'Natural Preservation' },
               { icon: Droplets, text: 'Laboratory Grade' },
             ].map((benefit, i) => (
-              <span 
+              <span
                 key={i}
-                className="px-4 py-2 rounded-full bg-[#1a1033] border border-[#8B5CF6]/30 text-[#ddd6fe] text-sm flex items-center gap-2"
+                className="flex items-center gap-2 rounded-full border border-[#8B5CF6]/30 bg-[#1a1033] px-4 py-2 text-sm text-[#ddd6fe]"
               >
-                <benefit.icon className="w-4 h-4 text-[#A855F7]" />
+                <benefit.icon className="h-4 w-4 text-[#A855F7]" />
                 {benefit.text}
               </span>
             ))}
           </motion.div>
 
-          {/* CTA Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -379,16 +480,16 @@ export default function BottlesPage() {
           >
             <a
               href="#products"
-              className="px-8 py-4 rounded-full bg-[#c9a227] text-[#0a080c] font-medium hover:bg-[#f5f3ef] transition-colors flex items-center gap-2"
+              className="flex items-center gap-2 rounded-full bg-[#c9a227] px-8 py-4 font-medium text-[#0a080c] transition-colors hover:bg-[#f5f3ef]"
             >
-              <ShoppingBag className="w-5 h-5" />
-              Shop Bottles
+              <ShoppingBag className="h-5 w-5" />
+              Shop Bottles & Caps
             </a>
             <a
               href="#science"
-              className="px-8 py-4 rounded-full bg-[#2d1b4e] border border-[#8B5CF6]/50 text-[#ddd6fe] font-medium hover:bg-[#4c1d95] transition-colors flex items-center gap-2"
+              className="flex items-center gap-2 rounded-full border border-[#8B5CF6]/50 bg-[#2d1b4e] px-8 py-4 font-medium text-[#ddd6fe] transition-colors hover:bg-[#4c1d95]"
             >
-              <Beaker className="w-5 h-5" />
+              <Beaker className="h-5 w-5" />
               The Science
             </a>
           </motion.div>
@@ -396,19 +497,22 @@ export default function BottlesPage() {
       </section>
 
       {/* Why Miron Glass Section */}
-      <section id="science" className="py-20 px-6 border-t border-[#f5f3ef]/10 bg-gradient-to-b from-[#1a1033]/50 to-transparent">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="font-serif text-3xl md:text-4xl text-white mb-4">
+      <section
+        id="science"
+        className="border-t border-[#f5f3ef]/10 bg-gradient-to-b from-[#1a1033]/50 to-transparent px-6 py-20"
+      >
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-12 text-center">
+            <h2 className="mb-4 font-serif text-3xl text-white md:text-4xl">
               Why Miron Violet Glass?
             </h2>
-            <p className="text-[#a69b8a] max-w-2xl mx-auto">
-              Developed in Europe and backed by scientific research, Miron violet glass 
-              offers unmatched protection for sensitive organic materials.
+            <p className="mx-auto max-w-2xl text-[#a69b8a]">
+              Developed in Europe and backed by scientific research, Miron violet
+              glass offers unmatched protection for sensitive organic materials.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
             {MIRON_SCIENCE.map((fact, index) => (
               <ScienceCard key={fact.title} fact={fact} index={index} />
             ))}
@@ -417,10 +521,10 @@ export default function BottlesPage() {
       </section>
 
       {/* Glass Comparison Section */}
-      <section className="py-20 px-6 border-t border-[#f5f3ef]/10">
-        <div className="max-w-4xl mx-auto">
-          <div className="text-center mb-8">
-            <h2 className="font-serif text-3xl text-white mb-4">
+      <section className="border-t border-[#f5f3ef]/10 px-6 py-20">
+        <div className="mx-auto max-w-4xl">
+          <div className="mb-8 text-center">
+            <h2 className="mb-4 font-serif text-3xl text-white">
               How Miron Compares
             </h2>
             <p className="text-[#a69b8a]">
@@ -430,65 +534,89 @@ export default function BottlesPage() {
 
           <button
             onClick={() => setShowComparison(!showComparison)}
-            className="w-full p-4 rounded-xl bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] flex items-center justify-between hover:border-[#8B5CF6]/50 transition-colors mb-4"
+            className="mb-4 flex w-full items-center justify-between rounded-xl border border-[#f5f3ef]/10 bg-[#111] p-4 text-[#f5f3ef] transition-colors hover:border-[#8B5CF6]/50"
           >
             <span className="flex items-center gap-2">
-              <Info className="w-5 h-5 text-[#8B5CF6]" />
+              <Info className="h-5 w-5 text-[#8B5CF6]" />
               View Glass Comparison Chart
             </span>
-            {showComparison ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            {showComparison ? (
+              <ChevronUp className="h-5 w-5" />
+            ) : (
+              <ChevronDown className="h-5 w-5" />
+            )}
           </button>
 
-          {showComparison && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              className="overflow-hidden"
-            >
-              <div className="rounded-xl overflow-hidden border border-[#f5f3ef]/10">
-                <table className="w-full">
-                  <thead>
-                    <tr className="bg-[#2d1b4e]">
-                      <th className="p-4 text-left text-[#f5f3ef] font-medium">Feature</th>
-                      <th className="p-4 text-center text-[#a69b8a]">Clear Glass</th>
-                      <th className="p-4 text-center text-[#a69b8a]">Amber/Brown</th>
-                      <th className="p-4 text-center text-[#A855F7] font-medium">Miron Violet</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {GLASS_COMPARISON.map((row, i) => (
-                      <tr key={i} className={cn(
-                        'border-t border-[#f5f3ef]/10',
-                        i % 2 === 0 ? 'bg-[#111]' : 'bg-[#0a080c]'
-                      )}>
-                        <td className="p-4 text-[#f5f3ef] text-sm">{row.feature}</td>
-                        <td className="p-4 text-center text-[#a69b8a] text-sm">{row.clear}</td>
-                        <td className="p-4 text-center text-[#a69b8a] text-sm">{row.amber}</td>
-                        <td className="p-4 text-center">
-                          <span className="px-3 py-1 rounded-full bg-[#8B5CF6]/20 text-[#A855F7] text-sm font-medium">
-                            {row.miron}
-                          </span>
-                        </td>
+          <AnimatePresence>
+            {showComparison && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="overflow-hidden"
+              >
+                <div className="overflow-hidden rounded-xl border border-[#f5f3ef]/10">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-[#2d1b4e]">
+                        <th className="p-4 text-left font-medium text-[#f5f3ef]">
+                          Feature
+                        </th>
+                        <th className="p-4 text-center text-[#a69b8a]">
+                          Clear Glass
+                        </th>
+                        <th className="p-4 text-center text-[#a69b8a]">
+                          Amber/Brown
+                        </th>
+                        <th className="p-4 text-center font-medium text-[#A855F7]">
+                          Miron Violet
+                        </th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </motion.div>
-          )}
+                    </thead>
+                    <tbody>
+                      {GLASS_COMPARISON.map((row, i) => (
+                        <tr
+                          key={i}
+                          className={cn(
+                            'border-t border-[#f5f3ef]/10',
+                            i % 2 === 0 ? 'bg-[#111]' : 'bg-[#0a080c]'
+                          )}
+                        >
+                          <td className="p-4 text-sm text-[#f5f3ef]">
+                            {row.feature}
+                          </td>
+                          <td className="p-4 text-center text-sm text-[#a69b8a]">
+                            {row.clear}
+                          </td>
+                          <td className="p-4 text-center text-sm text-[#a69b8a]">
+                            {row.amber}
+                          </td>
+                          <td className="p-4 text-center">
+                            <span className="rounded-full bg-[#8B5CF6]/20 px-3 py-1 text-sm font-medium text-[#A855F7]">
+                              {row.miron}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       </section>
 
       {/* Products Section */}
-      <section id="products" className="py-20 px-6 border-t border-[#f5f3ef]/10">
-        <div className="max-w-6xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="font-serif text-3xl md:text-4xl text-white mb-4">
-              Our Bottle Collection
+      <section id="products" className="border-t border-[#f5f3ef]/10 px-6 py-20">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-12 text-center">
+            <h2 className="mb-4 font-serif text-3xl text-white md:text-4xl">
+              Bottles & Caps
             </h2>
-            <p className="text-[#a69b8a] max-w-2xl mx-auto mb-8">
-              Each bottle is crafted from genuine Miron violet glass and includes 
-              premium accessories for dispensing your precious blends.
+            <p className="mx-auto mb-8 max-w-2xl text-[#a69b8a]">
+              Genuine Orion MIRON violetglass bottles, precision caps, and TE III
+              pipettes for your essential oil collection.
             </p>
 
             {/* Filter Tabs */}
@@ -496,201 +624,82 @@ export default function BottlesPage() {
               <button
                 onClick={() => setActiveTab('all')}
                 className={cn(
-                  'px-5 py-2.5 rounded-full text-sm transition-all flex items-center gap-2',
+                  'flex items-center gap-2 rounded-full px-5 py-2.5 text-sm transition-all',
                   activeTab === 'all'
                     ? 'bg-[#8B5CF6] text-white'
-                    : 'bg-[#111] text-[#a69b8a] border border-[#f5f3ef]/10 hover:border-[#8B5CF6]/50'
+                    : 'border border-[#f5f3ef]/10 bg-[#111] text-[#a69b8a] hover:border-[#8B5CF6]/50'
                 )}
               >
-                All Bottles
+                All Products
               </button>
               <button
-                onClick={() => setActiveTab('dropper')}
+                onClick={() => setActiveTab('bottle')}
                 className={cn(
-                  'px-5 py-2.5 rounded-full text-sm transition-all flex items-center gap-2',
-                  activeTab === 'dropper'
+                  'flex items-center gap-2 rounded-full px-5 py-2.5 text-sm transition-all',
+                  activeTab === 'bottle'
                     ? 'bg-[#8B5CF6] text-white'
-                    : 'bg-[#111] text-[#a69b8a] border border-[#f5f3ef]/10 hover:border-[#8B5CF6]/50'
+                    : 'border border-[#f5f3ef]/10 bg-[#111] text-[#a69b8a] hover:border-[#8B5CF6]/50'
                 )}
               >
-                <Droplets className="w-4 h-4" />
-                Dropper Bottles
+                <Droplets className="h-4 w-4" />
+                Bottles
               </button>
               <button
-                onClick={() => setActiveTab('roller')}
+                onClick={() => setActiveTab('pipette')}
                 className={cn(
-                  'px-5 py-2.5 rounded-full text-sm transition-all flex items-center gap-2',
-                  activeTab === 'roller'
+                  'flex items-center gap-2 rounded-full px-5 py-2.5 text-sm transition-all',
+                  activeTab === 'pipette'
                     ? 'bg-[#8B5CF6] text-white'
-                    : 'bg-[#111] text-[#a69b8a] border border-[#f5f3ef]/10 hover:border-[#8B5CF6]/50'
+                    : 'border border-[#f5f3ef]/10 bg-[#111] text-[#a69b8a] hover:border-[#8B5CF6]/50'
                 )}
               >
-                <Wind className="w-4 h-4" />
-                Roller Bottles
+                <Droplets className="h-4 w-4" />
+                Pipettes
+              </button>
+              <button
+                onClick={() => setActiveTab('cap')}
+                className={cn(
+                  'flex items-center gap-2 rounded-full px-5 py-2.5 text-sm transition-all',
+                  activeTab === 'cap'
+                    ? 'bg-[#8B5CF6] text-white'
+                    : 'border border-[#f5f3ef]/10 bg-[#111] text-[#a69b8a] hover:border-[#8B5CF6]/50'
+                )}
+              >
+                <Wind className="h-4 w-4" />
+                Caps
               </button>
             </div>
           </div>
 
           {/* Products Grid */}
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {filteredBottles.map((bottle, index) => (
-              <BottleCard key={bottle.id} bottle={bottle} index={index} />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Forever Bottle Program CTA */}
-      <section className="py-20 px-6 border-t border-[#f5f3ef]/10">
-        <div className="max-w-4xl mx-auto">
-          <div className="relative rounded-3xl overflow-hidden">
-            {/* Background */}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#2d1b4e] to-[#4c1d95]" />
-            <div className="absolute inset-0 bg-[url('/patterns/violet-glass-pattern.svg')] opacity-10" />
-            <div className="absolute top-0 right-0 w-96 h-96 bg-[#8B5CF6]/30 rounded-full blur-[100px]" />
-            
-            <div className="relative p-8 md:p-12">
-              <div className="flex flex-col md:flex-row items-center gap-8">
-                <div className="flex-1 text-center md:text-left">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#8B5CF6]/30 text-[#ddd6fe] text-xs mb-4">
-                    <Star className="w-3.5 h-3.5" />
-                    Sustainable Program
-                  </div>
-                  <h2 className="font-serif text-2xl md:text-3xl text-white mb-3">
-                    Join the Forever Bottle Program
-                  </h2>
-                  <p className="text-[#c4b5fd] mb-6">
-                    Purchase any Miron 100ml bottle and join our sustainable refill program. 
-                    Return your empty bottle for a $5 credit toward your next purchase.
-                  </p>
-                  <div className="flex flex-wrap gap-3 justify-center md:justify-start">
-                    <Link
-                      href="/refill"
-                      className="px-6 py-3 rounded-full bg-[#c9a227] text-[#0a080c] font-medium hover:bg-[#f5f3ef] transition-colors flex items-center gap-2"
-                    >
-                      Learn More
-                      <ArrowRight className="w-4 h-4" />
-                    </Link>
-                    <Link
-                      href="/mixing-atelier"
-                      className="px-6 py-3 rounded-full bg-[#1a1033] border border-[#8B5CF6]/50 text-[#ddd6fe] font-medium hover:bg-[#4c1d95] transition-colors flex items-center gap-2"
-                    >
-                      <Beaker className="w-4 h-4" />
-                      Create a Blend
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Decorative Bottle Stack */}
-                <div className="flex-shrink-0">
-                  <div className="relative w-32 h-40">
-                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-20 h-28 rounded-full bg-gradient-to-b from-[#4c1d95] via-[#2d1b4e] to-[#1a1033] border-2 border-[#8B5CF6]/50" />
-                    <div className="absolute bottom-8 left-1/2 -translate-x-1/2 w-16 h-20 rounded-full bg-gradient-to-b from-[#5b21b6] via-[#4c1d95] to-[#2d1b4e] border-2 border-[#8B5CF6]/50" />
-                    <div className="absolute bottom-16 left-1/2 -translate-x-1/2 w-12 h-16 rounded-full bg-gradient-to-b from-[#7c3aed] via-[#5b21b6] to-[#4c1d95] border-2 border-[#8B5CF6]/50" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="py-20 px-6 border-t border-[#f5f3ef]/10">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="font-serif text-3xl text-white mb-4">Frequently Asked Questions</h2>
-          </div>
-
-          <div className="space-y-4">
-            {[
-              {
-                q: 'What makes Miron violet glass different from amber glass?',
-                a: 'While amber glass blocks some UV light, Miron violet glass blocks the complete spectrum of visible light except for violet and infrared rays. This unique property not only protects but actually enhances the natural preservation of organic materials.',
-              },
-              {
-                q: 'Can I use these bottles for other liquids besides essential oils?',
-                a: 'Absolutely! Miron glass is perfect for any sensitive organic materials including herbal tinctures, cosmetics, cooking oils, and even water. The protective properties benefit any natural substance.',
-              },
-              {
-                q: 'How long will my oils last in Miron glass?',
-                a: 'Studies have shown that essential oils stored in Miron glass maintain their potency and chemical composition for 2+ years, compared to 3-6 months in clear glass or 6-12 months in amber glass.',
-              },
-              {
-                q: 'Are the bottles dishwasher safe?',
-                a: 'We recommend hand washing your Miron bottles with warm water and mild soap. The glass itself is extremely durable, but the dropper and roller mechanisms are best preserved through gentle hand washing.',
-              },
-              {
-                q: 'What is the Forever Bottle program?',
-                a: 'When you purchase a 100ml Miron bottle, you can return it empty to us for a $5 store credit. We sanitize and refill the bottle, creating a sustainable closed-loop system.',
-              },
-            ].map((faq, i) => (
-              <FaqItem key={i} question={faq.q} answer={faq.a} index={i} />
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredProducts.map((product, index) => (
+              <ProductCard key={product.id} product={product} index={index} />
             ))}
           </div>
         </div>
       </section>
 
       {/* Footer CTA */}
-      <section className="py-16 px-6 border-t border-[#f5f3ef]/10">
-        <div className="max-w-4xl mx-auto text-center">
-          <Wine className="w-16 h-16 mx-auto mb-6 text-[#8B5CF6]" />
-          <h2 className="font-serif text-3xl text-white mb-4">
+      <section className="border-t border-[#f5f3ef]/10 px-6 py-16">
+        <div className="mx-auto max-w-4xl text-center">
+          <Sparkles className="mx-auto mb-6 h-16 w-16 text-[#8B5CF6]" />
+          <h2 className="mb-4 font-serif text-3xl text-white">
             Experience the Miron Difference
           </h2>
-          <p className="text-[#a69b8a] mb-8 max-w-xl mx-auto">
-            Give your essential oils the protection they deserve with genuine 
-            Miron Violet Glass bottles.
+          <p className="mx-auto mb-8 max-w-xl text-[#a69b8a]">
+            Give your essential oils the protection they deserve with genuine Miron
+            Violet Glass bottles, caps, and pipettes.
           </p>
           <a
             href="#products"
-            className="inline-flex items-center gap-2 px-8 py-4 rounded-full bg-[#c9a227] text-[#0a080c] font-medium hover:bg-[#f5f3ef] transition-colors"
+            className="inline-flex items-center gap-2 rounded-full bg-[#c9a227] px-8 py-4 font-medium text-[#0a080c] transition-colors hover:bg-[#f5f3ef]"
           >
-            Shop Bottles
-            <ArrowRight className="w-5 h-5" />
+            Shop Bottles & Caps
+            <ArrowRight className="h-5 w-5" />
           </a>
         </div>
       </section>
     </main>
-  )
-}
-
-// ============================================================================
-// COMPONENT: FAQ Item
-// ============================================================================
-
-function FaqItem({ question, answer, index }: { question: string; answer: string; index: number }) {
-  const [isOpen, setIsOpen] = useState(false)
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.05 }}
-      className="rounded-xl border border-[#f5f3ef]/10 bg-[#111] overflow-hidden"
-    >
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full p-5 flex items-center justify-between text-left"
-      >
-        <span className="text-[#f5f3ef] font-medium pr-4">{question}</span>
-        {isOpen ? (
-          <ChevronUp className="w-5 h-5 text-[#8B5CF6] flex-shrink-0" />
-        ) : (
-          <ChevronDown className="w-5 h-5 text-[#a69b8a] flex-shrink-0" />
-        )}
-      </button>
-      
-      {isOpen && (
-        <motion.div
-          initial={{ height: 0, opacity: 0 }}
-          animate={{ height: 'auto', opacity: 1 }}
-          exit={{ height: 0, opacity: 0 }}
-          className="px-5 pb-5"
-        >
-          <p className="text-[#a69b8a] leading-relaxed">{answer}</p>
-        </motion.div>
-      )}
-    </motion.div>
   )
 }

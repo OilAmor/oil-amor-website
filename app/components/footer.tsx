@@ -1,167 +1,118 @@
 'use client'
 
 import Link from 'next/link'
-import { Instagram, Facebook, Twitter } from 'lucide-react'
+import { motion } from 'framer-motion'
 
-const footerLinks = {
-  shop: [
-    { href: '/oils', label: 'The Atelier' },
-    { href: '/collections/bestsellers', label: 'Bestsellers' },
-    { href: '/collections/new', label: 'New Arrivals' },
-    { href: '/gift-cards', label: 'Gift Cards' },
-    { href: '/refill', label: 'Refill Program' },
-  ],
-  learn: [
-    { href: '/about', label: 'Our Story' },
-    { href: '/philosophy', label: 'Philosophy' },
-    { href: '/journal', label: 'Journal' },
-    { href: '/crystals', label: 'Crystal Guide' },
-    { href: '/sustainability', label: 'Sustainability' },
-  ],
-  support: [
-    { href: '/contact', label: 'Contact Us' },
-    { href: '/shipping', label: 'Shipping Info' },
-    { href: '/returns', label: 'Returns' },
-    { href: '/faq', label: 'FAQ' },
-    { href: '/track-order', label: 'Track Order' },
-  ],
-}
-
-const socialLinks = [
-  { href: 'https://instagram.com/oilamor', icon: Instagram, label: 'Instagram' },
-  { href: 'https://facebook.com/oilamor', icon: Facebook, label: 'Facebook' },
-  { href: 'https://twitter.com/oilamor', icon: Twitter, label: 'Twitter' },
-]
+const EASE_LUXURY = [0.16, 1, 0.3, 1] as const
 
 export function Footer() {
   return (
-    <footer className="bg-miron-void text-white">
-      {/* Main Footer */}
-      <div className="max-w-7xl mx-auto px-6 lg:px-12 py-16 lg:py-20">
-        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-8 lg:gap-12">
-          {/* Brand */}
-          <div className="col-span-2 md:col-span-4 lg:col-span-1 mb-8 lg:mb-0">
-            <Link href="/" className="flex items-center gap-2 mb-6">
-              <span className="text-3xl text-gold-pure">◈</span>
-              <span className="font-display text-2xl font-medium">Oil Amor</span>
+    <footer className="relative overflow-hidden border-t border-[#f5f3ef]/5 bg-[#050505]">
+      <div className="relative z-10 mx-auto max-w-7xl px-6 py-20 lg:px-12 lg:py-28">
+        <div className="grid gap-16 lg:grid-cols-12 lg:gap-8">
+          {/* Brand column */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.8, ease: EASE_LUXURY }}
+            className="lg:col-span-5"
+          >
+            <Link href="/" className="inline-block">
+              <span className="font-display text-3xl tracking-tight text-[#f5f3ef]">
+                Oil <span className="italic text-[#c9a227]">Amor</span>
+              </span>
             </Link>
-            <p className="text-white/60 text-sm leading-relaxed mb-6 max-w-xs">
-              Essential oils that transcend consumption. Each bottle becomes a crystal talisman.
+            <p className="mt-6 max-w-sm text-sm font-light leading-relaxed text-[#a69b8a]">
+              Australian-made organic essential oils for those who seek quality
+              without compromise. Crafted with intention. Shared with love.
             </p>
-            {/* Social */}
-            <div className="flex gap-4">
-              {socialLinks.map((social) => {
-                const Icon = social.icon
-                return (
-                  <a
-                    key={social.label}
-                    href={social.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-10 h-10 rounded-full border border-white/20 flex items-center justify-center hover:border-gold-pure hover:text-gold-pure transition-colors"
-                    aria-label={social.label}
-                  >
-                    <Icon className="w-5 h-5" />
-                  </a>
-                )
-              })}
+
+            <div className="mt-8 flex gap-3">
+              {['Instagram', 'Pinterest', 'TikTok'].map((social) => (
+                <a
+                  key={social}
+                  href="#"
+                  className="border border-[#f5f3ef]/10 px-4 py-2 text-[0.6rem] uppercase tracking-[0.15em] text-[#a69b8a] transition-colors hover:border-[#c9a227] hover:text-[#c9a227]"
+                >
+                  {social}
+                </a>
+              ))}
             </div>
-          </div>
+          </motion.div>
 
-          {/* Shop */}
-          <div>
-            <h3 className="text-xs uppercase tracking-[0.2em] text-gold-light font-semibold mb-6">
-              Shop
-            </h3>
-            <ul className="space-y-3">
-              {footerLinks.shop.map((link) => (
-                <li key={link.href}>
-                  <Link 
-                    href={link.href}
-                    className="text-white/60 hover:text-white transition-colors text-sm"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Learn */}
-          <div>
-            <h3 className="text-xs uppercase tracking-[0.2em] text-gold-light font-semibold mb-6">
-              Learn
-            </h3>
-            <ul className="space-y-3">
-              {footerLinks.learn.map((link) => (
-                <li key={link.href}>
-                  <Link 
-                    href={link.href}
-                    className="text-white/60 hover:text-white transition-colors text-sm"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Support */}
-          <div>
-            <h3 className="text-xs uppercase tracking-[0.2em] text-gold-light font-semibold mb-6">
-              Support
-            </h3>
-            <ul className="space-y-3">
-              {footerLinks.support.map((link) => (
-                <li key={link.href}>
-                  <Link 
-                    href={link.href}
-                    className="text-white/60 hover:text-white transition-colors text-sm"
-                  >
-                    {link.label}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Newsletter */}
-          <div className="col-span-2 md:col-span-4 lg:col-span-1">
-            <h3 className="text-xs uppercase tracking-[0.2em] text-gold-light font-semibold mb-6">
-              Join The Circle
-            </h3>
-            <p className="text-white/60 text-sm mb-4">
-              Exclusive access to limited editions and member pricing.
-            </p>
-            <form className="flex gap-2" onSubmit={(e) => e.preventDefault()}>
-              <input
-                type="email"
-                placeholder="Email"
-                className="flex-1 px-4 py-2 bg-white/10 border border-white/20 text-white text-sm placeholder:text-white/40 focus:outline-none focus:border-gold-pure"
-              />
-              <button
-                type="submit"
-                className="px-4 py-2 bg-gold-pure text-miron-void text-sm font-medium hover:bg-gold-light transition-colors"
+          {/* Links columns */}
+          <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-7 lg:gap-12">
+            {[
+              {
+                title: 'Explore',
+                links: [
+                  { label: 'Oils', href: '/oils' },
+                  { label: 'Mixing Atelier', href: '/mixing-atelier' },
+                  { label: 'Community Blends', href: '/community-blends' },
+                  { label: 'Refills', href: '/refills' },
+                ],
+              },
+              {
+                title: 'Company',
+                links: [
+                  { label: 'About Us', href: '/about' },
+                  { label: 'Contact', href: '/contact' },
+                  { label: 'Shipping', href: '/shipping' },
+                  { label: 'Returns', href: '/returns' },
+                ],
+              },
+              {
+                title: 'Legal',
+                links: [
+                  { label: 'Privacy Policy', href: '/privacy' },
+                  { label: 'Terms of Service', href: '/terms' },
+                  { label: 'Cookie Policy', href: '/cookies' },
+                ],
+              },
+            ].map((col, i) => (
+              <motion.div
+                key={col.title}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.8, delay: 0.1 + i * 0.1, ease: EASE_LUXURY }}
               >
-                Join
-              </button>
-            </form>
+                <h4 className="text-[0.6rem] uppercase tracking-[0.2em] text-[#c9a227]">
+                  {col.title}
+                </h4>
+                <ul className="mt-6 space-y-3">
+                  {col.links.map((link) => (
+                    <li key={link.label}>
+                      <Link
+                        href={link.href}
+                        className="text-sm font-light text-[#a69b8a] transition-colors hover:text-[#f5f3ef]"
+                      >
+                        {link.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </motion.div>
+            ))}
           </div>
         </div>
-      </div>
 
-      {/* Bottom Bar */}
-      <div className="border-t border-white/10">
-        <div className="max-w-7xl mx-auto px-6 lg:px-12 py-6">
-          <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-sm text-white/40">
-            <span>&copy; {new Date().getFullYear()} Oil Amor. All rights reserved.</span>
-            <div className="flex gap-6">
-              <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-              <Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link>
-              <Link href="/accessibility" className="hover:text-white transition-colors">Accessibility</Link>
-            </div>
-          </div>
-        </div>
+        {/* Bottom bar */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.8, delay: 0.4, ease: EASE_LUXURY }}
+          className="mt-20 flex flex-col items-center justify-between gap-4 border-t border-[#f5f3ef]/5 pt-8 sm:flex-row"
+        >
+          <p className="text-[0.6rem] uppercase tracking-[0.15em] text-[#a69b8a]/50">
+            © {new Date().getFullYear()} Oil Amor. Made in Australia.
+          </p>
+          <p className="text-[0.6rem] uppercase tracking-[0.15em] text-[#a69b8a]/30">
+            Organic · Vegan · Cruelty-Free
+          </p>
+        </motion.div>
       </div>
     </footer>
   )

@@ -13,9 +13,12 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Zap, Droplets, Mountain, Wind, Sparkles, Clock, Sun, Moon, Shield, Heart, AlertTriangle, CheckCircle, Droplet, Flame, Download, Share2, BookOpen, Mail, Loader2, Check } from 'lucide-react'
+import { X, Zap, Droplets, Mountain, Wind, Sparkles, Clock, Sun, Moon, Shield, Heart, AlertTriangle, CheckCircle, Droplet, Flame, Download, Share2, BookOpen, Mail, Loader2, Check, Info, Pill, Baby, Beaker, Microscope } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { BlendCodex } from '@/lib/atelier/living-blend-codex'
+import type { SafetyValidationResult, SafetyWarning, ExperienceLevel, RiskLevel } from '@/lib/safety/comprehensive-safety-v2'
+import { getInteractionsForMix, OilInteraction, SYNERGISTIC_COMBINATIONS, getOilInteraction } from '@/lib/safety/oil-interactions'
+import { OIL_WISDOM } from '@/lib/atelier/oil-wisdom'
 
 interface LivingBlendCodexProps {
   codex: BlendCodex | null
@@ -77,6 +80,9 @@ export function LivingBlendCodex({ codex, isOpen, onClose }: LivingBlendCodexPro
 
                 {/* Component Weave */}
                 <ComponentWeave codex={codex} />
+
+                {/* Blend Science & Chemistry */}
+                <BlendScienceSection codex={codex} />
 
                 {/* Practical Profile */}
                 <PracticalProfile codex={codex} />
@@ -331,6 +337,128 @@ function ComponentWeave({ codex }: { codex: BlendCodex }) {
   )
 }
 
+function BlendScienceSection({ codex }: { codex: BlendCodex }) {
+  const oilIds = codex.composition.oils.map(o => o.id)
+  const oilNames = new Map(codex.composition.oils.map(o => [o.id, o.name]))
+
+  const problematic = getInteractionsForMix(oilIds)
+  const synergistic: typeof SYNERGISTIC_COMBINATIONS[0][] = []
+  for (const combo of SYNERGISTIC_COMBINATIONS) {
+    const matchCount = combo.oils.filter(id => oilIds.includes(id)).length
+    if (matchCount >= 2) {
+      synergistic.push(combo)
+    }
+  }
+
+  const constituentCounts: Record<string, number> = {}
+  const contraindications: string[] = []
+  oilIds.forEach(id => {
+    const wisdom = OIL_WISDOM[id]
+    if (wisdom) {
+      wisdom.constituents.primary.forEach(c => {
+        constituentCounts[c] = (constituentCounts[c] || 0) + 1
+      })
+      contraindications.push(...wisdom.therapeutic.contraindications)
+    }
+  })
+  const dominantConstituents = Object.entries(constituentCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+
+  const hasScience = problematic.length > 0 || synergistic.length > 0 || dominantConstituents.length > 0 || contraindications.length > 0
+  if (!hasScience) return null
+
+  return (
+    <section className="p-5 rounded-2xl bg-gradient-to-br from-[#1a1033]/80 to-[#0f0a12] border border-[#8B5CF6]/20">
+      <h2 className="text-sm font-medium text-[#A855F7] uppercase tracking-wider mb-4 flex items-center gap-2">
+        <Microscope className="w-4 h-4" />
+        Blend Science & Chemistry
+      </h2>
+
+      <div className="grid md:grid-cols-2 gap-4">
+        {/* Chemistry Profile */}
+        <div className="space-y-3">
+          <h3 className="text-xs text-white/40 uppercase tracking-wider flex items-center gap-1">
+            <Beaker className="w-3 h-3" />
+            Dominant Chemistry
+          </h3>
+          {dominantConstituents.length > 0 ? (
+            <div className="space-y-2">
+              {dominantConstituents.map(([constituent, count]) => (
+                <div key={constituent} className="flex items-center justify-between text-sm">
+                  <span className="text-white/80 capitalize">{constituent}</span>
+                  <span className="text-xs text-white/40">{count} oil{count > 1 ? 's' : ''}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-xs text-white/50">No dominant chemical markers identified.</p>
+          )}
+
+          {contraindications.length > 0 && (
+            <div className="mt-3 pt-3 border-t border-white/10 space-y-1.5">
+              <span className="text-[10px] text-white/40 uppercase tracking-wider">General Cautions</span>
+              {Array.from(new Set(contraindications)).slice(0, 3).map((c, i) => (
+                <p key={i} className="text-xs text-white/60">• {c}</p>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Interactions */}
+        <div className="space-y-3">
+          <h3 className="text-xs text-white/40 uppercase tracking-wider flex items-center gap-1">
+            <Zap className="w-3 h-3" />
+            Interactions & Synergies
+          </h3>
+
+          {problematic.length === 0 && synergistic.length === 0 && (
+            <p className="text-xs text-white/50">No documented interactions or synergies for this specific combination.</p>
+          )}
+
+          {problematic.map((interaction, i) => (
+            <div
+              key={i}
+              className={cn(
+                'rounded-lg border p-3',
+                interaction.severity === 'critical' ? 'bg-red-500/10 border-red-500/30' :
+                interaction.severity === 'high' ? 'bg-amber-500/10 border-amber-500/30' :
+                'bg-white/5 border-white/10'
+              )}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <span className={cn(
+                  'text-[10px] font-medium uppercase tracking-wider',
+                  interaction.severity === 'critical' ? 'text-red-400' :
+                  interaction.severity === 'high' ? 'text-amber-400' :
+                  'text-white/50'
+                )}>
+                  {interaction.severity}
+                </span>
+                <span className="text-xs text-white/30">•</span>
+                <span className="text-xs text-white/70">{oilNames.get(interaction.oilId1) || interaction.oilId1} + {oilNames.get(interaction.oilId2) || interaction.oilId2}</span>
+              </div>
+              <p className="text-sm text-white/90 font-medium">{interaction.title}</p>
+              <p className="text-xs text-white/60 mt-1 leading-relaxed">{interaction.explanation}</p>
+              <p className="text-xs text-[#c9a227] mt-1.5">{interaction.recommendation}</p>
+            </div>
+          ))}
+
+          {synergistic.map((combo, i) => (
+            <div key={`syn-${i}`} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-[10px] font-medium uppercase tracking-wider text-emerald-400">Synergy</span>
+              </div>
+              <p className="text-sm text-white/90 font-medium">{combo.name}</p>
+              <p className="text-xs text-white/60 mt-1 leading-relaxed">{combo.description}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 function PracticalProfile({ codex }: { codex: BlendCodex }) {
   const topTherapeutic = Object.entries(codex.therapeuticScores)
     .sort((a, b) => b[1] - a[1])
@@ -426,6 +554,98 @@ function PracticalProfile({ codex }: { codex: BlendCodex }) {
   )
 }
 
+function getWarningMessageForLevel(warning: SafetyWarning, experience: ExperienceLevel): string {
+  switch (experience) {
+    case 'professional':
+      return warning.messageProfessional || warning.messageAdvanced || warning.messageIntermediate || warning.message
+    case 'advanced':
+      return warning.messageAdvanced || warning.messageIntermediate || warning.message
+    case 'intermediate':
+      return warning.messageIntermediate || warning.message
+    case 'beginner':
+    default:
+      return warning.message
+  }
+}
+
+const riskConfig: Record<RiskLevel, { icon: React.ReactNode; label: string; color: string; bg: string; border: string }> = {
+  info:    { icon: <Info className="w-3 h-3" />, label: 'Info',    color: 'text-blue-400',    bg: 'bg-blue-500/10',    border: 'border-blue-500/20' },
+  low:     { icon: <Info className="w-3 h-3" />, label: 'Note',    color: 'text-green-400',   bg: 'bg-green-500/10',   border: 'border-green-500/20' },
+  moderate:{ icon: <AlertTriangle className="w-3 h-3" />, label: 'Caution', color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20' },
+  high:    { icon: <AlertTriangle className="w-3 h-3" />, label: 'Warning', color: 'text-orange-400',  bg: 'bg-orange-500/10',  border: 'border-orange-500/20' },
+  critical:{ icon: <AlertTriangle className="w-3 h-3" />, label: 'Critical',color: 'text-red-400',     bg: 'bg-red-500/10',     border: 'border-red-500/20' },
+}
+
+function ComprehensiveSafetySection({ validation }: { validation: SafetyValidationResult }) {
+  const experience = validation.experienceLevel || 'beginner'
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Shield className="w-4 h-4 text-white/60" />
+          <span className="text-sm font-medium text-white/80">Safety Engine Assessment</span>
+        </div>
+        <span className={cn(
+          'px-2 py-0.5 rounded-full text-xs font-medium',
+          validation.safetyScore >= 80 ? 'bg-emerald-500/20 text-emerald-400' :
+          validation.safetyScore >= 60 ? 'bg-amber-500/20 text-amber-400' :
+          'bg-red-500/20 text-red-400'
+        )}>
+          Score: {validation.safetyScore}/100
+        </span>
+      </div>
+
+      {validation.warnings.length === 0 ? (
+        <div className="flex items-center gap-2 text-sm text-emerald-400">
+          <CheckCircle className="w-4 h-4" />
+          No warnings found for your profile.
+        </div>
+      ) : (
+        <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+          {validation.warnings.map((warning) => {
+            const config = riskConfig[warning.riskLevel]
+            const message = getWarningMessageForLevel(warning, experience)
+            return (
+              <div
+                key={warning.id}
+                className={cn('rounded-xl border p-3', config.bg, config.border)}
+              >
+                <div className="flex items-start gap-2">
+                  <div className={cn('mt-0.5', config.color)}>{config.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className={cn('text-[10px] font-medium uppercase tracking-wider', config.color)}>
+                        {config.label}
+                      </span>
+                      {warning.routeSpecific && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-white/10 text-white/60">
+                          {warning.routeSpecific.join(', ')}
+                        </span>
+                      )}
+                    </div>
+                    <h4 className="text-sm font-medium text-white/90 mt-0.5">{warning.title}</h4>
+                    <p className="text-xs text-white/60 mt-0.5 leading-relaxed">{message}</p>
+                    {warning.alternatives && warning.alternatives.length > 0 && (
+                      <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
+                        <span className="text-[10px] text-[#c9a227]">Alternatives:</span>
+                        {warning.alternatives.map((alt) => (
+                          <span key={alt} className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#c9a227]/10 text-[#c9a227]">
+                            {alt}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function TimingSafetySection({ codex }: { codex: BlendCodex }) {
   const { timing, safety } = codex
 
@@ -492,51 +712,55 @@ function TimingSafetySection({ codex }: { codex: BlendCodex }) {
           Safety & Cautions
         </h3>
 
-        <div className="space-y-3">
-          {/* Safety Level Badge */}
-          <div className="flex items-center gap-2">
-            {safety.level === 'safe' ? (
-              <CheckCircle className="w-4 h-4 text-emerald-400" />
-            ) : (
-              <AlertTriangle className="w-4 h-4 text-amber-400" />
+        {codex.safetyValidation ? (
+          <ComprehensiveSafetySection validation={codex.safetyValidation} />
+        ) : (
+          <div className="space-y-3">
+            {/* Safety Level Badge */}
+            <div className="flex items-center gap-2">
+              {safety.level === 'safe' ? (
+                <CheckCircle className="w-4 h-4 text-emerald-400" />
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-amber-400" />
+              )}
+              <span className={cn(
+                "text-sm font-medium capitalize",
+                safety.level === 'safe' ? "text-emerald-400" :
+                safety.level === 'caution' ? "text-amber-400" :
+                "text-red-400"
+              )}>
+                {safety.level} — {safety.level === 'safe' ? 'Generally safe for intended use' : 'Use with awareness'}
+              </span>
+            </div>
+
+            {/* Pregnancy */}
+            {!safety.pregnancySafe && (
+              <div className="flex items-start gap-2 text-xs">
+                <AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5" />
+                <span className="text-white/70">Not recommended during pregnancy</span>
+              </div>
             )}
-            <span className={cn(
-              "text-sm font-medium capitalize",
-              safety.level === 'safe' ? "text-emerald-400" :
-              safety.level === 'caution' ? "text-amber-400" :
-              "text-red-400"
-            )}>
-              {safety.level} — {safety.level === 'safe' ? 'Generally safe for intended use' : 'Use with awareness'}
-            </span>
+
+            {/* Age Restriction */}
+            {safety.ageRestriction && (
+              <div className="text-xs text-white/60">
+                Age: {safety.ageRestriction}
+              </div>
+            )}
+
+            {/* Contraindications */}
+            {safety.contraindications.length > 0 && (
+              <div className="pt-2 border-t border-white/10 space-y-1.5">
+                {safety.contraindications.map((caution, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs">
+                    <AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />
+                    <span className="text-white/70">{caution}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-
-          {/* Pregnancy */}
-          {!safety.pregnancySafe && (
-            <div className="flex items-start gap-2 text-xs">
-              <AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5" />
-              <span className="text-white/70">Not recommended during pregnancy</span>
-            </div>
-          )}
-
-          {/* Age Restriction */}
-          {safety.ageRestriction && (
-            <div className="text-xs text-white/60">
-              Age: {safety.ageRestriction}
-            </div>
-          )}
-
-          {/* Contraindications */}
-          {safety.contraindications.length > 0 && (
-            <div className="pt-2 border-t border-white/10 space-y-1.5">
-              {safety.contraindications.map((caution, i) => (
-                <div key={i} className="flex items-start gap-2 text-xs">
-                  <AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-white/70">{caution}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+        )}
       </div>
     </section>
   )

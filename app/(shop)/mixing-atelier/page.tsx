@@ -3307,6 +3307,9 @@ export default function MixingAtelierPage() {
       
       // Generate the Living Codex
       const codex = LivingBlendCodex.generate(codexInput)
+      if (comprehensiveSafety) {
+        codex.safetyValidation = comprehensiveSafety
+      }
       setBlendCodex(codex)
       
       setTimeout(() => {
