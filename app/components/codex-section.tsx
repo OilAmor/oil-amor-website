@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { motion, useInView } from 'framer-motion'
 import Link from 'next/link'
 import { ArrowRight } from 'lucide-react'
@@ -20,11 +20,13 @@ function OrbitalRing({
   ringIndex,
   hoveredOil,
   setHoveredOil,
+  radius,
 }: {
   ring: (typeof RINGS)[0]
   ringIndex: number
   hoveredOil: string | null
   setHoveredOil: (id: string | null) => void
+  radius: number
 }) {
   const direction = ringIndex % 2 === 0 ? 1 : -1
 
@@ -46,9 +48,10 @@ function OrbitalRing({
             href={`/oil/${oil.id}`}
             onMouseEnter={() => setHoveredOil(oil.id)}
             onMouseLeave={() => setHoveredOil(null)}
+            onClick={() => setHoveredOil(oil.id)}
             className="absolute left-0 top-0 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center"
             style={{
-              transform: `translate(-50%, -50%) rotate(${angle}deg) translateX(${ring.radius}px) rotate(${-angle}deg)`,
+              transform: `translate(-50%, -50%) rotate(${angle}deg) translateX(${radius}px) rotate(${-angle}deg)`,
             }}
           >
             <span
@@ -87,9 +90,20 @@ export function CodexSection() {
   const sectionRef = useRef<HTMLElement>(null)
   const isInView = useInView(sectionRef, { once: true, margin: '-100px' })
   const [hoveredOil, setHoveredOil] = useState<string | null>(null)
+  const [windowWidth, setWindowWidth] = useState(1024)
+
+  useEffect(() => {
+    const update = () => setWindowWidth(window.innerWidth)
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
+
+  const isMobile = windowWidth < 1024
+  const radii = isMobile ? [85, 145, 205] : [130, 220, 310]
 
   return (
-    <section ref={sectionRef} className="relative overflow-hidden bg-[#050505] py-32 lg:py-40">
+    <section ref={sectionRef} className="relative overflow-hidden bg-[#050505] py-24 lg:py-40">
       {/* Radial glow behind mandala */}
       <motion.div
         className="pointer-events-none absolute left-1/2 top-1/2 h-[80vh] w-[80vh] -translate-x-1/2 -translate-y-1/2 rounded-full"
@@ -103,7 +117,7 @@ export function CodexSection() {
       />
 
       {/* Header */}
-      <div className="relative z-10 mb-16 px-6 text-center lg:mb-0 lg:absolute lg:left-0 lg:right-0 lg:top-14">
+      <div className="relative z-10 mb-12 px-6 text-center lg:mb-0 lg:absolute lg:left-0 lg:right-0 lg:top-14">
         <motion.span
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -125,8 +139,8 @@ export function CodexSection() {
         </motion.h2>
       </div>
 
-      {/* Desktop: Rotating constellation */}
-      <div className="relative mx-auto hidden h-[700px] w-full max-w-5xl lg:block">
+      {/* Rotating constellation — all screen sizes */}
+      <div className="relative mx-auto h-[480px] w-full max-w-5xl lg:h-[700px]">
         <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2">
           {/* Center core */}
           <motion.div
@@ -146,6 +160,7 @@ export function CodexSection() {
               ringIndex={i}
               hoveredOil={hoveredOil}
               setHoveredOil={setHoveredOil}
+              radius={radii[i]}
             />
           ))}
         </div>
@@ -155,10 +170,10 @@ export function CodexSection() {
           initial={{ opacity: 0, y: 20 }}
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.8, delay: 0.6, ease: EASE_LUXURY }}
-          className="absolute bottom-8 left-1/2 -translate-x-1/2 text-center"
+          className="absolute bottom-6 left-1/2 -translate-x-1/2 text-center lg:bottom-8"
         >
           <p className="mb-4 text-xs tracking-wide text-[#a69b8a]/60">
-            Hover to reveal crystal pairings
+            {isMobile ? 'Tap an oil to reveal its crystal pairing' : 'Hover to reveal crystal pairings'}
           </p>
           <Link
             href="/oils"
@@ -168,42 +183,6 @@ export function CodexSection() {
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
         </motion.div>
-      </div>
-
-      {/* Mobile: Elegant vertical list */}
-      <div className="mx-auto max-w-md px-6 lg:hidden">
-        <div className="grid grid-cols-1 gap-1">
-          {OIL_DATABASE.map((oil, i) => (
-            <motion.div
-              key={oil.id}
-              initial={{ opacity: 0, x: -10 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              transition={{ delay: i * 0.02, ease: EASE_LUXURY }}
-            >
-              <Link
-                href={`/oil/${oil.id}`}
-                className="group flex items-center justify-between border-b border-[#f5f3ef]/5 py-2 transition-colors hover:border-[#c9a227]/20"
-              >
-                <span className="text-sm text-[#a69b8a] transition-colors group-hover:text-[#f5f3ef]">
-                  {oil.commonName}
-                </span>
-                <span className="text-[10px] tracking-wider text-[#a69b8a]/40 transition-colors group-hover:text-[#c9a227]">
-                  {oil.crystalPairings[0]?.name}
-                </span>
-              </Link>
-            </motion.div>
-          ))}
-        </div>
-        <div className="mt-10 text-center">
-          <Link
-            href="/oils"
-            className="group inline-flex items-center gap-2 border border-[#c9a227] bg-[#c9a227] px-8 py-3 text-[0.7rem] font-medium uppercase tracking-[0.2em] text-[#050505] transition-all hover:bg-transparent hover:text-[#c9a227]"
-          >
-            Explore the Collection
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Link>
-        </div>
       </div>
     </section>
   )
