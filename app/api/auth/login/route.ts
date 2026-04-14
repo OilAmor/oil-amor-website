@@ -44,6 +44,14 @@ export async function POST(request: NextRequest) {
       )
     }
     
+    // Reject pre-bcrypt plain-text passwords (nuclear reset for pre-launch users)
+    if (!storedPasswordHash.startsWith('$2')) {
+      return NextResponse.json(
+        { error: 'Password security upgraded. Please use Forgot Password to reset your password.', code: 'PASSWORD_UPGRADE_REQUIRED' },
+        { status: 401 }
+      )
+    }
+    
     const isValid = await bcrypt.compare(password, storedPasswordHash)
     if (!isValid) {
       return NextResponse.json(
