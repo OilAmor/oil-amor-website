@@ -57,7 +57,7 @@ import {
   Globe,
   Award,
 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 
 // Context
@@ -2708,6 +2708,7 @@ function OilDetailModal({
 // ============================================================================
 export default function MixingAtelierPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { activeProfile, isProfileComplete } = useHealthProfile()
   const healthProfile = activeProfile?.data
   const { createRecipe, myRecipes } = useRecipes()
@@ -2732,6 +2733,42 @@ export default function MixingAtelierPage() {
   useEffect(() => {
     setShowProfileForm(!isProfileComplete)
   }, [isProfileComplete])
+
+  // Load shared blend from URL query param
+  useEffect(() => {
+    const encoded = searchParams.get('blend')
+    if (!encoded) return
+    try {
+      const json = atob(encoded)
+      const data = JSON.parse(json)
+      if (data.oils && Array.isArray(data.oils)) {
+        setSelectedOils(data.oils.map((o: any) => ({ oilId: o.oilId, ml: o.ml })))
+      }
+      if (data.mode === 'pure' || data.mode === 'carrier') {
+        setMode(data.mode)
+      }
+      if (typeof data.bottleSize === 'number') {
+        setBottleSize(data.bottleSize)
+      }
+      if (typeof data.carrierRatio === 'number') {
+        setCarrierRatio(data.carrierRatio)
+      }
+      if (data.carrierOilId) {
+        setSelectedCarrierOilId(data.carrierOilId)
+      }
+      if (data.crystalId) {
+        setSelectedCrystalId(data.crystalId)
+      }
+      if (data.cordId) {
+        setSelectedCordId(data.cordId)
+      }
+      if (data.name) {
+        setRecipeName(data.name)
+      }
+    } catch {
+      // ignore invalid blend param
+    }
+  }, [searchParams])
   
   const [selectedOils, setSelectedOils] = useState<{ oilId: string; ml: number }[]>([])
   const [carrierRatio, setCarrierRatio] = useState<number>(25)
@@ -3210,6 +3247,7 @@ export default function MixingAtelierPage() {
                         (comprehensiveSafety?.safetyScore || 100) >= 40 ? 'caution' : 'dangerous',
           safetyWarnings: comprehensiveSafety?.warnings.map(w => w.title) || [],
           labCertified: true,
+          revelationData: blendCodex ? JSON.parse(JSON.stringify(blendCodex)) : undefined,
           // Community sharing - only include if user consented
           ...(consentToShare && {
             shareToCommunity: true,

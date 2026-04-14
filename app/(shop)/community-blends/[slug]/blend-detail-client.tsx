@@ -11,10 +11,13 @@ import {
   ArrowLeft,
   Share2,
   Check,
-  Beaker
+  Beaker,
+  Sparkles
 } from 'lucide-react'
 import { type BlendDetail } from '@/lib/community-blends/data'
 import { formatPrice } from '@/lib/content/pricing-engine-final'
+import { LivingBlendCodex } from '@/components/mixing/LivingBlendCodex'
+import type { BlendCodex } from '@/lib/atelier/living-blend-codex'
 
 // Star rating display
 function StarRating({ rating, count, size = 'md' }: { rating: number; count: number; size?: 'sm' | 'md' | 'lg' }) {
@@ -49,6 +52,8 @@ interface BlendDetailClientProps {
 
 export default function BlendDetailClient({ blend }: BlendDetailClientProps) {
   const [copied, setCopied] = useState(false)
+  const [selectedSize, setSelectedSize] = useState<number>(blend.recipe.bottleSize)
+  const [showRevelation, setShowRevelation] = useState(false)
 
   const handleShare = async () => {
     const url = window.location.href
@@ -56,6 +61,43 @@ export default function BlendDetailClient({ blend }: BlendDetailClientProps) {
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)
   }
+
+  // Calculate scaled mls for any bottle size while keeping ratios
+  const scaledOils = blend.recipe.oils.map(oil => {
+    if (blend.recipe.mode === 'pure') {
+      const ratio = oil.ml / blend.recipe.bottleSize
+      return { ...oil, ml: Math.round(ratio * selectedSize * 10) / 10 }
+    } else {
+      // For carrier mode, the essential oil portion = selectedSize * (strength / 100)
+      const essentialTotal = blend.recipe.bottleSize * (blend.recipe.strength / 100)
+      const ratio = oil.ml / essentialTotal
+      const newEssentialTotal = selectedSize * (blend.recipe.strength / 100)
+      return { ...oil, ml: Math.round(ratio * newEssentialTotal * 10) / 10 }
+    }
+  })
+
+  // Encode blend data for the atelier URL
+  const atelierUrl = (() => {
+    const totalEssentialMl = scaledOils.reduce((sum, o) => sum + o.ml, 0)
+    const percentages: Record<string, number> = {}
+    scaledOils.forEach(o => {
+      percentages[o.oilId] = totalEssentialMl > 0 ? Math.round((o.ml / totalEssentialMl) * 1000) / 10 : 0
+    })
+    const blendData = {
+      oils: scaledOils.map(o => ({ oilId: o.oilId, ml: o.ml })),
+      mode: blend.recipe.mode,
+      bottleSize: selectedSize,
+      carrierRatio: blend.recipe.mode === 'carrier' ? blend.recipe.strength : undefined,
+      carrierOilId: (blend.recipe as any).carrierOilId,
+      crystalId: (blend.recipe as any).crystalId,
+      cordId: (blend.recipe as any).cordId,
+      name: blend.name,
+    }
+    const encoded = typeof window !== 'undefined' ? btoa(JSON.stringify(blendData)) : ''
+    return `/mixing-atelier?blend=${encoded}`
+  })()
+
+  const codex = blend.revelationData ? (blend.revelationData as unknown as BlendCodex) : null
 
   return (
     <div className="min-h-screen bg-[#0a080c]">
@@ -123,6 +165,17 @@ export default function BlendDetailClient({ blend }: BlendDetailClientProps) {
                 </div>
               )}
 
+              {/* View Revelation Button */}
+              {codex && (
+                <button
+                  onClick={() => setShowRevelation(true)}
+                  className="w-full py-3 rounded-xl bg-gradient-to-r from-[#8B5CF6]/20 to-[#A855F7]/10 border border-[#8B5CF6]/30 text-[#ddd6fe] flex items-center justify-center gap-2 hover:bg-[#8B5CF6]/20 transition-colors"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  View Blend Revelation
+                </button>
+              )}
+
               {/* Stats */}
               <div className="grid grid-cols-3 gap-4">
                 <div className="p-4 rounded-xl bg-[#111] border border-[#f5f3ef]/10 text-center">
@@ -154,7 +207,7 @@ export default function BlendDetailClient({ blend }: BlendDetailClientProps) {
                 
                 {/* Oils */}
                 <div className="space-y-2 mb-4">
-                  {blend.recipe.oils.map((oil, i) => (
+                  {scaledOils.map((oil, i) => (
                     <div 
                       key={i}
                       className="flex items-center justify-between p-3 rounded-lg bg-[#0a080c]"
@@ -179,11 +232,30 @@ export default function BlendDetailClient({ blend }: BlendDetailClientProps) {
                       <span className="text-[#f5f3ef]">{blend.recipe.strength}%</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-[#a69b8a]">
-                    <span>Bottle Size</span>
-                    <span className="text-[#f5f3ef]">{blend.recipe.bottleSize}ml</span>
-                  </div>
                 </div>
+              </div>
+
+              {/* Size Selector */}
+              <div className="p-5 rounded-2xl bg-[#111] border border-[#f5f3ef]/10">
+                <h3 className="text-sm font-medium text-[#f5f3ef] mb-3">Choose Bottle Size</h3>
+                <div className="grid grid-cols-5 gap-2">
+                  {[5, 10, 15, 20, 30].map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => setSelectedSize(size)}
+                      className={`py-2 rounded-lg text-sm font-medium transition-colors ${
+                        selectedSize === size
+                          ? 'bg-[#c9a227] text-[#0a080c]'
+                          : 'bg-[#0a080c] text-[#a69b8a] hover:bg-[#0a080c]/80'
+                      }`}
+                    >
+                      {size}ml
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-[#a69b8a] mt-2">
+                  Ratios stay identical — only total volume changes.
+                </p>
               </div>
 
               {/* Purchase Card */}
@@ -196,7 +268,7 @@ export default function BlendDetailClient({ blend }: BlendDetailClientProps) {
                 </div>
                 
                 <Link
-                  href={`/mixing-atelier?blend=${blend.slug}`}
+                  href={atelierUrl}
                   className="w-full py-4 rounded-xl bg-[#c9a227] text-[#0a080c] font-medium flex items-center justify-center gap-2 hover:bg-[#f5f3ef] transition-colors"
                 >
                   <ShoppingBag className="w-5 h-5" />
@@ -269,6 +341,13 @@ export default function BlendDetailClient({ blend }: BlendDetailClientProps) {
           )}
         </div>
       </div>
+
+      {/* Living Blend Codex Modal */}
+      <LivingBlendCodex
+        codex={codex}
+        isOpen={showRevelation}
+        onClose={() => setShowRevelation(false)}
+      />
     </div>
   )
 }

@@ -338,10 +338,30 @@ function ComponentWeave({ codex }: { codex: BlendCodex }) {
 }
 
 function BlendScienceSection({ codex }: { codex: BlendCodex }) {
+  const [expanded, setExpanded] = useState(false)
   const oilIds = codex.composition.oils.map(o => o.id)
   const oilNames = new Map(codex.composition.oils.map(o => [o.id, o.name]))
+  const oilPercentages = new Map(codex.composition.oils.map(o => [o.id, o.percentage]))
 
-  const problematic = getInteractionsForMix(oilIds)
+  const problematic = getInteractionsForMix(oilIds).map(interaction => {
+    const p1 = oilPercentages.get(interaction.oilId1) || 0
+    const p2 = oilPercentages.get(interaction.oilId2) || 0
+    const maxP = Math.max(p1, p2)
+    const minP = Math.min(p1, p2)
+    // If the smaller oil is < 10%, downgrade severity by one notch
+    let adjustedSeverity = interaction.severity
+    if (minP < 10) {
+      const downgrade: Record<string, string> = {
+        critical: 'high',
+        high: 'moderate',
+        moderate: 'low',
+        low: 'low'
+      }
+      adjustedSeverity = (downgrade[interaction.severity] || interaction.severity) as typeof interaction.severity
+    }
+    return { ...interaction, severity: adjustedSeverity, ratioNote: minP < 10 ? `Diluted presence (${minP.toFixed(1)}%) reduces practical risk.` : undefined }
+  })
+
   const synergistic: typeof SYNERGISTIC_COMBINATIONS[0][] = []
   for (const combo of SYNERGISTIC_COMBINATIONS) {
     const matchCount = combo.oils.filter(id => oilIds.includes(id)).length
@@ -368,14 +388,56 @@ function BlendScienceSection({ codex }: { codex: BlendCodex }) {
   const hasScience = problematic.length > 0 || synergistic.length > 0 || dominantConstituents.length > 0 || contraindications.length > 0
   if (!hasScience) return null
 
+  const criticalCount = problematic.filter(i => i.severity === 'critical').length
+  const highCount = problematic.filter(i => i.severity === 'high').length
+  const synergyCount = synergistic.length
+
   return (
     <section className="p-5 rounded-2xl bg-gradient-to-br from-[#1a1033]/80 to-[#0f0a12] border border-[#8B5CF6]/20">
-      <h2 className="text-sm font-medium text-[#A855F7] uppercase tracking-wider mb-4 flex items-center gap-2">
-        <Microscope className="w-4 h-4" />
-        Blend Science & Chemistry
-      </h2>
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-sm font-medium text-[#A855F7] uppercase tracking-wider flex items-center gap-2">
+          <Microscope className="w-4 h-4" />
+          Blend Science & Chemistry
+        </h2>
+        {/* Mobile toggle */}
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="md:hidden text-xs text-white/60 hover:text-white flex items-center gap-1"
+        >
+          {expanded ? 'Hide' : 'Show'} analysis
+        </button>
+      </div>
 
-      <div className="grid md:grid-cols-2 gap-4">
+      {/* Mobile collapsed summary */}
+      <div className={cn("md:hidden", expanded && "hidden")}>
+        <div className="flex flex-wrap gap-2 text-xs">
+          {criticalCount > 0 && (
+            <span className="px-2 py-1 rounded-full bg-red-500/10 text-red-400 border border-red-500/20">
+              {criticalCount} critical warning{criticalCount > 1 ? 's' : ''}
+            </span>
+          )}
+          {highCount > 0 && (
+            <span className="px-2 py-1 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+              {highCount} caution{highCount > 1 ? 's' : ''}
+            </span>
+          )}
+          {criticalCount === 0 && highCount === 0 && problematic.length > 0 && (
+            <span className="px-2 py-1 rounded-full bg-white/5 text-white/60 border border-white/10">
+              {problematic.length} note{problematic.length > 1 ? 's' : ''}
+            </span>
+          )}
+          {synergyCount > 0 && (
+            <span className="px-2 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+              {synergyCount} synergy
+            </span>
+          )}
+          {problematic.length === 0 && synergyCount === 0 && (
+            <span className="text-white/40">No major interactions noted.</span>
+          )}
+        </div>
+      </div>
+
+      <div className={cn("grid md:grid-cols-2 gap-4", !expanded && "hidden md:grid")}>
         {/* Chemistry Profile */}
         <div className="space-y-3">
           <h3 className="text-xs text-white/40 uppercase tracking-wider flex items-center gap-1">
@@ -439,6 +501,9 @@ function BlendScienceSection({ codex }: { codex: BlendCodex }) {
                 <span className="text-xs text-white/70">{oilNames.get(interaction.oilId1) || interaction.oilId1} + {oilNames.get(interaction.oilId2) || interaction.oilId2}</span>
               </div>
               <p className="text-sm text-white/90 font-medium">{interaction.title}</p>
+              {'ratioNote' in interaction && interaction.ratioNote && (
+                <p className="text-[10px] text-emerald-400 mt-0.5">{interaction.ratioNote}</p>
+              )}
               <p className="text-xs text-white/60 mt-1 leading-relaxed">{interaction.explanation}</p>
               <p className="text-xs text-[#c9a227] mt-1.5">{interaction.recommendation}</p>
             </div>

@@ -95,6 +95,9 @@ export interface OrderCustomMix {
   shareToCommunity?: boolean  // User consented to share this blend
   creatorId?: string          // User who created the blend
   creatorName?: string        // Display name of creator
+  
+  // Living Blend Codex revelation data
+  revelationData?: Record<string, unknown>
 }
 
 // ============================================================================

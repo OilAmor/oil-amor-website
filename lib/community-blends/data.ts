@@ -33,6 +33,7 @@ const DEMO_COMMUNITY_BLENDS: BlendWithRating[] = [
         { oilId: 'peppermint', name: 'Peppermint', ml: 0.2 },
       ],
     },
+    revelationData: null,
     viewCount: 128,
     purchaseCount: 23,
     ratingCount: 12,
@@ -57,6 +58,7 @@ const DEMO_COMMUNITY_BLENDS: BlendWithRating[] = [
         { oilId: 'cedarwood', name: 'Cedarwood', ml: 0.3 },
       ],
     },
+    revelationData: null,
     viewCount: 256,
     purchaseCount: 45,
     ratingCount: 28,
@@ -81,6 +83,7 @@ const DEMO_COMMUNITY_BLENDS: BlendWithRating[] = [
         { oilId: 'tea-tree', name: 'Tea Tree', ml: 1.5 },
       ],
     },
+    revelationData: null,
     viewCount: 89,
     purchaseCount: 15,
     ratingCount: 8,
@@ -111,6 +114,7 @@ export interface BlendWithRating {
     strength: number;
     oils: { oilId: string; name: string; ml: number }[];
   };
+  revelationData: Record<string, unknown> | null;
   viewCount: number;
   purchaseCount: number;
   ratingCount: number;
@@ -185,6 +189,7 @@ export async function getCommunityBlends(sortBy: 'popular' | 'newest' | 'rated' 
       creatorAvatar: blend.creatorAvatar,
       price: blend.price,
       recipe: blend.recipe as BlendWithRating['recipe'],
+      revelationData: (blend.revelationData as BlendWithRating['revelationData']) || null,
       viewCount: blend.viewCount,
       purchaseCount: blend.purchaseCount,
       ratingCount: blend.ratingCount,
@@ -268,6 +273,7 @@ export async function getBlendDetail(slug: string): Promise<BlendDetail | null> 
       creatorBio: blend.creatorBio,
       price: blend.price,
       recipe: blend.recipe as BlendDetail['recipe'],
+      revelationData: (blend.revelationData as BlendDetail['revelationData']) || null,
       viewCount: blend.viewCount,
       purchaseCount: blend.purchaseCount,
       ratingCount: blend.ratingCount,

@@ -223,6 +223,7 @@ export async function processCommunityBlendShares(
           ? `This blend was crafted to support ${share.recipe.intendedUse}. The creator carefully selected each oil for its unique properties and how they harmonize together.`
           : undefined,
         recipe: communityRecipe,
+        revelationData: share.recipe.revelationData,
         price: priceCents,
         // Store additional metadata
         originalOrderId: share.orderId,

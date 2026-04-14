@@ -32,6 +32,7 @@ interface CreateBlendInput {
   description?: string;
   story?: string;
   recipe: CommunityBlend['recipe'];
+  revelationData?: Record<string, unknown>;
   price: number; // in cents
 }
 
@@ -63,6 +64,7 @@ export async function createCommunityBlend(input: CreateBlendInput): Promise<{ s
       description: input.description,
       story: input.story,
       recipe: input.recipe,
+      revelationData: input.revelationData,
       price: input.price,
       status: 'draft',
       visibility: 'private',
