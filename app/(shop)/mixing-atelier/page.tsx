@@ -2734,6 +2734,30 @@ export default function MixingAtelierPage() {
     setShowProfileForm(!isProfileComplete)
   }, [isProfileComplete])
 
+  const [selectedOils, setSelectedOils] = useState<{ oilId: string; ml: number }[]>([])
+  const [carrierRatio, setCarrierRatio] = useState<number>(25)
+  const [selectedCarrierOilId, setSelectedCarrierOilId] = useState<string>('jojoba')
+  const [bottleSize, setBottleSize] = useState<number>(30)
+  const [recipeName, setRecipeName] = useState('')
+  const [blendDescription, setBlendDescription] = useState('')
+  const [blendStory, setBlendStory] = useState('')
+  const [consentToShare, setConsentToShare] = useState(false)
+  const [cartQuantity, setCartQuantity] = useState(1)
+  const [isSaving, setIsSaving] = useState(false)
+  const [selectedCrystalId, setSelectedCrystalId] = useState<string | undefined>('clear-quartz')
+  const [showCrystalSelector, setShowCrystalSelector] = useState(false)
+  const [showCarrierSelector, setShowCarrierSelector] = useState(false)
+  
+  // New state for enhancements
+  const [intendedUse, setIntendedUse] = useState<string>('other')
+  const [tags, setTags] = useState<string[]>([])
+  const [tagInput, setTagInput] = useState('')
+  const [oilSearchQuery, setOilSearchQuery] = useState('')
+  const [acknowledgedWarningIds, setAcknowledgedWarningIds] = useState<string[]>([])
+  const [showShareModal, setShowShareModal] = useState(false)
+  const [shareUrl, setShareUrl] = useState('')
+  const [showCertificateModal, setShowCertificateModal] = useState(false)
+
   const hasLoadedDraftRef = useRef(false)
 
   // Load draft: URL param takes precedence, otherwise localStorage
@@ -2849,30 +2873,6 @@ export default function MixingAtelierPage() {
     }
     localStorage.setItem('oil-amor-atelier-draft', JSON.stringify(draft))
   }, [selectedOils, mode, bottleSize, carrierRatio, selectedCarrierOilId, selectedCrystalId, selectedCordId, recipeName, blendDescription, blendStory, intendedUse, tags, consentToShare])
-  
-  const [selectedOils, setSelectedOils] = useState<{ oilId: string; ml: number }[]>([])
-  const [carrierRatio, setCarrierRatio] = useState<number>(25)
-  const [selectedCarrierOilId, setSelectedCarrierOilId] = useState<string>('jojoba')
-  const [bottleSize, setBottleSize] = useState<number>(30)
-  const [recipeName, setRecipeName] = useState('')
-  const [blendDescription, setBlendDescription] = useState('')
-  const [blendStory, setBlendStory] = useState('')
-  const [consentToShare, setConsentToShare] = useState(false)
-  const [cartQuantity, setCartQuantity] = useState(1)
-  const [isSaving, setIsSaving] = useState(false)
-  const [selectedCrystalId, setSelectedCrystalId] = useState<string | undefined>('clear-quartz')
-  const [showCrystalSelector, setShowCrystalSelector] = useState(false)
-  const [showCarrierSelector, setShowCarrierSelector] = useState(false)
-  
-  // New state for enhancements
-  const [intendedUse, setIntendedUse] = useState<string>('other')
-  const [tags, setTags] = useState<string[]>([])
-  const [tagInput, setTagInput] = useState('')
-  const [oilSearchQuery, setOilSearchQuery] = useState('')
-  const [acknowledgedWarningIds, setAcknowledgedWarningIds] = useState<string[]>([])
-  const [showShareModal, setShowShareModal] = useState(false)
-  const [shareUrl, setShareUrl] = useState('')
-  const [showCertificateModal, setShowCertificateModal] = useState(false)
   
   // Cord & Revelation State
   const [selectedCordId, setSelectedCordId] = useState<string>(DEFAULT_SIMPLE_CORD.id)
