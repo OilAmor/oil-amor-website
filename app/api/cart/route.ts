@@ -308,7 +308,8 @@ function validateCustomMix(mix: any): { valid: boolean; error?: string } {
     
     const profile = getOilSafetyProfile(oil.oilId)
     if (!profile) {
-      return { valid: false, error: `Oil ${oil.oilId} not found` }
+      console.warn(`[Cart API] Safety profile missing for oil: ${oil.oilId}`)
+      // Do not block cart addition for missing safety profiles
     }
   }
   
