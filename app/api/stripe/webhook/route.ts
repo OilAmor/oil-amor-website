@@ -8,7 +8,7 @@ import Stripe from 'stripe'
 import { stripe } from '@/lib/stripe/config'
 import { db } from '@/lib/db'
 import { orders, unlockedOils, customers } from '@/lib/db/schema-refill'
-import { eq } from 'drizzle-orm'
+import { eq, and } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
 
 // Stripe webhook secret
@@ -95,6 +95,9 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
   
   console.log(`Processing completed checkout for order: ${orderId}`)
   
+  let dbOrder: any = null
+  const now = new Date()
+  
   // Check if order already exists
   const existingOrder = await db.query.orders.findFirst({
     where: eq(orders.id, orderId),
@@ -112,166 +115,299 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
           ...(existingOrder.statusHistory || []),
           {
             status: 'confirmed',
-            timestamp: new Date().toISOString(),
+            timestamp: now.toISOString(),
             note: 'Payment confirmed via Stripe',
           },
         ],
         payment: {
           ...currentPayment,
           status: 'captured',
-          paidAt: new Date().toISOString(),
+          paidAt: now.toISOString(),
           transactionId: session.payment_intent as string,
         },
-        updatedAt: new Date(),
+        updatedAt: now,
       })
       .where(eq(orders.id, orderId))
     
-    return
+    dbOrder = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+    })
+  } else {
+    // Order doesn't exist - create it from webhook
+    console.warn(`Order ${orderId} not found in database, creating from webhook`)
+    
+    // Extract items from session with metadata
+    const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
+      expand: ['data.price.product'],
+    })
+    
+    const orderItems = lineItems.data
+      .filter(item => item.description !== 'Shipping' && item.description !== 'GST (10%)')
+      .map(item => {
+        // Get metadata from the product
+        const product = (item.price?.product as any) || {}
+        const metadata = product.metadata || {}
+        
+        const customMixRaw = metadata.customMix
+        let customMix: any = undefined
+        if (customMixRaw) {
+          try {
+            customMix = typeof customMixRaw === 'string' ? JSON.parse(customMixRaw) : customMixRaw
+          } catch (e) {
+            console.error('Failed to parse customMix metadata:', e)
+          }
+        }
+        
+        if (customMix) {
+          return {
+            id: `line_${nanoid(8)}`,
+            type: 'custom-mix' as const,
+            name: customMix.recipeName || item.description || 'Custom Blend',
+            unitPrice: item.amount_total || 0,
+            quantity: item.quantity || 1,
+            subtotal: item.amount_subtotal || 0,
+            taxAmount: 0,
+            total: item.amount_total || 0,
+            customMix,
+          }
+        }
+        
+        return {
+          id: `line_${nanoid(8)}`,
+          type: 'standard-oil' as const,
+          name: item.description || 'Unknown Item',
+          unitPrice: item.amount_total || 0,
+          quantity: item.quantity || 1,
+          subtotal: item.amount_subtotal || 0,
+          taxAmount: 0,
+          total: item.amount_total || 0,
+          metadata: {
+            oilId: metadata.oilId,
+            size: metadata.size,
+            type: metadata.type,
+          },
+        }
+      })
+    
+    console.log('[Webhook] Creating order:', { 
+      orderId, 
+      customerEmail: session.customer_email,
+      customerId: customerId || 'guest'
+    })
+    
+    // Create order
+    await db.insert(orders).values({
+      id: orderId,
+      customerId: customerId || 'guest',
+      customerEmail: session.customer_email || 'guest@oilamor.com',
+      customerName: session.customer_details?.name || 'Guest',
+      isGuest: !customerId || customerId === 'guest',
+      
+      status: 'confirmed',
+      statusHistory: [{
+        status: 'confirmed',
+        timestamp: now.toISOString(),
+        note: 'Payment confirmed via Stripe webhook',
+      }],
+      
+      items: orderItems,
+      
+      subtotal: parseInt(subtotal || '0'),
+      taxTotal: parseInt(tax || '0'),
+      shippingTotal: parseInt(shipping || '0'),
+      discountTotal: 0,
+      total: session.amount_total || 0,
+      
+      currency: 'AUD',
+      
+      payment: {
+        method: 'credit-card',
+        status: 'captured',
+        paidAt: now.toISOString(),
+        transactionId: session.payment_intent as string,
+      },
+      
+      shippingAddress: {
+        firstName: (session as any).shipping_details?.name?.split(' ')[0] || '',
+        lastName: (session as any).shipping_details?.name?.split(' ').slice(1).join(' ') || '',
+        address1: (session as any).shipping_details?.address?.line1 || '',
+        address2: (session as any).shipping_details?.address?.line2 || undefined,
+        city: (session as any).shipping_details?.address?.city || '',
+        province: (session as any).shipping_details?.address?.state || '',
+        country: (session as any).shipping_details?.address?.country || 'AU',
+        zip: (session as any).shipping_details?.address?.postal_code || '',
+        phone: session.customer_details?.phone || undefined,
+      },
+      
+      shipping: {
+        carrier: 'auspost',
+        service: 'standard',
+        cost: parseInt(shipping || '0') / 100,
+      },
+      
+      isGift: session.metadata?.isGift === 'true',
+      giftMessage: session.metadata?.giftMessage,
+      
+      requiresBlending: orderItems.some(i => i.type === 'custom-mix'),
+      eligibleForReturns: parseInt(itemCount || '0') >= 1,
+      
+      createdAt: now,
+      updatedAt: now,
+    })
+    
+    dbOrder = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+    })
   }
   
-  // Order doesn't exist - create it (shouldn't happen normally)
-  console.warn(`Order ${orderId} not found in database, creating from webhook`)
-  
-  // Extract items from session with metadata
-  const lineItems = await stripe.checkout.sessions.listLineItems(session.id, {
-    expand: ['data.price.product'],
-  })
-  
-  const orderItems = lineItems.data
-    .filter(item => item.description !== 'Shipping' && item.description !== 'GST (10%)')
-    .map(item => {
-      // Get metadata from the product
-      const product = (item.price?.product as any) || {}
-      const metadata = product.metadata || {}
-      
-      return {
-        id: `line_${nanoid(8)}`,
-        type: 'standard-oil' as const,
-        name: item.description || 'Unknown Item',
-        unitPrice: item.amount_total || 0,
-        quantity: item.quantity || 1,
-        subtotal: item.amount_subtotal || 0,
-        taxAmount: 0,
-        total: item.amount_total || 0,
-        metadata: {
-          oilId: metadata.oilId,
-          size: metadata.size,
-          type: metadata.type,
-        },
-      }
+  // Complete order processing for registered customers
+  if (customerId && customerId !== 'guest' && dbOrder) {
+    const { completeOrderProcessing } = await import('@/lib/orders/order-completion')
+    
+    // Fetch existing unlocks
+    const dbUnlocks = await db.query.unlockedOils.findMany({
+      where: eq(unlockedOils.customerId, customerId),
     })
-  
-  const now = new Date()
-  
-  console.log('[Webhook] Creating order:', { 
-    orderId, 
-    customerEmail: session.customer_email,
-    customerId: customerId || 'guest'
-  })
-  
-  // Create order
-  await db.insert(orders).values({
-    id: orderId,
-    customerId: customerId || 'guest',
-    customerEmail: session.customer_email || 'guest@oilamor.com',
-    customerName: session.customer_details?.name || 'Guest',
-    isGuest: !customerId || customerId === 'guest',
     
-    status: 'confirmed',
-    statusHistory: [{
-      status: 'confirmed',
-      timestamp: now.toISOString(),
-      note: 'Payment confirmed via Stripe webhook',
-    }],
+    const existingUnlocks = dbUnlocks.map(u => ({
+      oilId: u.oilId,
+      unlockedAt: u.unlockedAt instanceof Date ? u.unlockedAt.toISOString() : String(u.unlockedAt),
+      unlockedBy: u.unlockedBy,
+      type: u.type as 'pure' | 'enhanced',
+    }))
     
-    items: orderItems,
-    
-    subtotal: parseInt(subtotal || '0'),
-    taxTotal: parseInt(tax || '0'),
-    shippingTotal: parseInt(shipping || '0'),
-    discountTotal: 0,
-    total: session.amount_total || 0,
-    
-    currency: 'AUD',
-    
-    payment: {
-      method: 'credit-card',
-      status: 'captured',
-      paidAt: now.toISOString(),
-      transactionId: session.payment_intent as string,
-    },
-    
-    shippingAddress: {
-      firstName: (session as any).shipping_details?.name?.split(' ')[0] || '',
-      lastName: (session as any).shipping_details?.name?.split(' ').slice(1).join(' ') || '',
-      address1: (session as any).shipping_details?.address?.line1 || '',
-      address2: (session as any).shipping_details?.address?.line2 || undefined,
-      city: (session as any).shipping_details?.address?.city || '',
-      province: (session as any).shipping_details?.address?.state || '',
-      country: (session as any).shipping_details?.address?.country || 'AU',
-      zip: (session as any).shipping_details?.address?.postal_code || '',
-      phone: session.customer_details?.phone || undefined,
-    },
-    
-    shipping: {
-      carrier: 'auspost',
-      service: 'standard',
-      cost: parseInt(shipping || '0') / 100,
-    },
-    
-    isGift: session.metadata?.isGift === 'true',
-    giftMessage: session.metadata?.giftMessage,
-    
-    requiresBlending: false,
-    eligibleForReturns: parseInt(itemCount || '0') >= 1,
-    
-    createdAt: now,
-    updatedAt: now,
-  })
-  
-  // Unlock oils for registered customers
-  if (customerId && customerId !== 'guest') {
-    for (const item of orderItems) {
-      // Extract oilId from metadata if available
-      const oilId = (item as any).metadata?.oilId
-      if (oilId) {
-        const existing = await db.query.unlockedOils.findFirst({
-          where: eq(unlockedOils.oilId, oilId),
-        })
+    // Construct context-style Order
+    const contextOrder: import('@/lib/context/user-context').Order = {
+      id: dbOrder.id,
+      customerId: dbOrder.customerId,
+      date: dbOrder.createdAt instanceof Date ? dbOrder.createdAt.toISOString() : String(dbOrder.createdAt),
+      status: 'processing',
+      items: (dbOrder.items || []).map((item: any) => {
+        if (item.type === 'custom-mix' && item.customMix) {
+          return {
+            oilId: '',
+            name: item.customMix.recipeName || item.name,
+            size: `${item.customMix.totalVolume}ml`,
+            type: 'pure' as const,
+            price: (item.total || 0) / 100,
+            customMix: item.customMix,
+          }
+        }
         
-        if (!existing) {
+        return {
+          oilId: item.metadata?.oilId || item.unlocksOilId || '',
+          name: item.name,
+          size: item.metadata?.size || '30ml',
+          type: (item.metadata?.type as 'pure' | 'enhanced') || 'pure',
+          price: (item.total || 0) / 100,
+        }
+      }),
+      total: (dbOrder.total || 0) / 100,
+    }
+    
+    try {
+      const result = await completeOrderProcessing(contextOrder, customerId, existingUnlocks)
+      console.log(`Order completion processing finished for ${orderId}`)
+      
+      // Persist new standard oil unlocks from processing result
+      for (const unlock of result.unlockResult.newUnlocks) {
+        const alreadyExists = await db.query.unlockedOils.findFirst({
+          where: and(eq(unlockedOils.customerId, customerId), eq(unlockedOils.oilId, unlock.oilId)),
+        })
+        if (!alreadyExists) {
           await db.insert(unlockedOils).values({
             id: `unlock_${nanoid(8)}`,
             customerId,
-            oilId,
+            oilId: unlock.oilId,
             unlockedAt: now,
             unlockedBy: orderId,
-            type: 'pure',
+            type: unlock.type,
             createdAt: now,
           })
         }
       }
+      
+      // Persist enhanced upgrades
+      for (const upgrade of result.unlockResult.upgradedUnlocks) {
+        await db.update(unlockedOils)
+          .set({
+            type: 'enhanced',
+            updatedAt: now,
+          })
+          .where(and(
+            eq(unlockedOils.customerId, customerId),
+            eq(unlockedOils.oilId, upgrade.oilId)
+          ))
+      }
+    } catch (err) {
+      console.error('Error in completeOrderProcessing:', err)
+      // Don't fail the webhook
     }
     
-    // Update customer metadata
-    const customer = await db.query.customers.findFirst({
-      where: eq(customers.id, customerId),
-    })
+    // Update customer metadata (first purchase date)
+    try {
+      const customer = await db.query.customers.findFirst({
+        where: eq(customers.id, customerId),
+      })
+      
+      if (customer && !customer.metadata?.firstPurchaseDate) {
+        await db.update(customers)
+          .set({
+            metadata: {
+              ...customer.metadata,
+              firstPurchaseDate: now.toISOString(),
+            },
+            updatedAt: now,
+          })
+          .where(eq(customers.id, customerId))
+      }
+    } catch (err) {
+      console.error('Error updating customer metadata:', err)
+    }
     
-    if (customer && !customer.metadata?.firstPurchaseDate) {
-      await db.update(customers)
-        .set({
-          metadata: {
-            ...customer.metadata,
-            firstPurchaseDate: now.toISOString(),
-          },
-          updatedAt: now,
-        })
-        .where(eq(customers.id, customerId))
+    // Send confirmation email (don't fail webhook if email fails)
+    try {
+      const { sendOrderConfirmationEmail } = await import('@/lib/email/resend')
+      
+      const shippingAddress = (dbOrder.shippingAddress as any) || {}
+      const firstName = session.customer_details?.name?.split(' ')[0] 
+        || shippingAddress.firstName 
+        || 'Customer'
+      
+      await sendOrderConfirmationEmail({
+        to: dbOrder.customerEmail || session.customer_email || '',
+        firstName,
+        orderNumber: dbOrder.id,
+        orderDate: now.toISOString(),
+        items: (dbOrder.items || []).map((item: any) => ({
+          name: item.name,
+          variant: item.type === 'custom-mix' 
+            ? `${item.customMix?.totalVolume}ml Custom Blend` 
+            : item.metadata?.size,
+          quantity: item.quantity || 1,
+          price: item.total || 0,
+        })),
+        subtotal: dbOrder.subtotal || 0,
+        shipping: dbOrder.shippingTotal || 0,
+        total: dbOrder.total || 0,
+        shippingAddress: {
+          name: `${shippingAddress.firstName || ''} ${shippingAddress.lastName || ''}`.trim(),
+          line1: shippingAddress.address1 || '',
+          line2: shippingAddress.address2,
+          city: shippingAddress.city || '',
+          state: shippingAddress.province || '',
+          postalCode: shippingAddress.zip || '',
+          country: shippingAddress.country || 'AU',
+        },
+      })
+      
+      console.log(`Order confirmation email sent for ${orderId}`)
+    } catch (err) {
+      console.error('Error sending order confirmation email:', err)
+      // Don't fail the webhook
     }
   }
   
-  // Send confirmation email (would integrate with email service)
   console.log(`Order ${orderId} confirmed and saved`)
 }
 

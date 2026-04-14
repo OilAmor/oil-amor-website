@@ -3,7 +3,7 @@
  * Returns refill orders with scaled recipes for production
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { refillOrders, foreverBottles, customers } from '@/lib/db/schema-refill';
 import { desc, eq } from 'drizzle-orm';
@@ -77,5 +77,22 @@ export async function GET() {
       { error: 'Failed to fetch refill orders', orders: [] },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { orderId, action } = await request.json();
+
+    if (action === 'start') {
+      await db.update(refillOrders)
+        .set({ status: 'refilling', updatedAt: new Date() })
+        .where(eq(refillOrders.id, orderId));
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Refill orders POST error:', error);
+    return NextResponse.json({ error: 'Failed to update refill order' }, { status: 500 });
   }
 }

@@ -3,7 +3,7 @@
  * Returns orders that need blending/mixing atelier preparation
  */
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { refillOrders, customers } from '@/lib/db/schema-refill';
 import { desc, eq, inArray } from 'drizzle-orm';
@@ -72,5 +72,22 @@ export async function GET() {
       { error: 'Failed to fetch production queue', items: [] },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const { orderId, action } = await request.json();
+
+    if (action === 'start') {
+      await db.update(refillOrders)
+        .set({ status: 'refilling', updatedAt: new Date() })
+        .where(eq(refillOrders.id, orderId));
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    console.error('Production queue POST error:', error);
+    return NextResponse.json({ error: 'Failed to update production queue' }, { status: 500 });
   }
 }

@@ -23,9 +23,23 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // TODO: Add authentication check here
-    // Verify that the requesting user matches the creatorId
-    // or that the request is from an admin
+    // Authentication check
+    const requestingUserId = request.headers.get('x-customer-id')
+    const isAdmin = request.headers.get('x-admin-key') === process.env.ADMIN_API_KEY
+    
+    if (!requestingUserId) {
+      return NextResponse.json(
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
+    if (requestingUserId !== creatorId && !isAdmin) {
+      return NextResponse.json(
+        { error: 'Forbidden: You can only view your own earnings' },
+        { status: 403 }
+      )
+    }
 
     const [earnings, history] = await Promise.all([
       getCreatorEarnings(creatorId),

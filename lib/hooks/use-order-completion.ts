@@ -9,7 +9,7 @@
 import { useCallback } from 'react'
 import { Order } from '@/lib/context/user-context'
 import { processCommunityBlendShares, CommunityShareResult } from '@/lib/orders/order-completion'
-import { createCommunityBlend } from '@/lib/community-blends/actions'
+import { createCommunityBlend, publishBlend } from '@/lib/community-blends/actions'
 
 export interface UseOrderCompletionOptions {
   onSuccess?: (results: CommunityShareResult[]) => void
@@ -43,7 +43,7 @@ export function useOrderCompletion(options: UseOrderCompletionOptions = {}) {
 
     // Then process community blend shares
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const shareResults = await processCommunityBlendShares(order, createCommunityBlend as any)
+    const shareResults = await processCommunityBlendShares(order, createCommunityBlend as any, publishBlend as any)
 
     // Build summary
     const summary: OrderCompletionSummary = {

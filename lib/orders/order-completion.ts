@@ -11,6 +11,7 @@ import { UnlockedOil, Order, OrderItem } from '@/lib/context/user-context'
 import { OrderCustomMix } from '@/lib/db/schema/orders'
 import { saveBlendToLibrary } from '@/lib/brand-ambassador'
 import { trackReferral, extractShareCodeFromUrl } from '@/lib/brand-ambassador'
+import { calculateRefillPrice } from '@/lib/refill/recipe-scaling'
 
 export interface OrderCompletionResult {
   success: boolean
@@ -381,8 +382,8 @@ export async function unlockCustomBlendRefills(
         refillId: result.refillId,
         blendName: item.customMix.recipeName,
         availableSizes: [
-          { size: 50, price: 3000 }, // $30
-          { size: 100, price: 5500 }, // $55
+          { size: 50, price: calculateRefillPrice(50, item.customMix.mode) },
+          { size: 100, price: calculateRefillPrice(100, item.customMix.mode) },
         ],
         error: result.error,
       })

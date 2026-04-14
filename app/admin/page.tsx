@@ -341,11 +341,16 @@ function OrdersTab({
     order.customerEmail?.toLowerCase().includes(search.toLowerCase())
   );
 
+  const handleOrderUpdate = useCallback(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
   if (selectedOrder) {
     return (
       <OrderDetailView 
         order={selectedOrder} 
         onBack={() => onSelectOrder(null)}
+        onOrderUpdate={handleOrderUpdate}
       />
     );
   }
@@ -485,7 +490,88 @@ function OrdersTab({
 // ORDER DETAIL VIEW
 // ============================================================================
 
-function OrderDetailView({ order, onBack }: { order: Order; onBack: () => void }) {
+function OrderDetailView({ order, onBack, onOrderUpdate }: { order: Order; onBack: () => void; onOrderUpdate?: () => void }) {
+  const updateOrderStatus = async (status: string) => {
+    try {
+      const res = await fetch('/api/admin/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id, status }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      onOrderUpdate?.();
+      alert('Status updated successfully');
+    } catch {
+      alert('Failed to update status');
+    }
+  };
+
+  const handleUpdateStatus = () => {
+    const statuses = ['pending', 'blending', 'quality-check', 'ready', 'shipped', 'cancelled'];
+    const newStatus = window.prompt(`Enter new status:\n${statuses.join(', ')}`);
+    if (!newStatus || !statuses.includes(newStatus)) {
+      if (newStatus) alert('Invalid status');
+      return;
+    }
+    updateOrderStatus(newStatus);
+  };
+
+  const handleAddTracking = async () => {
+    const carrier = window.prompt('Enter carrier (e.g. auspost):');
+    if (!carrier) return;
+    const trackingNumber = window.prompt('Enter tracking number:');
+    if (!trackingNumber) return;
+    try {
+      const res = await fetch('/api/admin/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id, carrier, trackingNumber }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      onOrderUpdate?.();
+      alert('Tracking number added');
+    } catch {
+      alert('Failed to add tracking number');
+    }
+  };
+
+  const handlePrintLabels = async () => {
+    const item = order.items?.find(i => i.customMix);
+    const data = {
+      blendName: item?.customMix?.recipeName || order.items?.[0]?.name || 'Oil Amor Blend',
+      oils: item?.customMix?.oils?.map(o => ({ name: o.oilName, percentage: o.percentage, ml: o.ml })) || [],
+      carrierOil: item?.customMix?.mode === 'carrier' ? 'Jojoba' : undefined,
+      carrierPercentage: item?.customMix?.carrierRatio,
+      size: item?.customMix?.totalVolume || 30,
+      batchId: `OA-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-001`,
+      madeDate: new Date().toLocaleDateString('en-AU'),
+      expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU'),
+      warnings: item?.customMix?.safetyWarnings || [],
+      crystal: item?.customMix?.crystalId,
+      showIngredients: true,
+      showExpiry: true,
+      showWarnings: true,
+      showQRCode: true,
+      showBatchId: true,
+      showMadeDate: true,
+      showCrystal: true,
+    };
+    try {
+      const res = await fetch('/api/admin/labels/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.html) {
+        const w = window.open('', '_blank');
+        if (w) w.document.write(json.html);
+      }
+    } catch {
+      alert('Failed to generate label');
+    }
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -498,11 +584,11 @@ function OrderDetailView({ order, onBack }: { order: Order; onBack: () => void }
           Back to Orders
         </button>
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
+          <button onClick={handlePrintLabels} className="flex items-center gap-2 px-4 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
             <Printer className="w-4 h-4" />
             Print Labels
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#111]/80 transition-colors">
+          <button onClick={handleUpdateStatus} className="flex items-center gap-2 px-4 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#111]/80 transition-colors">
             <Zap className="w-4 h-4" />
             Update Status
           </button>
@@ -594,16 +680,16 @@ function OrderDetailView({ order, onBack }: { order: Order; onBack: () => void }
           <div className="bg-[#111] border border-[#f5f3ef]/10 rounded-xl p-6">
             <h3 className="text-lg font-medium text-[#f5f3ef] mb-4">Actions</h3>
             <div className="space-y-2">
-              <button className="w-full px-4 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
+              <button onClick={() => updateOrderStatus('blending')} className="w-full px-4 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
                 Mark as Blending
               </button>
-              <button className="w-full px-4 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
+              <button onClick={() => updateOrderStatus('quality-check')} className="w-full px-4 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
                 Mark as Quality Check
               </button>
-              <button className="w-full px-4 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
+              <button onClick={() => updateOrderStatus('ready')} className="w-full px-4 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
                 Mark as Ready to Ship
               </button>
-              <button className="w-full px-4 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
+              <button onClick={handleAddTracking} className="w-full px-4 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
                 Add Tracking Number
               </button>
             </div>
@@ -710,16 +796,22 @@ function ProductionQueueTab() {
   const [queue, setQueue] = useState<ProductionQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Fetch production queue from API
-    fetch('/api/admin/production-queue')
-      .then(r => r.json())
-      .then(data => {
-        setQueue(data.items || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+  const fetchQueue = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch('/api/admin/production-queue');
+      const data = await r.json();
+      setQueue(data.items || []);
+    } catch {
+      setQueue([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchQueue();
+  }, [fetchQueue]);
 
   return (
     <div className="space-y-4">
@@ -739,7 +831,7 @@ function ProductionQueueTab() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {queue.map((item) => (
-            <ProductionCard key={item.orderId} item={item} />
+            <ProductionCard key={item.orderId} item={item} onRefresh={fetchQueue} />
           ))}
           
           {queue.length === 0 && (
@@ -755,7 +847,58 @@ function ProductionQueueTab() {
   );
 }
 
-function ProductionCard({ item }: { item: ProductionQueueItem }) {
+function ProductionCard({ item, onRefresh }: { item: ProductionQueueItem; onRefresh: () => void }) {
+  const handleStartBlending = async () => {
+    try {
+      const res = await fetch('/api/admin/production-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: item.orderId, action: 'start' }),
+      });
+      if (res.ok) {
+        onRefresh();
+      } else {
+        alert('Failed to start blending');
+      }
+    } catch {
+      alert('Failed to start blending');
+    }
+  };
+
+  const handlePrint = async () => {
+    const data = {
+      blendName: item.customMix?.recipeName || 'Blend',
+      oils: item.customMix?.oils?.map(o => ({ name: o.oilName, percentage: o.percentage, ml: o.ml })) || [],
+      size: item.customMix?.totalVolume || 30,
+      batchId: `OA-${Date.now().toString().slice(-6)}`,
+      madeDate: new Date().toLocaleDateString('en-AU'),
+      expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU'),
+      warnings: item.customMix?.safetyWarnings || [],
+      crystal: undefined,
+      showIngredients: true,
+      showExpiry: true,
+      showWarnings: true,
+      showQRCode: true,
+      showBatchId: true,
+      showMadeDate: true,
+      showCrystal: false,
+    };
+    try {
+      const res = await fetch('/api/admin/labels/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.html) {
+        const w = window.open('', '_blank');
+        if (w) w.document.write(json.html);
+      }
+    } catch {
+      alert('Failed to print label');
+    }
+  };
+
   return (
     <div className="bg-[#111] border border-[#f5f3ef]/10 rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
@@ -781,10 +924,10 @@ function ProductionCard({ item }: { item: ProductionQueueItem }) {
       </div>
 
       <div className="flex gap-2">
-        <button className="flex-1 px-3 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
+        <button onClick={handleStartBlending} className="flex-1 px-3 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
           Start Blending
         </button>
-        <button className="px-3 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
+        <button onClick={handlePrint} className="px-3 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
           <Printer className="w-4 h-4" />
         </button>
       </div>
@@ -800,15 +943,22 @@ function RefillOrdersTab() {
   const [refills, setRefills] = useState<RefillOrderItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetch('/api/admin/refill/orders')
-      .then(r => r.json())
-      .then(data => {
-        setRefills(data.orders || []);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
+  const fetchRefills = useCallback(async () => {
+    setLoading(true);
+    try {
+      const r = await fetch('/api/admin/refill/orders');
+      const data = await r.json();
+      setRefills(data.orders || []);
+    } catch {
+      setRefills([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    fetchRefills();
+  }, [fetchRefills]);
 
   return (
     <div className="space-y-4">
@@ -825,7 +975,7 @@ function RefillOrdersTab() {
       ) : (
         <div className="space-y-4">
           {refills.map((refill) => (
-            <RefillCard key={refill.orderId} refill={refill} />
+            <RefillCard key={refill.orderId} refill={refill} onRefresh={fetchRefills} />
           ))}
           
           {refills.length === 0 && (
@@ -841,7 +991,60 @@ function RefillOrdersTab() {
   );
 }
 
-function RefillCard({ refill }: { refill: RefillOrderItem }) {
+function RefillCard({ refill, onRefresh }: { refill: RefillOrderItem; onRefresh: () => void }) {
+  const handleStartRefill = async () => {
+    try {
+      const res = await fetch('/api/admin/refill/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: refill.orderId, action: 'start' }),
+      });
+      if (res.ok) {
+        onRefresh();
+      } else {
+        alert('Failed to start refill');
+      }
+    } catch {
+      alert('Failed to start refill');
+    }
+  };
+
+  const handlePrint = async () => {
+    const data = {
+      blendName: refill.originalRecipeName,
+      oils: refill.scaledRecipe?.oils?.map(o => ({ name: o.oilName, percentage: o.percentage, ml: o.ml })) || [],
+      carrierOil: refill.scaledRecipe?.carrierOilMl ? 'Carrier Oil' : undefined,
+      carrierPercentage: refill.scaledRecipe?.carrierOilMl ? Math.round((refill.scaledRecipe.carrierOilMl / refill.targetSize) * 100) : undefined,
+      size: refill.targetSize,
+      batchId: `OA-${Date.now().toString().slice(-6)}`,
+      madeDate: new Date().toLocaleDateString('en-AU'),
+      expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU'),
+      warnings: [],
+      crystal: undefined,
+      showIngredients: true,
+      showExpiry: true,
+      showWarnings: true,
+      showQRCode: true,
+      showBatchId: true,
+      showMadeDate: true,
+      showCrystal: false,
+    };
+    try {
+      const res = await fetch('/api/admin/labels/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.html) {
+        const w = window.open('', '_blank');
+        if (w) w.document.write(json.html);
+      }
+    } catch {
+      alert('Failed to print label');
+    }
+  };
+
   return (
     <div className="bg-[#111] border border-[#f5f3ef]/10 rounded-xl p-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -897,10 +1100,10 @@ function RefillCard({ refill }: { refill: RefillOrderItem }) {
           </div>
 
           <div className="flex gap-2 mt-4">
-            <button className="flex-1 px-4 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
+            <button onClick={handleStartRefill} className="flex-1 px-4 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
               Start Refill
             </button>
-            <button className="px-4 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
+            <button onClick={handlePrint} className="px-4 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
               <Printer className="w-4 h-4" />
             </button>
           </div>
@@ -947,6 +1150,42 @@ function LabelGeneratorTab() {
 
   const toggleSetting = (key: keyof LabelSettings) => {
     setSettings(prev => ({ ...prev, [key]: !prev[key] }));
+  };
+
+  const handleGeneratePrint = async () => {
+    const data = {
+      blendName: previewData.blendName,
+      oils: previewData.oils,
+      carrierOil: previewData.carrierOil,
+      carrierPercentage: previewData.carrierPercentage,
+      size: previewData.size,
+      batchId: previewData.batchId,
+      madeDate: previewData.madeDate,
+      expiryDate: previewData.expiryDate,
+      warnings: previewData.warnings,
+      crystal: previewData.crystal,
+      showIngredients: settings.showIngredients,
+      showExpiry: settings.showExpiry,
+      showWarnings: settings.showWarnings,
+      showQRCode: settings.showQRCode,
+      showBatchId: settings.showBatchId,
+      showMadeDate: settings.showMadeDate,
+      showCrystal: settings.showCrystal,
+    };
+    try {
+      const res = await fetch('/api/admin/labels/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      const json = await res.json();
+      if (json.html) {
+        const w = window.open('', '_blank');
+        if (w) w.document.write(json.html);
+      }
+    } catch {
+      alert('Failed to generate label');
+    }
   };
 
   return (
@@ -1062,7 +1301,7 @@ function LabelGeneratorTab() {
               </div>
             </div>
 
-            <button className="w-full px-4 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
+            <button onClick={handleGeneratePrint} className="w-full px-4 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
               Generate & Print
             </button>
           </div>

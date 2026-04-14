@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { customers } from '@/lib/db/schema-refill'
 import { eq } from 'drizzle-orm'
+import bcrypt from 'bcrypt'
 
 export async function POST(request: NextRequest) {
   try {
@@ -34,11 +35,17 @@ export async function POST(request: NextRequest) {
     
     // Verify password (stored in metadata)
     const metadata = customer.metadata || {}
-    const storedPassword = metadata.passwordHash
+    const storedPasswordHash = metadata.passwordHash
     
-    // In production, use bcrypt.compare
-    // For now, plain text comparison (MVP only!)
-    if (password !== storedPassword) {
+    if (!storedPasswordHash) {
+      return NextResponse.json(
+        { error: 'Invalid email or password' },
+        { status: 401 }
+      )
+    }
+    
+    const isValid = await bcrypt.compare(password, storedPasswordHash)
+    if (!isValid) {
       return NextResponse.json(
         { error: 'Invalid email or password' },
         { status: 401 }

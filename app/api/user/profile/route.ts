@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { customers, orders, unlockedOils } from '@/lib/db/schema-refill'
 import { eq } from 'drizzle-orm'
+import bcrypt from 'bcrypt'
 
 // ============================================================================
 // GET /api/user/profile - Get current user profile
@@ -126,6 +127,9 @@ export async function POST(request: NextRequest) {
     const customerId = `cust_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
     console.log('[Profile POST] Creating customer with ID:', customerId)
     
+    // Hash password before storing
+    const passwordHash = await bcrypt.hash(password, 10)
+
     // Create customer in database
     const insertData = {
       id: customerId,
@@ -133,7 +137,7 @@ export async function POST(request: NextRequest) {
       firstName: firstName || null,
       lastName: lastName || null,
       metadata: {
-        passwordHash: password,
+        passwordHash,
         acceptMarketing: acceptMarketing || false,
         registeredAt: new Date().toISOString(),
       },

@@ -18,7 +18,7 @@ function generateId(length = 16): string {
 import { db } from '@/lib/db'
 import { unlockedRefills, type UnlockedRefill, type InsertUnlockedRefill } from '@/lib/db/schema/unlocked-refills'
 import { OrderCustomMix } from '@/lib/db/schema/orders'
-import { eq, and, desc } from 'drizzle-orm'
+import { eq, and, desc, sql } from 'drizzle-orm'
 import { revalidateTag } from 'next/cache'
 import { normalizeRecipe, calculateRefillPrice } from './recipe-scaling'
 

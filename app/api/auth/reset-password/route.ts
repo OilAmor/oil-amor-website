@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import { db } from '@/lib/db'
 import { customers } from '@/lib/db/schema-refill'
 import { eq } from 'drizzle-orm'
+import bcrypt from 'bcrypt'
 
 // POST /api/auth/reset-password
 export async function POST(request: NextRequest) {
@@ -44,13 +45,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Update password and clear token
+    // Hash new password and clear token
+    const passwordHash = await bcrypt.hash(password, 10)
     await db
       .update(customers)
       .set({
-        password,
         metadata: {
           ...(customer.metadata || {}),
+          passwordHash,
           resetToken: null,
           resetTokenExpiry: null,
         },

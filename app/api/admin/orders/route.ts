@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Order, OrderStatus } from '@/lib/db/schema/orders';
 import { db } from '@/lib/db';
-import { refillOrders, foreverBottles, customers } from '@/lib/db/schema-refill';
+import { refillOrders, foreverBottles, customers, orders } from '@/lib/db/schema-refill';
 import { desc, eq, or, sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -151,5 +151,78 @@ export async function GET(request: NextRequest) {
       { error: 'Failed to fetch orders', orders: [] },
       { status: 500 }
     );
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const body = await request.json();
+    const { orderId, status, trackingNumber, carrier } = body;
+
+    if (!orderId) {
+      return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
+    }
+
+    // Try primary orders table first
+    const existingOrder = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+    });
+
+    if (existingOrder) {
+      const now = new Date().toISOString();
+      const newHistory = [
+        ...(existingOrder.statusHistory || []),
+        { status, timestamp: now },
+      ];
+      const updatedShipping = {
+        ...(existingOrder.shipping || { carrier: 'auspost', service: 'Standard', cost: 0 }),
+        ...(trackingNumber ? { trackingNumber, carrier: carrier || 'auspost' } : {}),
+      };
+
+      const [updated] = await db.update(orders)
+        .set({
+          status,
+          statusHistory: newHistory,
+          shipping: updatedShipping,
+          updatedAt: new Date(),
+        })
+        .where(eq(orders.id, orderId))
+        .returning();
+
+      return NextResponse.json({ success: true, order: updated });
+    }
+
+    // Fallback to refill orders for compatibility with current GET handler
+    const existingRefill = await db.query.refillOrders.findFirst({
+      where: eq(refillOrders.id, orderId),
+    });
+
+    if (existingRefill) {
+      const reverseMap: Record<string, string> = {
+        pending: 'pending-return',
+        blending: 'refilling',
+        'quality-check': 'inspecting',
+        ready: 'refilling',
+        shipped: 'completed',
+        cancelled: 'cancelled',
+      };
+      const refillStatus = reverseMap[status] || status;
+
+      const [updated] = await db.update(refillOrders)
+        .set({
+          status: refillStatus as any,
+          updatedAt: new Date(),
+        })
+        .where(eq(refillOrders.id, orderId))
+        .returning();
+
+      const converted = await convertRefillToOrder(updated);
+      return NextResponse.json({ success: true, order: converted });
+    }
+
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+  } catch (error) {
+    console.error('Orders API POST error:', error);
+    return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
   }
 }
