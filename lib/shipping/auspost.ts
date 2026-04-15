@@ -295,6 +295,133 @@ function generateSimulatedLabel(
 }
 
 // ============================================================================
+// SHIPPING RATES
+// ============================================================================
+
+export interface AusPostRate {
+  service_code: string
+  service_name: string
+  total_cost: number // in cents
+  delivery_time: string
+}
+
+/**
+ * Calculate parcel weight in kg from cart items
+ */
+export function calculateParcelWeight(itemCount: number, hasCustomBlends: boolean): number {
+  // Base packaging weight
+  let weightKg = 0.08
+  
+  // Per bottle weight
+  if (itemCount === 1) weightKg += 0.04
+  else if (itemCount === 2) weightKg += 0.12
+  else if (itemCount === 3) weightKg += 0.20
+  else if (itemCount === 4) weightKg += 0.28
+  else weightKg += 0.05 * itemCount
+  
+  // Custom blends with crystals/cords add a bit more
+  if (hasCustomBlends) {
+    weightKg += 0.02
+  }
+  
+  // Round to 2 decimal places, minimum 0.1kg for AusPost
+  return Math.max(0.1, Math.round(weightKg * 100) / 100)
+}
+
+/**
+ * Get live shipping rates from Australia Post
+ */
+export async function getLiveShippingRates(
+  toPostcode: string,
+  weightKg: number
+): Promise<AusPostRate[]> {
+  const rates: AusPostRate[] = []
+  
+  try {
+    // Use AusPost postage calculation API
+    const url = new URL(`${AUSPOST_API_BASE}/postage/parcel/domestic/service.json`)
+    url.searchParams.set('from_postcode', OIL_AMOR_WAREHOUSE.postcode)
+    url.searchParams.set('to_postcode', toPostcode)
+    url.searchParams.set('length', '15')
+    url.searchParams.set('width', '12')
+    url.searchParams.set('height', '8')
+    url.searchParams.set('weight', String(weightKg))
+    
+    const response = await fetch(url.toString(), {
+      headers: {
+        'Content-Type': 'application/json',
+        'Account-Number': AUSPOST_ACCOUNT_NUMBER || '',
+        ...(AUSPOST_API_KEY && AUSPOST_API_SECRET ? {
+          'Authorization': `Basic ${Buffer.from(`${AUSPOST_API_KEY}:${AUSPOST_API_SECRET}`).toString('base64')}`,
+        } : {}),
+      },
+    })
+    
+    if (response.ok) {
+      const data = await response.json() as {
+        services?: {
+          service?: Array<{
+            code: string
+            name: string
+            price: string
+            delivery_time: string
+          }>
+        }
+      }
+      
+      const services = data.services?.service || []
+      for (const svc of services) {
+        const priceCents = Math.round(parseFloat(svc.price) * 100)
+        if (!isNaN(priceCents)) {
+          rates.push({
+            service_code: svc.code,
+            service_name: svc.name,
+            total_cost: priceCents,
+            delivery_time: svc.delivery_time,
+          })
+        }
+      }
+    } else {
+      console.warn('[AusPost] Rate API error:', response.status, await response.text())
+    }
+  } catch (err) {
+    console.error('[AusPost] Failed to fetch live rates:', err)
+  }
+  
+  return rates
+}
+
+/**
+ * Get best available shipping rate from Australia Post
+ * Falls back to default rates if API fails
+ */
+export async function getBestShippingRate(
+  toPostcode: string,
+  weightKg: number,
+  isExpress: boolean = false
+): Promise<{ amount: number; description: string }> {
+  const rates = await getLiveShippingRates(toPostcode, weightKg)
+  
+  if (rates.length > 0) {
+    // Prefer standard parcel post for regular, express post for express
+    const preferred = isExpress
+      ? rates.find(r => r.service_code.includes('EXP')) || rates[0]
+      : rates.find(r => r.service_code.includes('PARCEL_POST') || r.service_code.includes('STANDARD')) || rates[0]
+    
+    return {
+      amount: preferred.total_cost,
+      description: `${preferred.service_name} (${preferred.delivery_time})`,
+    }
+  }
+  
+  // Fallback to defaults
+  return {
+    amount: isExpress ? 1500 : 1000,
+    description: isExpress ? 'Express Shipping (1-2 business days)' : 'Standard Shipping (3-5 business days)',
+  }
+}
+
+// ============================================================================
 // TRACKING
 // ============================================================================
 

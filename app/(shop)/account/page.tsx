@@ -19,11 +19,14 @@ import {
   ShoppingBag,
   Lock,
   Unlock,
-  CheckCircle
+  CheckCircle,
+  X,
+  ExternalLink,
+  FileText
 } from 'lucide-react'
 import { getAllOils } from '@/lib/content/oil-crystal-synergies'
 import { formatPrice } from '@/lib/content/pricing-engine-final'
-import { useUser } from '@/lib/context/user-context'
+import { useUser, type Order } from '@/lib/context/user-context'
 import { useRouter } from 'next/navigation'
 
 // ============================================================================
@@ -160,8 +163,124 @@ function LoginPrompt() {
 // ============================================================================
 export default function AccountDashboardPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'collection' | 'orders' | 'returns'>('overview')
+  const [returnModalOrder, setReturnModalOrder] = useState<Order | null>(null)
   const { user, orders, unlockedOils, isAuthenticated, logout, isOilUnlocked, getUnlockedOilIds, totalSavings, isDemo } = useUser()
   const router = useRouter()
+
+  const getTrackingUrl = (order: Order): string | null => {
+    if (!order.shipping?.trackingNumber) return null
+    const carrier = order.shipping.carrier?.toLowerCase() || 'auspost'
+    if (carrier === 'auspost' || carrier === 'australia post') {
+      return `https://auspost.com.au/mypost/track/#/details/${order.shipping.trackingNumber}`
+    }
+    return order.shipping.trackingUrl || `https://auspost.com.au/mypost/track/#/details/${order.shipping.trackingNumber}`
+  }
+
+  const handleDownloadInvoice = (order: Order) => {
+    const addr = order.shippingAddress
+    const addressHtml = addr
+      ? `<p>${addr.firstName} ${addr.lastName}</p>
+         <p>${addr.address1}</p>
+         ${addr.address2 ? `<p>${addr.address2}</p>` : ''}
+         <p>${addr.city}, ${addr.province} ${addr.zip}</p>
+         <p>${addr.country}</p>`
+      : '<p>—</p>'
+
+    const itemsHtml = order.items.map((item) => `
+      <tr>
+        <td style="padding:12px 0;border-bottom:1px solid #f5f3ef10;">
+          <div style="font-weight:500;color:#f5f3ef;">${item.name}</div>
+          <div style="font-size:12px;color:#a69b8a;">${item.size} • ${item.type === 'enhanced' ? `${item.ratio}% Enhanced` : 'Pure'}${item.quantity && item.quantity > 1 ? ` • Qty: ${item.quantity}` : ''}</div>
+        </td>
+        <td style="padding:12px 0;border-bottom:1px solid #f5f3ef10;text-align:right;white-space:nowrap;color:#f5f3ef;">
+          ${formatPrice(item.price)}
+        </td>
+      </tr>
+    `).join('')
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Invoice ${order.id}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600&family=Inter:wght@400;500&display=swap');
+          body { margin:0; padding:40px; background:#0a080c; color:#f5f3ef; font-family:'Inter',sans-serif; }
+          .container { max-width:720px; margin:0 auto; background:#111; border:1px solid #f5f3ef10; border-radius:16px; padding:48px; }
+          h1 { font-family:'Playfair Display',serif; margin:0 0 8px; font-size:32px; }
+          .brand { color:#c9a227; font-weight:600; letter-spacing:0.1em; text-transform:uppercase; font-size:12px; }
+          .meta { display:flex; justify-content:space-between; gap:24px; margin:32px 0; }
+          .meta-col { flex:1; }
+          .meta-label { font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:#a69b8a; margin-bottom:6px; }
+          .meta-value { color:#f5f3ef; font-size:14px; line-height:1.5; }
+          table { width:100%; border-collapse:collapse; margin-top:16px; }
+          th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:0.08em; color:#a69b8a; padding-bottom:8px; border-bottom:1px solid #f5f3ef20; }
+          .total-row td { padding-top:16px; font-size:18px; font-family:'Playfair Display',serif; color:#c9a227; }
+          .footer { margin-top:40px; padding-top:24px; border-top:1px solid #f5f3ef10; font-size:12px; color:#a69b8a; text-align:center; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="brand">Oil Amor</div>
+          <h1>Tax Invoice</h1>
+          <div class="meta">
+            <div class="meta-col">
+              <div class="meta-label">Invoice To</div>
+              <div class="meta-value">${addressHtml}</div>
+            </div>
+            <div class="meta-col">
+              <div class="meta-label">Order Number</div>
+              <div class="meta-value">${order.id}</div>
+              <div class="meta-label" style="margin-top:16px;">Date</div>
+              <div class="meta-value">${new Date(order.date).toLocaleDateString()}</div>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>Item</th>
+                <th style="text-align:right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${itemsHtml}
+              <tr class="total-row">
+                <td style="text-align:left;">Total</td>
+                <td style="text-align:right;">${formatPrice(order.total)}</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="footer">
+            Thank you for choosing Oil Amor • hello@oilamor.com • GST included where applicable
+          </div>
+        </div>
+      </body>
+      </html>
+    `
+
+    const printWindow = window.open('', '_blank')
+    if (printWindow) {
+      printWindow.document.write(html)
+      printWindow.document.close()
+      printWindow.focus()
+    }
+  }
+
+  const eligibleReturns = useMemo(() => {
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    return orders.filter((order) => {
+      if (order.status !== 'delivered') return false
+      if (new Date(order.date) < thirtyDaysAgo) return false
+      // Must contain at least one physical item (not just gift cards / shipping)
+      const physicalItems = order.items.filter(
+        (item) => item.itemType !== 'gift-card' && item.itemType !== 'shipping'
+      )
+      return physicalItems.length > 0
+    })
+  }, [orders])
 
   if (!isAuthenticated || !user) {
     return <LoginPrompt />
@@ -527,10 +646,30 @@ export default function AccountDashboardPage() {
                     </div>
 
                     <div className="flex gap-3 mt-4 pt-4 border-t border-[#f5f3ef]/10">
-                      <button className="text-sm text-[#c9a227] hover:underline">
-                        Track Order
-                      </button>
-                      <button className="text-sm text-[#a69b8a] hover:text-[#f5f3ef] transition-colors">
+                      {getTrackingUrl(order) ? (
+                        <a
+                          href={getTrackingUrl(order)!}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-sm text-[#c9a227] hover:underline"
+                        >
+                          Track Order
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      ) : (
+                        <button
+                          disabled
+                          className="text-sm text-[#a69b8a] cursor-not-allowed"
+                          title="Tracking number not yet available"
+                        >
+                          Not Yet Shipped
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleDownloadInvoice(order)}
+                        className="inline-flex items-center gap-1 text-sm text-[#a69b8a] hover:text-[#f5f3ef] transition-colors"
+                      >
+                        <FileText className="w-3 h-3" />
                         Download Invoice
                       </button>
                     </div>
@@ -572,25 +711,102 @@ export default function AccountDashboardPage() {
                 </div>
               </div>
 
-              <div className="text-center py-12">
-                <Package className="w-16 h-16 text-[#a69b8a]/30 mx-auto mb-4" />
-                <h3 className="text-xl font-medium text-[#f5f3ef] mb-2">No Eligible Returns</h3>
-                <p className="text-[#a69b8a] max-w-md mx-auto mb-6">
-                  You don&apos;t have any refill bottles eligible for return yet. 
-                  Order a refill to see return options here.
-                </p>
-                <Link
-                  href="/refill"
-                  className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#c9a227] text-[#0a080c] font-medium hover:bg-[#f5f3ef] transition-colors"
-                >
-                  <Droplets className="w-4 h-4" />
-                  Order Refills
-                </Link>
-              </div>
+              {eligibleReturns.length === 0 ? (
+                <div className="text-center py-12">
+                  <Package className="w-16 h-16 text-[#a69b8a]/30 mx-auto mb-4" />
+                  <h3 className="text-xl font-medium text-[#f5f3ef] mb-2">No Eligible Returns</h3>
+                  <p className="text-[#a69b8a] max-w-md mx-auto mb-6">
+                    You don&apos;t have any orders eligible for return right now. 
+                    Delivered orders from the last 30 days will appear here.
+                  </p>
+                  <Link
+                    href="/refill"
+                    className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-[#c9a227] text-[#0a080c] font-medium hover:bg-[#f5f3ef] transition-colors"
+                  >
+                    <Droplets className="w-4 h-4" />
+                    Order Refills
+                  </Link>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {eligibleReturns.map((order) => (
+                    <div key={order.id} className="p-5 rounded-2xl bg-[#111] border border-[#f5f3ef]/10">
+                      <div className="flex flex-wrap items-center justify-between gap-4 mb-3">
+                        <div>
+                          <div className="flex items-center gap-3 mb-1">
+                            <span className="text-[#f5f3ef] font-medium">{order.id}</span>
+                            <span className="px-2 py-0.5 rounded-full bg-[#2ecc71]/10 text-[#2ecc71] text-xs">
+                              Delivered
+                            </span>
+                          </div>
+                          <p className="text-sm text-[#a69b8a]">
+                            {new Date(order.date).toLocaleDateString()}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setReturnModalOrder(order)}
+                          className="px-4 py-2 rounded-full bg-[#c9a227] text-[#0a080c] text-sm font-medium hover:bg-[#f5f3ef] transition-colors"
+                        >
+                          Initiate Return
+                        </button>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {order.items.map((item, i) => (
+                          <span
+                            key={i}
+                            className="text-xs text-[#a69b8a] px-2 py-1 rounded bg-[#0a080c]"
+                          >
+                            {item.name} ({item.size})
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
+
+      {/* Return Initiation Modal */}
+      {returnModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-[#0a080c]/80 backdrop-blur-sm">
+          <div className="w-full max-w-md p-6 rounded-2xl bg-[#111] border border-[#f5f3ef]/10 relative">
+            <button
+              onClick={() => setReturnModalOrder(null)}
+              className="absolute top-4 right-4 p-1 rounded-full text-[#a69b8a] hover:text-[#f5f3ef] hover:bg-[#f5f3ef]/5 transition-colors"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="w-12 h-12 rounded-xl bg-[#c9a227]/10 flex items-center justify-center mb-4">
+              <RefreshCw className="w-6 h-6 text-[#c9a227]" />
+            </div>
+            <h3 className="text-lg font-medium text-[#f5f3ef] mb-2">Initiate Return</h3>
+            <p className="text-sm text-[#a69b8a] mb-6">
+              Please contact us at{' '}
+              <a href="mailto:hello@oilamor.com" className="text-[#c9a227] hover:underline">
+                hello@oilamor.com
+              </a>{' '}
+              with your order number ({returnModalOrder.id}) to arrange a return.
+            </p>
+            <div className="flex gap-3">
+              <a
+                href={`mailto:hello@oilamor.com?subject=Return Request - ${returnModalOrder.id}`}
+                className="flex-1 py-2.5 rounded-xl bg-[#c9a227] text-[#0a080c] text-sm font-medium text-center hover:bg-[#f5f3ef] transition-colors"
+              >
+                Email Us
+              </a>
+              <button
+                onClick={() => setReturnModalOrder(null)}
+                className="flex-1 py-2.5 rounded-xl border border-[#f5f3ef]/20 text-[#f5f3ef] text-sm font-medium hover:bg-[#f5f3ef]/5 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   )
 }

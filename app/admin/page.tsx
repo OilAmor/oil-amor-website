@@ -43,7 +43,7 @@ import { RefillOrder } from '@/lib/db/schema-refill';
 // TYPES
 // ============================================================================
 
-type TabType = 'orders' | 'production' | 'refills' | 'labels' | 'analytics';
+type TabType = 'orders' | 'blending' | 'production' | 'refills' | 'labels' | 'analytics';
 type OrderFilter = 'all' | 'pending' | 'blending' | 'ready' | 'shipped';
 
 interface DashboardStats {
@@ -131,6 +131,7 @@ export default function AdminDashboard() {
 
   const tabs = [
     { id: 'orders' as TabType, label: 'Orders', icon: Package },
+    { id: 'blending' as TabType, label: 'Blending Queue', icon: Beaker },
     { id: 'production' as TabType, label: 'Production Queue', icon: Beaker },
     { id: 'refills' as TabType, label: 'Refill Orders', icon: Droplets },
     { id: 'labels' as TabType, label: 'Label Generator', icon: Printer },
@@ -289,6 +290,7 @@ export default function AdminDashboard() {
             selectedOrder={selectedOrder}
           />
         )}
+        {activeTab === 'blending' && <BlendingQueueTab />}
         {activeTab === 'production' && <ProductionQueueTab />}
         {activeTab === 'refills' && <RefillOrdersTab />}
         {activeTab === 'labels' && <LabelGeneratorTab />}
@@ -929,6 +931,262 @@ function ProductionCard({ item, onRefresh }: { item: ProductionQueueItem; onRefr
         </button>
         <button onClick={handlePrint} className="px-3 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
           <Printer className="w-4 h-4" />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// BLENDING QUEUE TAB
+// ============================================================================
+
+function BlendingQueueTab() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const r = await fetch('/api/admin/orders?filter=pending');
+      const data = await r.json();
+      const allOrders: Order[] = data.orders || [];
+      const blendingOrders = allOrders.filter(
+        (order) =>
+          order.requiresBlending ||
+          order.items?.some((item) => item.type === 'custom-mix' || item.customMix)
+      );
+      setOrders(blendingOrders);
+    } catch {
+      setError('Failed to load blending orders');
+      setOrders([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchOrders();
+  }, [fetchOrders]);
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-serif text-[#f5f3ef]">Blending Queue</h2>
+        <button
+          onClick={fetchOrders}
+          className="p-2 bg-[#111] border border-[#f5f3ef]/10 rounded-lg text-[#a69b8a] hover:text-[#f5f3ef] transition-colors"
+          title="Refresh blending queue"
+        >
+          <RefreshCw className="w-4 h-4" />
+        </button>
+      </div>
+
+      {error && (
+        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+
+      {loading ? (
+        <div className="text-center py-12">
+          <Loader2 className="w-8 h-8 text-[#c9a227] animate-spin mx-auto mb-4" />
+          <p className="text-[#a69b8a]">Loading blending queue...</p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {orders.map((order) => (
+            <BlendingCard key={order.id} order={order} onRefresh={fetchOrders} />
+          ))}
+
+          {orders.length === 0 && (
+            <div className="col-span-full text-center py-12 bg-[#111] border border-[#f5f3ef]/10 rounded-xl">
+              <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
+              <p className="text-[#f5f3ef] text-lg">All caught up!</p>
+              <p className="text-[#a69b8a]">No blends waiting in the blending queue</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BlendingCard({ order, onRefresh }: { order: Order; onRefresh: () => void }) {
+  const blendItems = order.items?.filter((item) => item.type === 'custom-mix' || item.customMix) || [];
+
+  const updateStatus = async (status: string) => {
+    try {
+      const res = await fetch('/api/admin/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: order.id, status }),
+      });
+      if (!res.ok) throw new Error('Failed');
+      onRefresh();
+    } catch {
+      alert(`Failed to update status to ${status}`);
+    }
+  };
+
+  const handlePrintRecipe = () => {
+    const item = blendItems[0];
+    const mix = item?.customMix;
+    if (!mix) return;
+
+    const oilsHtml = mix.oils
+      .map(
+        (oil) =>
+          `<tr><td style="padding:6px 0;border-bottom:1px solid #eee;">${oil.oilName}</td><td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;">${oil.ml?.toFixed(1) || ((oil.drops || 0) * 0.05).toFixed(1)}ml</td><td style="padding:6px 0;border-bottom:1px solid #eee;text-align:right;">${oil.percentage}%</td></tr>`
+      )
+      .join('');
+
+    const totalVolume = mix.totalVolume || 30;
+
+    const crystalHtml = mix.crystalId
+      ? `<p><strong>Crystal:</strong> ${mix.crystalId}</p>` : '';
+    const cordHtml = mix.cordId || item?.attachment?.cordName
+      ? `<p><strong>Cord:</strong> ${mix.cordId || item?.attachment?.cordName}</p>` : '';
+    const instructionsHtml = order.giftMessage
+      ? `<p><strong>Special Instructions:</strong> ${order.giftMessage}</p>` : '';
+    const customerNoteHtml = order.customerNote
+      ? `<p><strong>Customer Note:</strong> ${order.customerNote}</p>` : '';
+
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Blend Recipe - ${mix.recipeName}</title>
+        <style>
+          body { font-family: Arial, sans-serif; padding: 40px; color: #222; }
+          .header { border-bottom: 3px solid #c9a227; padding-bottom: 16px; margin-bottom: 24px; }
+          .header h1 { margin: 0; font-size: 28px; }
+          .meta { margin-bottom: 24px; }
+          .meta p { margin: 4px 0; }
+          table { width: 100%; border-collapse: collapse; margin-bottom: 24px; }
+          th { text-align: left; padding: 8px 0; border-bottom: 2px solid #ccc; }
+          .total { font-size: 18px; font-weight: bold; margin-top: 16px; }
+          .notes { margin-top: 24px; padding-top: 16px; border-top: 1px solid #ddd; }
+          @media print { body { padding: 20px; } }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${mix.recipeName}</h1>
+          <p>Order: ${order.id} &nbsp;|&nbsp; Customer: ${order.customerName}</p>
+        </div>
+        <div class="meta">
+          <p><strong>Order Date:</strong> ${new Date(order.createdAt).toLocaleDateString('en-AU')}</p>
+          <p><strong>Bottle Size:</strong> ${totalVolume}ml</p>
+          ${crystalHtml}
+          ${cordHtml}
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Oil</th>
+              <th style="text-align:right;">Amount</th>
+              <th style="text-align:right;">%</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${oilsHtml}
+          </tbody>
+        </table>
+        <div class="total">Total Volume: ${totalVolume}ml</div>
+        <div class="notes">
+          ${instructionsHtml}
+          ${customerNoteHtml}
+          ${order.internalNote ? `<p><strong>Internal Note:</strong> ${order.internalNote}</p>` : ''}
+        </div>
+        <script>window.print();</script>
+      </body>
+      </html>
+    `;
+
+    const w = window.open('', '_blank');
+    if (w) {
+      w.document.write(html);
+      w.document.close();
+    }
+  };
+
+  return (
+    <div className="bg-[#111] border border-[#f5f3ef]/10 rounded-xl p-6">
+      <div className="flex items-start justify-between mb-4">
+        <div>
+          <p className="text-xs text-[#a69b8a] uppercase tracking-wide">Order {order.id}</p>
+          <h3 className="text-[#f5f3ef] font-medium">{order.customerName}</h3>
+          <p className="text-sm text-[#a69b8a]">
+            {new Date(order.createdAt).toLocaleDateString('en-AU')}
+          </p>
+        </div>
+        {order.blendingPriority === 'rush' && (
+          <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">RUSH</span>
+        )}
+      </div>
+
+      {blendItems.map((item, idx) => {
+        const mix = item.customMix;
+        if (!mix) return null;
+        return (
+          <div key={idx} className="bg-[#0a080c] rounded-lg p-4 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-[#f5f3ef] font-medium flex items-center gap-2">
+                <Beaker className="w-4 h-4 text-[#c9a227]" />
+                {mix.recipeName}
+              </h4>
+              <span className="text-sm text-[#a69b8a]">{mix.totalVolume}ml</span>
+            </div>
+            <div className="space-y-1 mb-3">
+              {mix.oils.map((oil, i) => (
+                <div key={i} className="flex justify-between text-sm">
+                  <span className="text-[#f5f3ef]">{oil.oilName}</span>
+                  <span className="text-[#a69b8a]">
+                    {oil.ml?.toFixed(1) || ((oil.drops || 0) * 0.05).toFixed(1)}ml ({oil.percentage}%)
+                  </span>
+                </div>
+              ))}
+              {mix.mode === 'carrier' && mix.carrierRatio && (
+                <div className="flex justify-between text-sm pt-1 border-t border-[#f5f3ef]/10">
+                  <span className="text-[#f5f3ef]">Carrier Oil</span>
+                  <span className="text-[#a69b8a]">{100 - mix.carrierRatio}%</span>
+                </div>
+              )}
+            </div>
+            {(mix.crystalId || item.attachment?.cordName || order.giftMessage) && (
+              <div className="text-xs text-[#a69b8a] space-y-1 pt-2 border-t border-[#f5f3ef]/10">
+                {mix.crystalId && <p>💎 Crystal: {mix.crystalId}</p>}
+                {(mix.cordId || item.attachment?.cordName) && (
+                  <p>🔗 Cord: {mix.cordId || item.attachment?.cordName}</p>
+                )}
+                {order.giftMessage && <p>🎁 Gift: {order.giftMessage}</p>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <div className="flex flex-wrap gap-2">
+        <button
+          onClick={() => updateStatus('blending')}
+          className="flex-1 px-3 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors"
+        >
+          Mark as Blending
+        </button>
+        <button
+          onClick={handlePrintRecipe}
+          className="px-3 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors"
+        >
+          <Printer className="w-4 h-4" />
+        </button>
+        <button
+          onClick={() => updateStatus('ready')}
+          className="px-3 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors"
+        >
+          Mark Complete
         </button>
       </div>
     </div>

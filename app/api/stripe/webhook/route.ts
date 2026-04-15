@@ -365,6 +365,16 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
       console.error('Error updating customer metadata:', err)
     }
     
+    // Deduct inventory for the order
+    try {
+      const { deductInventory } = await import('@/lib/inventory/inventory')
+      await deductInventory(dbOrder.items || [])
+      console.log(`[Inventory] Deducted stock for order ${orderId}`)
+    } catch (err) {
+      console.error(`[Inventory] Failed to deduct stock for order ${orderId}:`, err)
+      // Don't fail the webhook
+    }
+    
     // Send confirmation email (don't fail webhook if email fails)
     try {
       const { sendOrderConfirmationEmail } = await import('@/lib/email/resend')

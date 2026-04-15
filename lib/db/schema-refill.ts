@@ -314,6 +314,37 @@ export type InsertCreditTransaction = typeof creditTransactions.$inferInsert;
 export type AusPostShipment = typeof ausPostShipments.$inferSelect;
 export type InsertAusPostShipment = typeof ausPostShipments.$inferInsert;
 
+export type InventoryItem = typeof inventoryItems.$inferSelect;
+export type InsertInventoryItem = typeof inventoryItems.$inferInsert;
+
+/**
+ * Inventory Items
+ * Tracks stock levels for oils, bottles, crystals, cords, and caps
+ */
+export const inventoryItems = pgTable(
+  'inventory_items',
+  {
+    id: text('id').primaryKey(),
+    sku: text('sku').notNull().unique(),
+    name: text('name').notNull(),
+    category: text('category').notNull(), // 'oil', 'bottle', 'crystal', 'cord', 'cap'
+    quantity: integer('quantity').notNull().default(0),
+    reservedQuantity: integer('reserved_quantity').notNull().default(0),
+    reorderPoint: integer('reorder_point').notNull().default(0),
+    metadata: jsonb('metadata').$type<{
+      oilId?: string;
+      bottleSize?: string;
+      crystalId?: string;
+      cordId?: string;
+    }>(),
+    updatedAt: timestamp('updated_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => ({
+    skuIdx: index('inventory_sku_idx').on(table.sku),
+    categoryIdx: index('inventory_category_idx').on(table.category),
+  })
+);
+
 // ============================================================================
 // PLACEHOLDER TABLES (for eligibility.ts compatibility)
 // ============================================================================

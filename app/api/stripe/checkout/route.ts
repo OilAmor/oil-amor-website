@@ -5,7 +5,8 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
-import { stripe, calculateShippingCost } from '@/lib/stripe/config'
+import { stripe, calculateShippingCost, SHIPPING_RATES } from '@/lib/stripe/config'
+import { getBestShippingRate, calculateParcelWeight } from '@/lib/shipping/auspost'
 import { nanoid } from 'nanoid'
 
 export const dynamic = 'force-dynamic'
@@ -70,11 +71,26 @@ export async function POST(request: NextRequest) {
     
     // Calculate shipping
     const totalItems = body.items.reduce((sum, item) => sum + item.quantity, 0)
-    const shipping = calculateShippingCost(
-      totalItems,
-      body.shippingAddress.country,
-      body.isExpressShipping
-    )
+    const hasCustomBlends = body.items.some(i => i.metadata?.customMix)
+    
+    let shipping: { amount: number; description: string }
+    
+    if (body.shippingAddress.country === 'AU' && subtotal < SHIPPING_RATES.domestic.free.threshold) {
+      // Live AusPost rate for Australian orders under free shipping threshold
+      const weightKg = calculateParcelWeight(totalItems, hasCustomBlends)
+      shipping = await getBestShippingRate(
+        body.shippingAddress.postalCode,
+        weightKg,
+        body.isExpressShipping
+      )
+    } else {
+      // Free shipping over $199, or international fallback
+      shipping = calculateShippingCost(
+        subtotal,
+        body.shippingAddress.country,
+        body.isExpressShipping
+      )
+    }
     
     // Calculate tax (10% GST for Australia)
     const taxRate = body.shippingAddress.country === 'AU' ? 0.1 : 0

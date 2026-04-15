@@ -30,6 +30,7 @@ import { cn } from '@/lib/utils'
 import { ATELIER_CRYSTALS } from '@/lib/atelier/atelier-engine'
 import { SIMPLE_CORD_OPTIONS } from '@/lib/atelier/cord-data-simple'
 import { createCheckoutSession, cartItemsToCheckoutItems } from '@/lib/stripe/checkout'
+import { hasPreorderItems, getPreorderOils } from '@/lib/inventory/inventory'
 
 // ============================================================================
 // COMPONENT: Checkout Item Summary
@@ -231,6 +232,8 @@ export default function CheckoutPage() {
   
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [shippingRate, setShippingRate] = useState<{ amount: number; description: string } | null>(null)
+  const [shippingLoading, setShippingLoading] = useState(false)
   
   // Form state
   const [formData, setFormData] = useState({
@@ -255,17 +258,63 @@ export default function CheckoutPage() {
   // Get items from cart
   const items = cart?.items || []
 
+  // Preorder check
+  const hasPreorder = hasPreorderItems(items)
+  const preorderOils = getPreorderOils(items)
+
   // Calculate totals
   const { subtotal, shipping, total, itemCount } = useMemo(() => {
     const sub = items.reduce((sum: number, item: any) => sum + (item.unitPrice * item.quantity), 0)
-    const ship = sub > 150 ? 0 : 10
+    const ship = sub >= 199 ? 0 : (shippingRate ? shippingRate.amount / 100 : 10)
     return {
       subtotal: sub,
       shipping: ship,
       total: sub + ship,
       itemCount: items.reduce((sum: number, item: any) => sum + item.quantity, 0)
     }
-  }, [items])
+  }, [items, shippingRate])
+
+  // Fetch live shipping rates when postcode changes
+  useEffect(() => {
+    const fetchShippingRate = async () => {
+      const postcode = formData.postalCode.trim()
+      if (!postcode || postcode.length < 4 || formData.country !== 'AU') {
+        setShippingRate(null)
+        return
+      }
+      
+      setShippingLoading(true)
+      try {
+        const hasCustomBlends = items.some((item: any) => item.customMix?.oils?.length > 0 || item.configuration?.oils?.length > 0)
+        const response = await fetch('/api/shipping/rates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            postalCode: postcode,
+            country: formData.country,
+            itemCount,
+            hasCustomBlends,
+            subtotal,
+          }),
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          setShippingRate({ amount: data.amount, description: data.description })
+        } else {
+          setShippingRate(null)
+        }
+      } catch (err) {
+        console.error('Failed to fetch shipping rate:', err)
+        setShippingRate(null)
+      } finally {
+        setShippingLoading(false)
+      }
+    }
+    
+    const timer = setTimeout(fetchShippingRate, 500)
+    return () => clearTimeout(timer)
+  }, [formData.postalCode, formData.country, items, itemCount, subtotal])
 
   const handlePlaceOrder = async () => {
     // Validate form
@@ -391,7 +440,7 @@ export default function CheckoutPage() {
           </div>
           <div className="flex items-center gap-2 text-xs text-[#a69b8a]">
             <Truck className="w-4 h-4 text-[#c9a227]" />
-            Free Shipping over $150
+            Free Shipping over $199
           </div>
         </motion.div>
 
@@ -563,6 +612,18 @@ export default function CheckoutPage() {
                 <h2 className="font-serif text-lg text-[#f5f3ef]">Order Summary</h2>
               </div>
 
+              {/* Preorder Warning */}
+              {hasPreorder && (
+                <div className="mb-4 p-3 rounded-xl bg-[#c9a227]/10 border border-[#c9a227]/30 text-[#f5e6c8] text-sm">
+                  <div className="flex items-start gap-2">
+                    <Clock className="w-4 h-4 text-[#c9a227] mt-0.5 flex-shrink-0" />
+                    <span>
+                      Your order contains pre-order oils ({preorderOils.join(', ')}). These items will ship within 2-4 weeks. In-stock items will ship immediately in a separate package.
+                    </span>
+                  </div>
+                </div>
+              )}
+
               {/* Items */}
               <div className="space-y-3 mb-6 max-h-64 overflow-y-auto">
                 {items.map((item: any) => (
@@ -579,7 +640,16 @@ export default function CheckoutPage() {
                 <div className="flex justify-between text-sm">
                   <span className="text-[#a69b8a]">Shipping</span>
                   <span className={shipping === 0 ? "text-[#2ecc71]" : "text-[#f5f3ef]"}>
-                    {shipping === 0 ? 'Free' : formatPrice(shipping)}
+                    {shippingLoading ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="w-3 h-3 border border-[#a69b8a]/30 border-t-[#a69b8a] rounded-full animate-spin" />
+                        Calculating...
+                      </span>
+                    ) : shipping === 0 ? (
+                      'Free'
+                    ) : (
+                      formatPrice(shipping)
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">

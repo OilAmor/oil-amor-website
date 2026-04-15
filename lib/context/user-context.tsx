@@ -22,6 +22,21 @@ export interface Order {
   status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
   items: OrderItem[]
   total: number
+  shipping?: {
+    carrier?: string
+    trackingNumber?: string
+    trackingUrl?: string
+  }
+  shippingAddress?: {
+    firstName: string
+    lastName: string
+    address1: string
+    address2?: string
+    city: string
+    province: string
+    zip: string
+    country: string
+  }
 }
 
 export interface OrderItem {
@@ -31,6 +46,8 @@ export interface OrderItem {
   type: 'pure' | 'enhanced'
   ratio?: number
   price: number
+  quantity?: number
+  itemType?: 'standard-oil' | 'refill-oil' | 'custom-mix' | 'accessory' | 'gift-card' | 'shipping'
   customMix?: import('@/lib/db/schema/orders').OrderCustomMix
 }
 
@@ -99,19 +116,45 @@ const DEMO_ORDERS: Order[] = [
     date: '2026-03-15',
     status: 'delivered',
     items: [
-      { oilId: 'lavender', name: 'Lavender', size: '30ml', type: 'pure', price: 30.95 },
-      { oilId: 'eucalyptus', name: 'Blue Mallee Eucalyptus', size: '30ml', type: 'pure', price: 28.95 },
+      { oilId: 'lavender', name: 'Lavender', size: '30ml', type: 'pure', price: 30.95, quantity: 1, itemType: 'standard-oil' },
+      { oilId: 'eucalyptus', name: 'Blue Mallee Eucalyptus', size: '30ml', type: 'pure', price: 28.95, quantity: 1, itemType: 'standard-oil' },
     ],
     total: 59.90,
+    shipping: {
+      carrier: 'auspost',
+      trackingNumber: '33U000050001',
+    },
+    shippingAddress: {
+      firstName: 'Alexandra',
+      lastName: 'Rose',
+      address1: '123 Lavender Lane',
+      city: 'Melbourne',
+      province: 'VIC',
+      zip: '3000',
+      country: 'Australia',
+    },
   },
   {
     id: 'ORD-002',
     date: '2026-02-28',
     status: 'delivered',
     items: [
-      { oilId: 'tea-tree', name: 'Tea Tree', size: '30ml', type: 'enhanced', ratio: 25, price: 24.95 },
+      { oilId: 'tea-tree', name: 'Tea Tree', size: '30ml', type: 'enhanced', ratio: 25, price: 24.95, quantity: 1, itemType: 'standard-oil' },
     ],
     total: 24.95,
+    shipping: {
+      carrier: 'auspost',
+      trackingNumber: '33U000050002',
+    },
+    shippingAddress: {
+      firstName: 'Alexandra',
+      lastName: 'Rose',
+      address1: '123 Lavender Lane',
+      city: 'Melbourne',
+      province: 'VIC',
+      zip: '3000',
+      country: 'Australia',
+    },
   },
 ]
 

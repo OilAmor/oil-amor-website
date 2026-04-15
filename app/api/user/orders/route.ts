@@ -81,6 +81,8 @@ export async function GET(request: NextRequest) {
       date: order.createdAt.toISOString(),
       status: order.status,
       total: order.total / 100, // Convert cents to dollars
+      shipping: order.shipping || undefined,
+      shippingAddress: order.shippingAddress || undefined,
       items: (order.items || []).map((item: any) => ({
         oilId: item.unlocksOilId || item.productId,
         name: item.name,
@@ -91,6 +93,7 @@ export async function GET(request: NextRequest) {
         ratio: item.customMix?.carrierRatio,
         price: item.total / 100,
         quantity: item.quantity,
+        itemType: item.type,
       })),
     }))
     

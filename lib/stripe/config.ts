@@ -57,17 +57,17 @@ export const STRIPE_PRICE_IDS: Record<string, string> = {
 export const SHIPPING_RATES = {
   domestic: {
     standard: {
-      amount: 1000, // $10.00 in cents
+      amount: 1000, // $10.00 in cents - fallback only
       description: 'Standard Shipping (3-5 business days)',
     },
     express: {
-      amount: 1500, // $15.00 in cents
+      amount: 1500, // $15.00 in cents - fallback only
       description: 'Express Shipping (1-2 business days)',
     },
     free: {
       amount: 0,
-      description: 'Free Shipping (4+ items)',
-      threshold: 4, // Free shipping for 4+ items
+      description: 'Free Shipping',
+      threshold: 19900, // Free shipping for orders over $199 (in cents)
     },
   },
   international: {
@@ -82,17 +82,17 @@ export const SHIPPING_RATES = {
   },
 }
 
-// Helper to calculate shipping cost
+// Helper to calculate shipping cost (fallback for non-AU or API failures)
 export function calculateShippingCost(
-  itemCount: number,
+  subtotalCents: number,
   country: string = 'AU',
   isExpress: boolean = false
 ): { amount: number; description: string } {
   const isDomestic = country === 'AU'
   
   if (isDomestic) {
-    // Free shipping for 4+ items
-    if (itemCount >= SHIPPING_RATES.domestic.free.threshold) {
+    // Free shipping for orders over $199
+    if (subtotalCents >= SHIPPING_RATES.domestic.free.threshold) {
       return SHIPPING_RATES.domestic.free
     }
     return isExpress 
