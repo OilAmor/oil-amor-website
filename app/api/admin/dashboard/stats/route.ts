@@ -112,8 +112,16 @@ export async function GET(request: NextRequest) {
         return acc;
       }, {} as Record<string, number>),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Dashboard stats error:', error);
+    
+    // Graceful fallback when tables don't exist yet (e.g., refill program not set up)
+    const isMissingTable = error?.message?.includes('does not exist') || 
+                           error?.code === '42P01'
+    
+    if (isMissingTable) {
+      console.warn('Admin dashboard: refill program tables not found. Run database setup to enable full dashboard features.');
+    }
     
     return NextResponse.json({
       totalOrders: 0,
@@ -126,7 +134,10 @@ export async function GET(request: NextRequest) {
       totalBottles: 0,
       completedRefills: 0,
       lowStockOils: [],
-      error: 'Failed to fetch stats',
-    }, { status: 500 });
+      orderBreakdown: {},
+      warning: isMissingTable 
+        ? 'Refill program tables not found. Database setup required for full dashboard features.'
+        : 'Failed to fetch stats',
+    });
   }
 }

@@ -3,8 +3,7 @@ import { Cormorant_Garamond, Inter } from 'next/font/google'
 import './globals.css'
 import { Analytics } from '@vercel/analytics/react'
 import { SpeedInsights } from '@vercel/speed-insights/next'
-import { Navigation } from './components/navigation'
-import { Footer } from './components/layout/Footer'
+import { ConditionalLayout } from './components/conditional-layout'
 import { GlobalAtmosphere } from './components/global-atmosphere'
 // Cart is now handled by Zustand store in hooks/use-cart.tsx - no provider needed
 import { UserProvider } from '@/lib/context/user-context'
@@ -119,13 +118,9 @@ export default function RootLayout({
         <UserProvider>
           <HealthProfileProvider>
             <RecipeProvider>
-              <Navigation />
-              
-              <main id="main-content" className="relative">
+              <ConditionalLayout>
                 {children}
-              </main>
-
-              <Footer />
+              </ConditionalLayout>
             </RecipeProvider>
           </HealthProfileProvider>
         </UserProvider>

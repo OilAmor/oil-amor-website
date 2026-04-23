@@ -195,41 +195,53 @@ export async function GET(request: NextRequest) {
       orderStatusFilter = ['shipped', 'delivered'];
     }
 
-    // Fetch refill orders
+    // Fetch refill orders (gracefully skip if table doesn't exist yet)
     let refillOrdersList: typeof refillOrders.$inferSelect[] = [];
-    if (!orderStatusFilter || orderStatusFilter.length > 0) {
-      if (refillStatusFilter && refillStatusFilter.length > 0) {
-        const statusConditions = refillStatusFilter.map(s => eq(refillOrders.status, s as any));
-        refillOrdersList = await db.query.refillOrders.findMany({
-          where: or(...statusConditions),
-          orderBy: [desc(refillOrders.createdAt)],
-          limit,
-        });
+    try {
+      if (!orderStatusFilter || orderStatusFilter.length > 0) {
+        if (refillStatusFilter && refillStatusFilter.length > 0) {
+          const statusConditions = refillStatusFilter.map(s => eq(refillOrders.status, s as any));
+          refillOrdersList = await db.select().from(refillOrders)
+            .where(or(...statusConditions))
+            .orderBy(desc(refillOrders.createdAt))
+            .limit(limit);
+        } else {
+          refillOrdersList = await db.select().from(refillOrders)
+            .orderBy(desc(refillOrders.createdAt))
+            .limit(limit);
+        }
+      }
+    } catch (refillErr: any) {
+      if (refillErr?.message?.includes('does not exist')) {
+        console.warn('Admin orders: refillOrders table not found');
       } else {
-        refillOrdersList = await db.query.refillOrders.findMany({
-          orderBy: [desc(refillOrders.createdAt)],
-          limit,
-        });
+        throw refillErr;
       }
     }
 
     // Fetch regular orders
     let regularOrdersList: typeof orders.$inferSelect[] = [];
-    if (!refillStatusFilter || refillStatusFilter.length > 0) {
-      if (orderStatusFilter && orderStatusFilter.length > 0) {
-        const statusConditions = orderStatusFilter.map(s => eq(orders.status, s as any));
-        regularOrdersList = await db.query.orders.findMany({
-          where: or(...statusConditions),
-          orderBy: [desc(orders.createdAt)],
-          limit,
-          offset,
-        });
+    try {
+      if (!refillStatusFilter || refillStatusFilter.length > 0) {
+        if (orderStatusFilter && orderStatusFilter.length > 0) {
+          const statusConditions = orderStatusFilter.map(s => eq(orders.status, s as any));
+          regularOrdersList = await db.select().from(orders)
+            .where(or(...statusConditions))
+            .orderBy(desc(orders.createdAt))
+            .limit(limit)
+            .offset(offset);
+        } else {
+          regularOrdersList = await db.select().from(orders)
+            .orderBy(desc(orders.createdAt))
+            .limit(limit)
+            .offset(offset);
+        }
+      }
+    } catch (ordersErr: any) {
+      if (ordersErr?.message?.includes('does not exist')) {
+        console.warn('Admin orders: orders table not found');
       } else {
-        regularOrdersList = await db.query.orders.findMany({
-          orderBy: [desc(orders.createdAt)],
-          limit,
-          offset,
-        });
+        throw ordersErr;
       }
     }
 
@@ -243,12 +255,15 @@ export async function GET(request: NextRequest) {
     );
 
     return NextResponse.json({ orders: allOrders.slice(0, limit) });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Orders API error:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch orders', orders: [] },
-      { status: 500 }
-    );
+    const isMissingTable = error?.message?.includes('does not exist') || error?.code === '42P01';
+    return NextResponse.json({
+      orders: [],
+      warning: isMissingTable 
+        ? 'Order tables not found. Database setup required.' 
+        : 'Failed to fetch orders',
+    });
   }
 }
 

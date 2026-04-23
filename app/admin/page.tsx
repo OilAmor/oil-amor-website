@@ -106,7 +106,7 @@ export default function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date>(new Date());
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   // Fetch real stats from API
   const fetchDashboardStats = useCallback(async () => {
@@ -170,14 +170,14 @@ export default function AdminDashboard() {
               )}
               <div className="flex items-center gap-2 text-sm text-[#a69b8a]">
                 <Clock className="w-4 h-4" />
-                <span>{lastUpdated.toLocaleDateString('en-AU', { 
+                <span>{lastUpdated ? lastUpdated.toLocaleDateString('en-AU', { 
                   weekday: 'short', 
                   year: 'numeric', 
                   month: 'short', 
                   day: 'numeric',
                   hour: '2-digit',
                   minute: '2-digit'
-                })}</span>
+                }) : '—'}</span>
                 <button 
                   onClick={fetchDashboardStats}
                   className="p-1 hover:bg-[#f5f3ef]/10 rounded transition-colors"
