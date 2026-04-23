@@ -983,7 +983,7 @@ function ActionButtons({ onClose, codex }: { onClose: () => void; codex: BlendCo
             >
               <div className="bg-[#111] rounded-2xl border border-white/10 p-6 w-full max-w-md pointer-events-auto">
                 <h3 className="text-lg font-medium text-white/90 mb-2">
-                  Share "{codex.name}"
+                  Share &quot;{codex.name}&quot;
                 </h3>
                 <p className="text-sm text-white/50 mb-4">
                   Send this Living Blend Codex as a beautiful PDF to someone special.

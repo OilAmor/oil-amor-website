@@ -23,11 +23,10 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find customer with matching reset token
-    const allCustomers = await db.query.customers.findMany()
-    const customer = allCustomers.find(
-      (c) => c.metadata?.resetToken === token
-    )
+    // Find customer with matching reset token (secure JSONB query)
+    const customer = await db.query.customers.findFirst({
+      where: (customers, { sql }) => sql`${customers.metadata}->>'resetToken' = ${token}`,
+    })
 
     if (!customer) {
       return Response.json(

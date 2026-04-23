@@ -552,7 +552,7 @@ function checkAllergyWarnings(
     for (const allergen of matchedAllergens) {
       // Check if any oil in blend matches this allergen's related oils
       const relatedOilMatches = oils.filter(o => 
-        allergen.relatedOils.some(related => 
+        allergen.relatedOils.some((related: string) => 
           o.oilId.toLowerCase().includes(related.toLowerCase()) ||
           o.name.toLowerCase().includes(related.toLowerCase())
         )

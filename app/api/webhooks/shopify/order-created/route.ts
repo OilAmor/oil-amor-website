@@ -12,6 +12,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { 
   getCustomerMetafields, 
   updateCustomerMetafields,
@@ -188,10 +189,10 @@ async function processCreditReservation(order: ShopifyOrder) {
 /**
  * Generate a unique bottle serial number
  */
-function generateBottleSerial(variantId: string, orderId: string): string {
+function generateBottleSerial(variantId: string | number, orderId: string | number): string {
   const timestamp = Date.now().toString(36).toUpperCase()
-  const variantHash = variantId.slice(-4).toUpperCase()
-  const orderHash = orderId.slice(-4).toUpperCase()
+  const variantHash = String(variantId).slice(-4).toUpperCase()
+  const orderHash = String(orderId).slice(-4).toUpperCase()
   
   return `OIL-${variantHash}-${orderHash}-${timestamp}`
 }
@@ -200,22 +201,24 @@ function generateBottleSerial(variantId: string, orderId: string): string {
  * Verify Shopify webhook HMAC signature
  */
 function verifyWebhook(body: string, hmac: string | null): boolean {
-  // In production, implement proper HMAC verification
-  // See: https://shopify.dev/docs/apps/webhooks/configuration/https#step-5-verify-the-webhook
-  
   if (!SHOPIFY_WEBHOOK_SECRET || !hmac) {
-    // Skip verification in development
-    return process.env.NODE_ENV === 'development'
+    // Never bypass webhook verification based on environment
+    console.error('Shopify webhook verification failed: missing secret or HMAC')
+    return false
   }
 
-  // Implement HMAC verification here
-  // const crypto = require('crypto')
-  // const calculatedHmac = crypto
-  //   .createHmac('sha256', SHOPIFY_WEBHOOK_SECRET)
-  //   .update(body, 'utf8')
-  //   .digest('base64')
-  // 
-  // return calculatedHmac === hmac
+  try {
+    const calculated = crypto
+      .createHmac('sha256', SHOPIFY_WEBHOOK_SECRET)
+      .update(body, 'utf8')
+      .digest('base64')
 
-  return true // Placeholder
+    return crypto.timingSafeEqual(
+      Buffer.from(calculated),
+      Buffer.from(hmac)
+    )
+  } catch (error) {
+    console.error('Webhook verification error:', error)
+    return false
+  }
 }

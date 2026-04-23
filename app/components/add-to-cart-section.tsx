@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ShoppingCart, Minus, Plus, Check, Gem, AlertCircle } from 'lucide-react'
+import { ShoppingCart, Minus, Plus, Check, Gem, AlertCircle, Loader2 } from 'lucide-react'
 import { useCart } from '@/app/hooks/use-cart'
 import type { CrystalPairing } from '@/lib/content/oil-crystal-synergies'
 import type { BottleSize } from '@/lib/content/product-config'
@@ -24,6 +24,8 @@ interface AddToCartSectionProps {
   breakdown?: any
   isValid?: boolean
   validationMessage?: string
+  image?: string
+  oilId?: string
 }
 
 export function AddToCartSection({
@@ -35,18 +37,16 @@ export function AddToCartSection({
   breakdown,
   isValid = true,
   validationMessage,
+  image,
+  oilId,
 }: AddToCartSectionProps) {
   const [quantity, setQuantity] = useState(1)
   const [added, setAdded] = useState(false)
+  const [isAdding, setIsAdding] = useState(false)
   const { addItem } = useCart()
 
-  const handleAddToCart = () => {
-    console.log('[AddToCart] Clicked - isValid:', isValid, 'variant.type:', variant.type, 'variant.carrier:', variant.carrier)
-    
-    if (!isValid) {
-      console.log('[AddToCart] Blocked - not valid')
-      return
-    }
+  const handleAddToCart = async () => {
+    if (!isValid) return
     
     // Build detailed configuration
     const config: any = {
@@ -77,32 +77,34 @@ export function AddToCartSection({
       config.isPure = true
     }
     
-    console.log('[AddToCart] Calling addItem with:', { productId: variant.id, config, properties: { name: title, type: variant.type, carrier: variant.carrier }})
-    
-    addItem({
-      productId: variant.id,
-      variantId: variant.id,
-      quantity,
-      configuration: config,
-      properties: {
-        name: title,
-        price: String(variant.price),
-        size: variant.size,
-        type: variant.type,
-        carrier: variant.carrier || '',
-        ratio: variant.ratio || '',
-        crystalName: selectedCrystal?.name || '',
-        crystalChakra: selectedCrystal?.chakra || '',
-        cordName: selectedCord?.name || '',
-      },
-    }).then(() => {
-      console.log('[AddToCart] Successfully added to cart')
+    setIsAdding(true)
+    try {
+      await addItem({
+        productId: oilId || variant.id,
+        variantId: variant.id,
+        quantity,
+        configuration: config,
+        properties: {
+          name: title,
+          price: String(variant.price),
+          image: image || '',
+          oilId: oilId || '',
+          size: variant.size,
+          type: variant.type,
+          carrier: variant.carrier || '',
+          ratio: variant.ratio || '',
+          crystalName: selectedCrystal?.name || '',
+          crystalChakra: selectedCrystal?.chakra || '',
+          cordName: selectedCord?.name || '',
+        },
+      })
       setAdded(true)
-    }).catch((err) => {
-      console.error('[AddToCart] Failed to add:', err)
-    })
-    
-    setTimeout(() => setAdded(false), 2000)
+      setTimeout(() => setAdded(false), 2000)
+    } catch {
+      // Error is handled by the cart hook (sets store.error and logs it)
+    } finally {
+      setIsAdding(false)
+    }
   }
 
   const increment = () => setQuantity((q) => Math.min(q + 1, 10))
@@ -194,18 +196,29 @@ export function AddToCartSection({
       {/* Add to Cart Button */}
       <motion.button
         onClick={handleAddToCart}
-        disabled={added || !isValid}
+        disabled={added || !isValid || isAdding}
         className={`w-full py-4 rounded-xl font-medium flex items-center justify-center gap-2 transition-all ${
           added
             ? 'bg-[#2ecc71] text-white'
-            : isValid
+            : isValid && !isAdding
               ? 'bg-[#c9a227] text-[#0a080c] hover:bg-[#f5f3ef]'
               : 'bg-[#f5f3ef]/10 text-[#a69b8a] cursor-not-allowed'
         }`}
-        whileTap={{ scale: isValid ? 0.98 : 1 }}
+        whileTap={{ scale: isValid && !isAdding ? 0.98 : 1 }}
       >
         <AnimatePresence mode="wait">
-          {added ? (
+          {isAdding ? (
+            <motion.span
+              key="adding"
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              className="flex items-center gap-2"
+            >
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Adding...
+            </motion.span>
+          ) : added ? (
             <motion.span
               key="added"
               initial={{ opacity: 0, y: 10 }}

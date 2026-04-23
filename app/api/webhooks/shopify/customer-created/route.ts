@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
         error: error instanceof Error ? error.message : 'Unknown error',
         requiresReview: true,
       },
-      { status: 200 }
+      { status: 500 }
     )
   }
 }
@@ -103,8 +103,9 @@ export async function POST(request: NextRequest) {
  */
 function verifyTimestamp(timestamp: string | null): boolean {
   if (!timestamp) {
-    // Allow if no timestamp in development
-    return process.env.NODE_ENV === 'development'
+    // Never bypass timestamp verification based on environment
+    console.error('Shopify webhook missing timestamp')
+    return false
   }
 
   const webhookTime = parseInt(timestamp) * 1000 // Convert to milliseconds
@@ -120,8 +121,9 @@ function verifyTimestamp(timestamp: string | null): boolean {
  */
 function verifyWebhook(body: string, hmac: string | null): boolean {
   if (!SHOPIFY_WEBHOOK_SECRET || !hmac) {
-    // Skip verification in development if secrets not configured
-    return process.env.NODE_ENV === 'development'
+    // Never bypass HMAC verification based on environment
+    console.error('Shopify webhook verification failed: missing secret or HMAC')
+    return false
   }
 
   try {

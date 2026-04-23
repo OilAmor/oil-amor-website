@@ -56,7 +56,7 @@ export interface CreditSummary {
 // CONSTANTS
 // ============================================================================
 
-export const REFILL_CREDIT_AMOUNT = 5; // AUD
+export const REFILL_CREDIT_AMOUNT = 500; // cents ($5 AUD)
 const CREDIT_EXPIRY_MONTHS = 12;
 const EXPIRY_WARNING_DAYS = 30;
 
@@ -179,55 +179,58 @@ export async function useCredits(
     throw new Error(`Credit usage invalid: Available balance ${validation.availableBalance}, requested ${amount}`);
   }
 
-  const customerCredit = await db.query.customerCredits.findFirst({
-    where: eq(customerCredits.customerId, customerId),
-  });
+  return await db.transaction(async (tx) => {
+    const customerCredit = await tx.select().from(customerCredits)
+      .where(eq(customerCredits.customerId, customerId))
+      .limit(1)
+      .then(rows => rows[0] || null);
 
-  if (!customerCredit || customerCredit.balance < amount) {
-    throw new Error('Insufficient credit balance');
-  }
+    if (!customerCredit || customerCredit.balance < amount) {
+      throw new Error('Insufficient credit balance');
+    }
 
-  const transactionId = nanoid();
-  const now = new Date();
-  const newBalance = customerCredit.balance - amount;
+    const transactionId = nanoid();
+    const now = new Date();
+    const newBalance = customerCredit.balance - amount;
 
-  // Update customer balance
-  await db
-    .update(customerCredits)
-    .set({
+    // Update customer balance
+    await tx
+      .update(customerCredits)
+      .set({
+        balance: newBalance,
+        totalUsed: sql`${customerCredits.totalUsed} + ${amount}`,
+        updatedAt: now,
+      })
+      .where(eq(customerCredits.customerId, customerId));
+
+    // Create transaction record
+    const transaction: InsertCreditTransaction = {
+      id: transactionId,
+      customerId,
+      type: 'used',
+      amount: -amount,
       balance: newBalance,
-      totalUsed: sql`${customerCredits.totalUsed} + ${amount}`,
-      updatedAt: now,
-    })
-    .where(eq(customerCredits.customerId, customerId));
+      description: `Credit used for order ${orderId}`,
+      metadata: {
+        orderId,
+        amountUsed: amount,
+      },
+      createdAt: now,
+    };
 
-  // Create transaction record
-  const transaction: InsertCreditTransaction = {
-    id: transactionId,
-    customerId,
-    type: 'used',
-    amount: -amount,
-    balance: newBalance,
-    description: `Credit used for order ${orderId}`,
-    metadata: {
-      orderId,
+    await tx.insert(creditTransactions).values(transaction);
+
+    // Revalidate caches
+    revalidateTag(`customer-credits-${customerId}`);
+    revalidateTag(`credit-history-${customerId}`);
+
+    return {
+      success: true,
       amountUsed: amount,
-    },
-    createdAt: now,
-  };
-
-  await db.insert(creditTransactions).values(transaction);
-
-  // Revalidate caches
-  revalidateTag(`customer-credits-${customerId}`);
-  revalidateTag(`credit-history-${customerId}`);
-
-  return {
-    success: true,
-    amountUsed: amount,
-    remainingBalance: newBalance,
-    transactionId,
-  };
+      remainingBalance: newBalance,
+      transactionId,
+    };
+  });
 }
 
 /**

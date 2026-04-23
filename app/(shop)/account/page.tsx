@@ -282,6 +282,8 @@ export default function AccountDashboardPage() {
     })
   }, [orders])
 
+  const allOils = useMemo(() => getAllOils(), [])
+
   if (!isAuthenticated || !user) {
     return <LoginPrompt />
   }
@@ -290,7 +292,6 @@ export default function AccountDashboardPage() {
   const titles = ['Novice', 'Apprentice', 'Adept', 'Expert', 'Master', 'Grandmaster', 'Legend']
   const currentTitle = titles[Math.min(user.collectorLevel - 1, titles.length - 1)]
 
-  const allOils = useMemo(() => getAllOils(), [])
   const unlockedCount = getUnlockedOilIds().length
 
   const handleLogout = () => {

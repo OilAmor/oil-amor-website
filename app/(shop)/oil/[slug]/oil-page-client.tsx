@@ -93,14 +93,7 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
     validationMessage: '',
   })
   
-  // Debug: Log configuration changes
-  useEffect(() => {
-    console.log('[OilPage] Configuration updated:', { 
-      type: configuration.type, 
-      carrier: configuration.carrier,
-      ratio: configuration.ratio?.name 
-    })
-  }, [configuration.type, configuration.carrier, configuration.ratio])
+  // Configuration changes are handled by ProductConfigurator and local state
 
   if (!oilData) {
     return (
@@ -259,7 +252,6 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
                   size: configuration.size,
                 }}
                 onConfigurationChange={(config: any) => {
-                  console.log('[OilPage] ProductConfigurator sent:', { type: config.type, carrier: config.carrier })
                   setConfiguration((prev: any) => ({ ...prev, ...config }))
                 }}
               />
@@ -327,7 +319,7 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
             >
               <AddToCartSection
                 variant={{
-                  id: `${slug}-${configuration.size.id}-${configuration.type}-${Date.now()}`,
+                  id: `${slug}-${configuration.size.id}-${configuration.type}`,
                   price: configuration.price || 25.00,
                   size: configuration.size.label,
                   type: configuration.type,
@@ -341,6 +333,8 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
                 breakdown={configuration.breakdown}
                 isValid={configuration.isValid}
                 validationMessage={configuration.validationMessage}
+                image={oilData.image}
+                oilId={slug}
               />
             </motion.div>
 
@@ -546,7 +540,7 @@ function PurchaseSection({
       >
         <AddToCartSection
           variant={{
-            id: `${slug}-${configuration.size.id}-${configuration.type}-${Date.now()}`,
+            id: `${slug}-${configuration.size.id}-${configuration.type}`,
             price: configuration.price || 25.00,
             size: configuration.size.label,
             type: configuration.type,
@@ -560,6 +554,8 @@ function PurchaseSection({
           breakdown={configuration.breakdown}
           isValid={configuration.isValid}
           validationMessage={configuration.validationMessage}
+          image={oilData.image}
+          oilId={slug}
         />
       </motion.div>
     </>

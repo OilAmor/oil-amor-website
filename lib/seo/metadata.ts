@@ -103,7 +103,7 @@ export function generatePageMetadata(options: PageMetadataOptions): Metadata {
       keywords: [...defaultMetadata.keywords!, ...options.keywords],
     }),
     openGraph: {
-      type: options.type || 'website',
+      type: (options.type || 'website') as 'website' | 'article',
       locale: 'en_AU',
       url,
       siteName: 'Oil Amor',

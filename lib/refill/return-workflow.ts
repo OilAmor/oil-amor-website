@@ -6,7 +6,7 @@
 import { nanoid } from 'nanoid';
 import { db } from '@/lib/db';
 import { refillOrders, type InsertRefillOrder } from '@/lib/db/schema-refill';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { revalidateTag } from 'next/cache';
 
 import {
@@ -201,7 +201,7 @@ export async function processBottleReturn(
 ): Promise<BottleReturnResult> {
   // 1. Find the refill order by tracking number
   const order = await db.query.refillOrders.findFirst({
-    where: eq(refillOrders.returnLabel, { trackingNumber }),
+    where: sql`${refillOrders.returnLabel}->>'trackingNumber' = ${trackingNumber}`,
   });
 
   if (!order) {
@@ -229,9 +229,9 @@ export async function processBottleReturn(
     receivedAt: new Date().toISOString(),
   });
 
-  // 5. Apply credit if enabled
+  // 5. Apply credit only if explicitly requested (to avoid double-crediting with inspection)
   let creditApplied = 0;
-  if (options?.autoApplyCredit !== false) {
+  if (options?.autoApplyCredit === true) {
     const creditResult = await processRefillCredit(
       order.customerId,
       order.bottleId,
@@ -261,7 +261,7 @@ export async function manuallyMarkReturned(
   adminId: string
 ): Promise<BottleReturnResult> {
   const order = await db.query.refillOrders.findFirst({
-    where: eq(refillOrders.returnLabel, { trackingNumber }),
+    where: sql`${refillOrders.returnLabel}->>'trackingNumber' = ${trackingNumber}`,
   });
 
   if (!order) {
@@ -395,7 +395,8 @@ export async function inspectReturnedBottle(
       status: canRefill ? 'refilling' : 'rejected',
       inspectionResult: {
         ...inspectionData,
-        result,
+        canRefill,
+        cleaningRequired,
         inspectedAt: new Date().toISOString(),
       },
       updatedAt: new Date(),
@@ -459,7 +460,7 @@ export async function completeRefillOrder(
       completedAt: new Date(),
       updatedAt: new Date(),
       metadata: {
-        ...order.metadata,
+        ...(order.metadata || {}),
         completionNotes: options?.notes,
         fillLevel: options?.newFillLevel ?? 100,
       },
@@ -627,7 +628,7 @@ export async function updateInTransitOrders(): Promise<{
       const tracking = await trackReturn(order.returnLabel.trackingNumber);
       
       if (tracking.status === 'delivered') {
-        await processBottleReturn(order.returnLabel.trackingNumber);
+        await processBottleReturn(order.returnLabel.trackingNumber, { autoApplyCredit: false });
         delivered++;
       } else if (tracking.status === 'in-transit') {
         // Update to ensure status is current

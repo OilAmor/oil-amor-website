@@ -8,6 +8,7 @@ import { db } from '@/lib/db'
 import { customers } from '@/lib/db/schema-refill'
 import { eq } from 'drizzle-orm'
 import bcrypt from 'bcrypt'
+import { getSession } from '@/lib/auth/session'
 
 export async function POST(request: NextRequest) {
   try {
@@ -60,6 +61,15 @@ export async function POST(request: NextRequest) {
       )
     }
     
+    // Create session
+    const session = await getSession()
+    session.customerId = customer.id
+    session.email = customer.email
+    session.firstName = customer.firstName || undefined
+    session.lastName = customer.lastName || undefined
+    session.isLoggedIn = true
+    await session.save()
+
     // Return customer data (exclude password)
     return NextResponse.json({
       success: true,

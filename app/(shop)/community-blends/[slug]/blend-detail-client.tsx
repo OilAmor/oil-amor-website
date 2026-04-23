@@ -84,6 +84,7 @@ export default function BlendDetailClient({ blend }: BlendDetailClientProps) {
       percentages[o.oilId] = totalEssentialMl > 0 ? Math.round((o.ml / totalEssentialMl) * 1000) / 10 : 0
     })
     const blendData = {
+      blendId: blend.id,
       oils: scaledOils.map(o => ({ oilId: o.oilId, ml: o.ml })),
       mode: blend.recipe.mode,
       bottleSize: selectedSize,

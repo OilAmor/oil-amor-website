@@ -129,7 +129,7 @@ export async function getUnlockedRefills(userId: string): Promise<UnlockedRefill
 /**
  * Get a single unlocked refill by ID
  */
-export async function getUnlockedRefillById(refillId: string): Promise<UnlockedRefill | null> {
+export async function getUnlockedRefillById(refillId: string): Promise<UnlockedRefill | undefined> {
   return db.query.unlockedRefills.findFirst({
     where: eq(unlockedRefills.id, refillId),
   })
@@ -139,7 +139,7 @@ export async function getUnlockedRefillById(refillId: string): Promise<UnlockedR
  * Get unlocked refill by share code
  * For looking up blends that were shared to community
  */
-export async function getUnlockedRefillByShareCode(shareCode: string): Promise<UnlockedRefill | null> {
+export async function getUnlockedRefillByShareCode(shareCode: string): Promise<UnlockedRefill | undefined> {
   return db.query.unlockedRefills.findFirst({
     where: eq(unlockedRefills.shareCode, shareCode),
   })

@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { motion, AnimatePresence } from 'framer-motion'
 import { 
   Minus, 
@@ -267,9 +268,11 @@ function CartItemCard({
             {isAtelierBlend ? (
               <Beaker className="w-8 h-8 text-[#c9a227]" />
             ) : item.image ? (
-              <img 
-                src={item.image} 
+              <Image
+                src={item.image}
                 alt={item.name}
+                width={80}
+                height={80}
                 className="w-full h-full object-cover rounded-xl"
               />
             ) : (
@@ -517,15 +520,7 @@ export default function CartPage() {
     return rawItems.filter((item: any) => item && item.id && item.quantity > 0)
   }, [cart?.items])
 
-  // Debug logging
-  useEffect(() => {
-    console.log('[CartPage] Cart state:', {
-      cartId: cart?.id,
-      rawItemsCount: cart?.items?.length,
-      filteredItemsCount: items.length,
-      items: items.map((i: any) => ({ id: i.id, name: i.name, qty: i.quantity }))
-    })
-  }, [cart, items])
+  // Cart state is managed by useCart hook
 
   // Calculate totals
   const { subtotal, shipping, total, itemCount, atelierCount } = useMemo(() => {

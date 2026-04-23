@@ -75,6 +75,11 @@ export interface CustomerMetafields {
   'preferred_crystals': string[]
   'last_purchase_date'?: string
   'tier_upgrade_date'?: string
+  'preferred_chain'?: string
+  'last_chain_selected'?: string
+  'chain_history'?: unknown[]
+  'equipped_charm'?: string | null
+  'charm_claims'?: unknown[]
 }
 
 export interface RefillMetafields {
@@ -327,7 +332,7 @@ export async function updateCustomerMetafields(
     namespace: METAFIELD_NAMESPACES.rewards,
     key,
     value: JSON.stringify(value),
-    type: typeof value === 'number' ? 'number_integer' : 'json',
+    type: typeof value === 'number' ? (Number.isInteger(value) ? 'number_integer' : 'number_decimal') : 'json',
   }))
 
   const query = `

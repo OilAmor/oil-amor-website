@@ -54,7 +54,7 @@ export function hasPreorderItems(items: OrderItemForInventory[]): boolean {
     // Check custom blend oils
     const blendOils = item.customMix?.oils || item.configuration?.oils || []
     for (const oil of blendOils) {
-      const oilId = oil.oilId || extractOilIdFromName(oil.name || oil.oilName)
+      const oilId = (oil as any).oilId || extractOilIdFromName((oil as any).name || (oil as any).oilName)
       if (oilId && !STOCKED_OIL_IDS.has(oilId)) {
         return true
       }
@@ -79,9 +79,9 @@ export function getPreorderOils(items: OrderItemForInventory[]): string[] {
   for (const item of items) {
     const blendOils = item.customMix?.oils || item.configuration?.oils || []
     for (const oil of blendOils) {
-      const oilId = oil.oilId || extractOilIdFromName(oil.name || oil.oilName)
+      const oilId = (oil as any).oilId || extractOilIdFromName((oil as any).name || (oil as any).oilName)
       if (oilId && !STOCKED_OIL_IDS.has(oilId)) {
-        preorderOils.add(oil.oilName || oil.name || oilId)
+        preorderOils.add((oil as any).oilName || (oil as any).name || oilId)
       }
     }
 
@@ -158,7 +158,7 @@ export async function checkInventory(items: OrderItemForInventory[]): Promise<In
     const blendOils = item.customMix?.oils || item.configuration?.oils || []
     if (blendOils.length > 0) {
       for (const oil of blendOils) {
-        const oilId = oil.oilId || extractOilIdFromName(oil.name || oil.oilName)
+        const oilId = (oil as any).oilId || extractOilIdFromName((oil as any).name || (oil as any).oilName)
         if (oilId) {
           const oilSku = getOilSku(oilId, bottleSize)
           skuMap.set(oilSku, (skuMap.get(oilSku) || 0) + qty)
@@ -229,10 +229,10 @@ export async function deductInventory(items: OrderItemForInventory[]): Promise<v
     const blendOils = item.customMix?.oils || item.configuration?.oils || []
     if (blendOils.length > 0) {
       for (const oil of blendOils) {
-        const oilId = oil.oilId || extractOilIdFromName(oil.name || oil.oilName)
+        const oilId = (oil as any).oilId || extractOilIdFromName((oil as any).name || (oil as any).oilName)
         if (oilId) {
           const oilSku = getOilSku(oilId, bottleSize)
-          skuMap.set(oilSku, { qty: (skuMap.get(oilSku)?.qty || 0) + qty, name: oil.oilName || oil.name || oilId })
+          skuMap.set(oilSku, { qty: (skuMap.get(oilSku)?.qty || 0) + qty, name: (oil as any).oilName || (oil as any).name || oilId })
         }
       }
     } else {

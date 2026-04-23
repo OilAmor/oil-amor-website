@@ -75,6 +75,7 @@ export interface RewardsUpdateResult {
   profile: CustomerRewardsProfile;
   tierUpgraded: boolean;
   previousTier?: TierLevel;
+  newTier?: TierLevel;
   newChainsUnlocked: ChainType[];
   newCharmsUnlocked: string[];
   notifications: RewardsNotification[];

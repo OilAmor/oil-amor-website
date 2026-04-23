@@ -50,7 +50,6 @@ export {
   customizeCheckout,
   generateTierDiscountCode,
   applyCreditToCheckout,
-  refundCredit,
   checkTierUpgrade,
   applyTierDiscountToLineItems,
   calculateCheckoutTotals,

@@ -6,6 +6,7 @@
  */
 
 import React, { useState } from 'react';
+import { adminFetch } from '@/lib/admin/api';
 
 // ============================================================================
 // TYPES
@@ -166,7 +167,7 @@ export function BottleInspectionForm({
     setResult(inspectionResult);
 
     try {
-      const response = await fetch('/api/admin/refill/inspect', {
+      const response = await adminFetch('/api/admin/refill/inspect', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

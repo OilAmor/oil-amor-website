@@ -127,15 +127,15 @@ export const OREGANO_PROFILE: OilSafetyProfile = {
       description: 'May increase bleeding risk with topical use',
     },
     {
-      type: 'high-blood-pressure',
+      type: 'blood-pressure-affecting',
       severity: 'caution',
       description: 'May affect blood pressure with extended topical use',
     },
   ],
   
   keyConstituents: [
-    { name: 'Carvacrol', percentageRange: [60, 80], concerns: ['irritant'] },
-    { name: 'Thymol', percentageRange: [5, 10], concerns: ['toxic'] },
+    { name: 'Carvacrol', percentageRange: [60, 80], concerns: ['skin-irritant'] },
+    { name: 'Thymol', percentageRange: [5, 10], concerns: ['neurotoxic'] },
     { name: 'Gamma-terpinene', percentageRange: [3, 8], concerns: [] },
     { name: 'Para-cymene', percentageRange: [2, 5], concerns: [] },
   ],
@@ -186,7 +186,7 @@ export const OREGANO_PROFILE: OilSafetyProfile = {
     },
     {
       drugClass: 'Blood pressure medications',
-      effect: 'interferes',
+      effect: 'inhibits',
       description: 'May affect blood pressure with extended topical use',
       severity: 'caution',
     },
@@ -236,7 +236,7 @@ export const BASIL_LINALOOL_PROFILE: OilSafetyProfile = {
   
   contraindications: [
     {
-      type: 'estragole-content',
+      type: 'carcinogenic',
       severity: 'caution',
       description: 'Contains estragole (methyl chavicol), a potential carcinogen at high doses',
     },
@@ -326,19 +326,19 @@ export const WINTERGREEN_PROFILE: OilSafetyProfile = {
       description: 'Acts like aspirin - can cause bleeding',
     },
     {
-      type: 'salicylate-sensitivity',
+      type: 'anticoagulant',
       severity: 'avoid',
       description: 'Contains methyl salicylate - avoid if allergic to aspirin',
     },
     {
-      type: 'surgery',
+      type: 'blood-thinning',
       severity: 'warning',
       description: 'Discontinue 2 weeks before surgery due to blood thinning effects',
     },
   ],
   
   keyConstituents: [
-    { name: 'Methyl salicylate', percentageRange: [98, 100], concerns: ['toxic', 'blood-thinning'] },
+    { name: 'Methyl salicylate', percentageRange: [98, 100], concerns: ['hepatotoxic', 'blood-thinning'] },
   ],
   
   incompatibleOils: [
@@ -595,12 +595,12 @@ export const CAMPHOR_WHITE_PROFILE: OilSafetyProfile = {
   
   contraindications: [
     {
-      type: 'neurotoxicity',
+      type: 'neurotoxic',
       severity: 'warning',
       description: 'High camphor content can cause seizures in susceptible individuals',
     },
     {
-      type: 'sensitive-skin',
+      type: 'skin-sensitization',
       severity: 'warning',
       description: 'Very strong, can irritate sensitive skin',
     },
@@ -658,7 +658,7 @@ export const CAMPHOR_WHITE_PROFILE: OilSafetyProfile = {
   drugInteractions: [
     {
       drugClass: 'Antiepileptics',
-      effect: 'interferes',
+      effect: 'potential',
       description: 'Camphor can trigger seizures even with medication',
       severity: 'avoid',
     },

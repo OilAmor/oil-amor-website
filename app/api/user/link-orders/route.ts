@@ -9,15 +9,25 @@ import { db } from '@/lib/db'
 import { orders, unlockedOils, customers } from '@/lib/db/schema-refill'
 import { eq, and } from 'drizzle-orm'
 import { nanoid } from 'nanoid'
+import { getSession } from '@/lib/auth/session'
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { email, customerId } = body
-    
-    if (!email || !customerId) {
+    const session = await getSession()
+    if (!session.isLoggedIn || !session.customerId) {
       return NextResponse.json(
-        { error: 'Email and customerId are required' },
+        { error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    const customerId = session.customerId
+
+    const body = await request.json()
+    const { email } = body
+    
+    if (!email) {
+      return NextResponse.json(
+        { error: 'Email is required' },
         { status: 400 }
       )
     }
@@ -25,8 +35,6 @@ export async function POST(request: NextRequest) {
     // Normalize email
     const normalizedEmail = email.toLowerCase().trim()
     const now = new Date()
-    
-    console.log('[LinkOrders] Looking for guest orders:', normalizedEmail)
     
     // Find all guest orders with this email
     const guestOrders = await db.query.orders.findMany({
@@ -111,7 +119,7 @@ export async function POST(request: NextRequest) {
         .where(eq(customers.id, customerId))
     }
     
-    console.log(`[LinkOrders] Linked ${linkedOrderIds.length} orders and unlocked ${unlockedOilIds.length} oils for ${normalizedEmail}`)
+    // Linked successfully
     
     return NextResponse.json({
       linkedCount: linkedOrderIds.length,

@@ -38,6 +38,7 @@ import {
 import { Order, OrderStatus, OrderLineItem, OrderCustomMix } from '@/lib/db/schema/orders';
 import { ScaledRefill, scaleToRefill, normalizeRecipe } from '@/lib/refill/recipe-scaling';
 import { RefillOrder } from '@/lib/db/schema-refill';
+import { adminFetch } from '@/lib/admin/api';
 
 // ============================================================================
 // TYPES
@@ -109,7 +110,7 @@ export default function AdminDashboard() {
   const fetchDashboardStats = useCallback(async () => {
     try {
       setError(null);
-      const response = await fetch('/api/admin/dashboard/stats');
+      const response = await adminFetch('/api/admin/dashboard/stats');
       if (!response.ok) throw new Error('Failed to fetch stats');
       const data = await response.json();
       setStats(data);
@@ -495,7 +496,7 @@ function OrdersTab({
 function OrderDetailView({ order, onBack, onOrderUpdate }: { order: Order; onBack: () => void; onOrderUpdate?: () => void }) {
   const updateOrderStatus = async (status: string) => {
     try {
-      const res = await fetch('/api/admin/orders', {
+      const res = await adminFetch('/api/admin/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: order.id, status }),
@@ -524,7 +525,7 @@ function OrderDetailView({ order, onBack, onOrderUpdate }: { order: Order; onBac
     const trackingNumber = window.prompt('Enter tracking number:');
     if (!trackingNumber) return;
     try {
-      const res = await fetch('/api/admin/orders', {
+      const res = await adminFetch('/api/admin/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: order.id, carrier, trackingNumber }),
@@ -539,13 +540,17 @@ function OrderDetailView({ order, onBack, onOrderUpdate }: { order: Order; onBac
 
   const handlePrintLabels = async () => {
     const item = order.items?.find(i => i.customMix);
+    const standardItems = order.items?.filter(i => !i.customMix && i.type !== 'shipping') || [];
+    const dateSuffix = new Date().toISOString().slice(2,10).replace(/-/g,'');
+    const randomSuffix = Math.random().toString(36).substr(2, 4).toUpperCase();
     const data = {
-      blendName: item?.customMix?.recipeName || order.items?.[0]?.name || 'Oil Amor Blend',
-      oils: item?.customMix?.oils?.map(o => ({ name: o.oilName, percentage: o.percentage, ml: o.ml })) || [],
+      blendName: item?.customMix?.recipeName || standardItems.map(i => i.name).join(' + ') || 'Oil Amor Blend',
+      oils: item?.customMix?.oils?.map(o => ({ name: o.oilName, percentage: o.percentage, ml: o.ml })) 
+        || standardItems.map(i => ({ name: i.name + (i.sku ? ` (${i.sku})` : ''), percentage: 100, ml: i.quantity || 1 })),
       carrierOil: item?.customMix?.mode === 'carrier' ? 'Jojoba' : undefined,
       carrierPercentage: item?.customMix?.carrierRatio,
       size: item?.customMix?.totalVolume || 30,
-      batchId: `OA-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-001`,
+      batchId: `OA-${dateSuffix}-${randomSuffix}`,
       madeDate: new Date().toLocaleDateString('en-AU'),
       expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU'),
       warnings: item?.customMix?.safetyWarnings || [],
@@ -559,7 +564,7 @@ function OrderDetailView({ order, onBack, onOrderUpdate }: { order: Order; onBac
       showCrystal: true,
     };
     try {
-      const res = await fetch('/api/admin/labels/generate', {
+      const res = await adminFetch('/api/admin/labels/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -801,7 +806,7 @@ function ProductionQueueTab() {
   const fetchQueue = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch('/api/admin/production-queue');
+      const r = await adminFetch('/api/admin/production-queue');
       const data = await r.json();
       setQueue(data.items || []);
     } catch {
@@ -852,7 +857,7 @@ function ProductionQueueTab() {
 function ProductionCard({ item, onRefresh }: { item: ProductionQueueItem; onRefresh: () => void }) {
   const handleStartBlending = async () => {
     try {
-      const res = await fetch('/api/admin/production-queue', {
+      const res = await adminFetch('/api/admin/production-queue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: item.orderId, action: 'start' }),
@@ -872,7 +877,7 @@ function ProductionCard({ item, onRefresh }: { item: ProductionQueueItem; onRefr
       blendName: item.customMix?.recipeName || 'Blend',
       oils: item.customMix?.oils?.map(o => ({ name: o.oilName, percentage: o.percentage, ml: o.ml })) || [],
       size: item.customMix?.totalVolume || 30,
-      batchId: `OA-${Date.now().toString().slice(-6)}`,
+      batchId: `OA-${Date.now().toString().slice(-6)}-${Math.random().toString(36).slice(2, 4)}`,
       madeDate: new Date().toLocaleDateString('en-AU'),
       expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU'),
       warnings: item.customMix?.safetyWarnings || [],
@@ -886,7 +891,7 @@ function ProductionCard({ item, onRefresh }: { item: ProductionQueueItem; onRefr
       showCrystal: false,
     };
     try {
-      const res = await fetch('/api/admin/labels/generate', {
+      const res = await adminFetch('/api/admin/labels/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -950,7 +955,7 @@ function BlendingQueueTab() {
     setLoading(true);
     setError(null);
     try {
-      const r = await fetch('/api/admin/orders?filter=pending');
+      const r = await adminFetch('/api/admin/orders?filter=pending');
       const data = await r.json();
       const allOrders: Order[] = data.orders || [];
       const blendingOrders = allOrders.filter(
@@ -1019,7 +1024,7 @@ function BlendingCard({ order, onRefresh }: { order: Order; onRefresh: () => voi
 
   const updateStatus = async (status: string) => {
     try {
-      const res = await fetch('/api/admin/orders', {
+      const res = await adminFetch('/api/admin/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: order.id, status }),
@@ -1204,7 +1209,7 @@ function RefillOrdersTab() {
   const fetchRefills = useCallback(async () => {
     setLoading(true);
     try {
-      const r = await fetch('/api/admin/refill/orders');
+      const r = await adminFetch('/api/admin/refill/orders');
       const data = await r.json();
       setRefills(data.orders || []);
     } catch {
@@ -1252,7 +1257,7 @@ function RefillOrdersTab() {
 function RefillCard({ refill, onRefresh }: { refill: RefillOrderItem; onRefresh: () => void }) {
   const handleStartRefill = async () => {
     try {
-      const res = await fetch('/api/admin/refill/orders', {
+      const res = await adminFetch('/api/admin/refill/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId: refill.orderId, action: 'start' }),
@@ -1274,7 +1279,7 @@ function RefillCard({ refill, onRefresh }: { refill: RefillOrderItem; onRefresh:
       carrierOil: refill.scaledRecipe?.carrierOilMl ? 'Carrier Oil' : undefined,
       carrierPercentage: refill.scaledRecipe?.carrierOilMl ? Math.round((refill.scaledRecipe.carrierOilMl / refill.targetSize) * 100) : undefined,
       size: refill.targetSize,
-      batchId: `OA-${Date.now().toString().slice(-6)}`,
+      batchId: `OA-${Date.now().toString().slice(-6)}-${Math.random().toString(36).slice(2, 4)}`,
       madeDate: new Date().toLocaleDateString('en-AU'),
       expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU'),
       warnings: [],
@@ -1288,7 +1293,7 @@ function RefillCard({ refill, onRefresh }: { refill: RefillOrderItem; onRefresh:
       showCrystal: false,
     };
     try {
-      const res = await fetch('/api/admin/labels/generate', {
+      const res = await adminFetch('/api/admin/labels/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
@@ -1431,7 +1436,7 @@ function LabelGeneratorTab() {
       showCrystal: settings.showCrystal,
     };
     try {
-      const res = await fetch('/api/admin/labels/generate', {
+      const res = await adminFetch('/api/admin/labels/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),

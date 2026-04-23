@@ -8,6 +8,7 @@ import { db } from '@/lib/db'
 import { customers, orders, unlockedOils } from '@/lib/db/schema-refill'
 import { eq } from 'drizzle-orm'
 import bcrypt from 'bcrypt'
+import { getSession } from '@/lib/auth/session'
 
 // ============================================================================
 // GET /api/user/profile - Get current user profile
@@ -15,15 +16,14 @@ import bcrypt from 'bcrypt'
 
 export async function GET(request: NextRequest) {
   try {
-    // Get customer ID from session/token (simplified for now)
-    const customerId = request.headers.get('x-customer-id')
-    
-    if (!customerId) {
+    const session = await getSession()
+    if (!session.isLoggedIn || !session.customerId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
+    const customerId = session.customerId
     
     // Fetch customer from database
     const customer = await db.query.customers.findFirst({
@@ -180,14 +180,14 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const customerId = request.headers.get('x-customer-id')
-    
-    if (!customerId) {
+    const session = await getSession()
+    if (!session.isLoggedIn || !session.customerId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
+    const customerId = session.customerId
     
     const body = await request.json()
     const { firstName, lastName, phone } = body

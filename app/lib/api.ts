@@ -4,11 +4,10 @@
  * Connected to Sanity backend via lib/content modules
  */
 
-import { SynergyContent, Crystal, RitualStep } from '../types'
+import { SynergyContent, Crystal } from '../types'
 import { getSynergyContent as getContentFromCMS } from '../../lib/content/synergy'
 import { getAllCrystals, getAvailableCrystals } from '../../lib/content/crystals'
 import { getCustomerTier } from '../../lib/rewards/tiers'
-import { SynergyContent as CMSSynergyContent, Crystal as CMSCrystal, Chakra as CMSChakra } from '../../lib/content/types'
 
 // ============================================================================
 // SYNERGY CONTENT API
@@ -30,8 +29,7 @@ export async function fetchSynergyContent(
       return null
     }
     
-    // Transform CMS response to SynergyContent type
-    return transformSynergyResponse(response) as unknown as SynergyContent
+    return response
   } catch (error) {
     console.error('Error fetching synergy content:', error)
     return null
@@ -91,101 +89,4 @@ export async function fetchCustomerTier(
   }
 }
 
-// ============================================================================
-// DATA TRANSFORMERS
-// ============================================================================
 
-/**
- * Transform CMS synergy response to SynergyContent type
- */
-function transformSynergyResponse(response: CMSSynergyContent): SynergyContent {
-  // Extract slugs from nested objects
-  const oilSlug = response.oil?.slug?.current || response.oil?._ref || ''
-  const crystalSlug = response.crystal?.slug?.current || response.crystal?._ref || ''
-  
-  // Convert Portable Text story to string
-  const storyText = typeof response.story === 'string' 
-    ? response.story 
-    : extractTextFromPortableText(response.story)
-  
-  // Convert ritual steps to RitualStep array
-  const ritualInstructions: RitualStep[] = Array.isArray(response.ritualInstructions)
-    ? response.ritualInstructions.map((r: { title: string; instruction: string }, i: number) => ({
-        step: i + 1,
-        title: r.title,
-        description: r.instruction,
-      }))
-    : []
-  
-  return {
-    id: response._id,
-    oilSlug,
-    crystalSlug,
-    headline: response.headline,
-    story: storyText,
-    scientificNote: response.scientificNote,
-    ritualInstructions,
-    frequency: response.frequencyName || String(response.frequency || ''),
-    chakra: (response.chakraAlignment === 'all' ? 'heart' : response.chakraAlignment) as SynergyContent['chakra'],
-    element: response.element as SynergyContent['element'],
-    zodiac: response.zodiacAffinity || [],
-  }
-}
-
-/**
- * Helper to extract text from Sanity Portable Text
- */
-function extractTextFromPortableText(blocks: any[]): string {
-  if (!Array.isArray(blocks)) return ''
-  
-  return blocks
-    .map((block: any) => {
-      if (typeof block === 'string') return block
-      if (block._type === 'block' && Array.isArray(block.children)) {
-        return block.children.map((child: any) => child.text || '').join('')
-      }
-      return ''
-    })
-    .join('\n')
-}
-
-/**
- * Transform CMS crystal response to Crystal type
- */
-function transformCrystalResponse(response: CMSCrystal): Crystal {
-  const images = response.images || []
-  const imageUrl = images.length > 0 ? images[0].asset?.url : undefined
-  
-  // Map CMS Chakra to app Chakra (excluding 'all')
-  const chakra = (response.properties?.chakra === 'all' 
-    ? 'heart' 
-    : (response.properties?.chakra || 'heart')) as Crystal['chakra']
-  
-  return {
-    id: response._id,
-    slug: response.slug?.current || '',
-    name: response.name,
-    description: response.properties?.meaning || '',
-    image: imageUrl || '/images/crystals/placeholder.jpg',
-    chakra,
-    element: (response.properties?.element || 'earth') as Crystal['element'],
-    zodiac: (response.properties?.zodiac || ['All Signs']) as string[],
-    meaning: response.properties?.meaning || '',
-  }
-}
-
-/**
- * Map availability to rarity
- */
-function getRarityFromAvailability(availability?: string): 'common' | 'uncommon' | 'rare' | 'legendary' {
-  switch (availability) {
-    case 'out-of-stock':
-    case 'discontinued':
-      return 'legendary'
-    case 'low-stock':
-      return 'rare'
-    case 'in-stock':
-    default:
-      return 'common'
-  }
-}

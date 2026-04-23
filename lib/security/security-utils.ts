@@ -165,18 +165,47 @@ interface ValidationResult {
 }
 
 /**
- * Validate Shopify webhook signature
+ * Validate Shopify webhook HMAC-SHA256 signature
+ * Uses Web Crypto API for universal compatibility (Node.js + Edge)
  */
-export function validateShopifyWebhook(
+export async function validateShopifyWebhook(
   body: string,
   hmacHeader: string | null,
   secret: string
-): boolean {
-  if (!hmacHeader) return false
-  
-  // In production, use crypto.subtle for HMAC validation
-  // This is a simplified version - implement full HMAC-SHA256 validation
-  return true // Placeholder - implement actual validation
+): Promise<boolean> {
+  if (!hmacHeader || !secret) return false
+
+  try {
+    const encoder = new TextEncoder()
+    const keyData = encoder.encode(secret)
+    const message = encoder.encode(body)
+
+    const cryptoKey = await crypto.subtle.importKey(
+      'raw',
+      keyData,
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    )
+
+    const signature = await crypto.subtle.sign('HMAC', cryptoKey, message)
+    const expected = btoa(String.fromCharCode(...new Uint8Array(signature)))
+
+    // Constant-time comparison
+    const a = encoder.encode(expected)
+    const b = encoder.encode(hmacHeader)
+
+    if (a.length !== b.length) return false
+
+    let result = 0
+    for (let i = 0; i < a.length; i++) {
+      result |= a[i] ^ b[i]
+    }
+
+    return result === 0
+  } catch {
+    return false
+  }
 }
 
 /**

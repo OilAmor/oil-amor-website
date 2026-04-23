@@ -122,6 +122,7 @@ export function cartItemsToCheckoutItems(
     type?: string
     customMix?: any
     configuration?: any
+    properties?: Record<string, string>
   }>
 ): CheckoutItem[] {
   return items.map(item => ({
@@ -136,6 +137,7 @@ export function cartItemsToCheckoutItems(
       type: item.type || 'pure',
       cartItemId: item.id,
       ...(item.customMix && { customMix: JSON.stringify(item.customMix) }),
+      ...(item.properties?.blendId && { blendId: item.properties.blendId }),
     },
   }))
 }

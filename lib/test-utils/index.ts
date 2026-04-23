@@ -110,7 +110,6 @@ export function render(ui: ReactElement, options: CustomRenderOptions = {}) {
 
 // Re-export everything from testing-library
 export * from '@testing-library/react'
-export { render }
 
 // ============================================================================
 // ASYNC UTILITIES

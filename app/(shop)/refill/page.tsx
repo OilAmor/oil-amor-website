@@ -73,8 +73,6 @@ function OilCard({ oil, index }: { oil: RefillOil; index: number }) {
         },
       })
       
-      // Show success toast
-      console.log(`${oil.name} ${selectedSize} Refill added to cart`)
     } catch (error) {
       console.error('Failed to add to cart:', error)
     } finally {
@@ -349,8 +347,6 @@ export default function RefillStorePage() {
         },
       })
 
-      // Show success toast
-      console.log(`${blend.name} ${size}ml Refill added to cart`)
     } catch (error) {
       console.error('Failed to add blend to cart:', error)
     }

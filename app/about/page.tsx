@@ -36,8 +36,8 @@ export default function AboutPage() {
 
           <div className="my-16 p-8 border border-[#262228] bg-[#141218]/50">
             <blockquote className="font-display text-2xl text-[#f5f3ef] italic mb-4">
-              "Every drop holds intention. Every crystal carries energy. Together, they create 
-              something greater than the sum of their parts."
+              &ldquo;Every drop holds intention. Every crystal carries energy. Together, they create 
+              something greater than the sum of their parts.&rdquo;
             </blockquote>
             <cite className="text-[#a69b8a] not-italic">— The Oil Amor Atelier</cite>
           </div>

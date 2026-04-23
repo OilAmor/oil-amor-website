@@ -7,6 +7,9 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getCreatorEarnings, getCreatorCommissionHistory } from '@/lib/community-blends/commissions';
+import { getSession } from '@/lib/auth/session';
+import { getAdminSession } from '@/lib/auth/admin-session';
+import { env } from '@/env';
 
 export const dynamic = 'force-dynamic';
 
@@ -24,10 +27,12 @@ export async function GET(request: NextRequest) {
     }
 
     // Authentication check
-    const requestingUserId = request.headers.get('x-customer-id')
-    const isAdmin = request.headers.get('x-admin-key') === process.env.ADMIN_API_KEY
+    const session = await getSession()
+    const requestingUserId = session.customerId
+    const adminSession = await getAdminSession()
+    const isAdmin = adminSession.isAdmin
     
-    if (!requestingUserId) {
+    if (!requestingUserId && !isAdmin) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }

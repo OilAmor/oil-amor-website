@@ -86,22 +86,47 @@ export async function POST(request: NextRequest) {
 // ============================================================================
 
 async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
-  const { orderId, customerId, subtotal, shipping, tax, itemCount } = session.metadata || {}
+  const { orderId, customerId, subtotal, shipping, tax, itemCount, type } = session.metadata || {}
   
   if (!orderId) {
     console.error('No orderId in session metadata')
     return
   }
+
+  // Handle refill orders separately
+  if (type === 'refill') {
+    const { refillOrders } = await import('@/lib/db/schema-refill')
+    const now = new Date()
+    const existingRefill = await db.query.refillOrders.findFirst({
+      where: eq(refillOrders.id, orderId),
+    })
+    if (existingRefill) {
+      await db.update(refillOrders)
+        .set({
+          status: 'in-transit',
+          updatedAt: now,
+        })
+        .where(eq(refillOrders.id, orderId))
+      console.log(`Refill order ${orderId} payment confirmed, status updated to in-transit`)
+    }
+    return
+  }
   
   console.log(`Processing completed checkout for order: ${orderId}`)
   
-  let dbOrder: any = null
   const now = new Date()
   
-  // Check if order already exists
+  // IDEMPOTENCY GUARD — Check FIRST before any mutation
   const existingOrder = await db.query.orders.findFirst({
     where: eq(orders.id, orderId),
   })
+  
+  if (existingOrder?.processingCompletedAt) {
+    console.log(`Order ${orderId} already processed at ${existingOrder.processingCompletedAt}, skipping`)
+    return NextResponse.json({ received: true, idempotency: 'skipped' })
+  }
+  
+  let dbOrder: any = existingOrder
   
   if (existingOrder) {
     console.log(`Order ${orderId} already exists, updating status`)
@@ -169,6 +194,9 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
             taxAmount: 0,
             total: item.amount_total || 0,
             customMix,
+            metadata: {
+              blendId: metadata.blendId,
+            },
           }
         }
         
@@ -228,14 +256,14 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
       },
       
       shippingAddress: {
-        firstName: (session as any).shipping_details?.name?.split(' ')[0] || '',
-        lastName: (session as any).shipping_details?.name?.split(' ').slice(1).join(' ') || '',
-        address1: (session as any).shipping_details?.address?.line1 || '',
-        address2: (session as any).shipping_details?.address?.line2 || undefined,
-        city: (session as any).shipping_details?.address?.city || '',
-        province: (session as any).shipping_details?.address?.state || '',
-        country: (session as any).shipping_details?.address?.country || 'AU',
-        zip: (session as any).shipping_details?.address?.postal_code || '',
+        firstName: session.metadata?.shipName?.split(' ')[0] || (session as any).shipping_details?.name?.split(' ')[0] || '',
+        lastName: session.metadata?.shipName?.split(' ').slice(1).join(' ') || (session as any).shipping_details?.name?.split(' ').slice(1).join(' ') || '',
+        address1: session.metadata?.shipLine1 || (session as any).shipping_details?.address?.line1 || '',
+        address2: session.metadata?.shipLine2 || (session as any).shipping_details?.address?.line2 || undefined,
+        city: session.metadata?.shipCity || (session as any).shipping_details?.address?.city || '',
+        province: session.metadata?.shipState || (session as any).shipping_details?.address?.state || '',
+        country: session.metadata?.shipCountry || (session as any).shipping_details?.address?.country || 'AU',
+        zip: session.metadata?.shipPostcode || (session as any).shipping_details?.address?.postal_code || '',
         phone: session.customer_details?.phone || undefined,
       },
       
@@ -300,6 +328,7 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
           size: item.metadata?.size || '30ml',
           type: (item.metadata?.type as 'pure' | 'enhanced') || 'pure',
           price: (item.total || 0) / 100,
+          blendId: item.metadata?.blendId,
         }
       }),
       total: (dbOrder.total || 0) / 100,
@@ -332,16 +361,20 @@ async function handleCheckoutComplete(session: Stripe.Checkout.Session) {
         await db.update(unlockedOils)
           .set({
             type: 'enhanced',
-            updatedAt: now,
           })
           .where(and(
             eq(unlockedOils.customerId, customerId),
             eq(unlockedOils.oilId, upgrade.oilId)
           ))
       }
+
+      // Mark order as processed to ensure idempotency on retries
+      await db.update(orders)
+        .set({ processingCompletedAt: now, updatedAt: now })
+        .where(eq(orders.id, orderId))
     } catch (err) {
       console.error('Error in completeOrderProcessing:', err)
-      // Don't fail the webhook
+      // Don't fail the webhook — Stripe will retry if we return 500, but we return 200 below
     }
     
     // Update customer metadata (first purchase date)

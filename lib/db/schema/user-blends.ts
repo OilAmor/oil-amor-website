@@ -87,7 +87,7 @@ export const blendReferrals = pgTable(
     
     // Purchase details
     orderId: text('order_id').notNull(),
-    blendId: text('blend_id').notNull(), // The blend that was purchased
+    blendId: text('blend_id').notNull().references(() => userBlends.id), // The blend that was purchased
     purchaseAmount: integer('purchase_amount').notNull(), // in cents
     
     // Credit calculation

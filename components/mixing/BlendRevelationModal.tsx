@@ -218,7 +218,7 @@ export function BlendRevelationModal({ revelation, isOpen, onClose }: BlendRevel
                     {revelation.archetype.replace(/-/g, ' ')}
                   </p>
                   <p className="text-[#a69b8a] text-lg italic max-w-2xl mx-auto">
-                    "{revelation.poeticEssence}"
+                    &quot;{revelation.poeticEssence}&quot;
                   </p>
                 </motion.div>
                 

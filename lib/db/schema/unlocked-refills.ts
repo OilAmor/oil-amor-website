@@ -55,7 +55,7 @@ export const unlockedRefills = pgTable(
     }>>().notNull().default([]),
     
     // Usage tracking
-    refillCount: integer('refill_count').default(0),
+    refillCount: integer('refill_count').notNull().default(0),
     lastRefilledAt: timestamp('last_refilled_at', { mode: 'date' }),
     
     // Brand ambassador (if user shared this blend)

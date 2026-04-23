@@ -4,10 +4,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminAuth } from '@/lib/admin/auth';
 import { Order, OrderStatus } from '@/lib/db/schema/orders';
 import { db } from '@/lib/db';
-import { refillOrders, foreverBottles, customers, orders } from '@/lib/db/schema-refill';
+import { refillOrders, foreverBottles, customers, orders, auditLogs } from '@/lib/db/schema-refill';
 import { desc, eq, or, sql } from 'drizzle-orm';
+import { nanoid } from 'nanoid';
 
 export const dynamic = 'force-dynamic';
 
@@ -60,8 +62,8 @@ async function convertRefillToOrder(refillOrder: typeof refillOrders.$inferSelec
     total: finalPrice / 100,
     currency: 'AUD',
     payment: {
-      method: 'credit-card',
-      status: 'captured',
+      method: 'credit-card' as const,
+      status: 'captured' as const,
     },
     shippingAddress: {
       firstName: customer?.firstName || '',
@@ -73,7 +75,7 @@ async function convertRefillToOrder(refillOrder: typeof refillOrders.$inferSelec
       zip: '',
     },
     shipping: {
-      carrier: 'auspost',
+      carrier: 'auspost' as const,
       service: 'Standard',
       cost: 0,
       trackingNumber: returnLabel?.trackingNumber,
@@ -103,48 +105,144 @@ function mapRefillStatusToOrderStatus(status: string): OrderStatus {
   return statusMap[status] || 'pending';
 }
 
+function mapDbOrderToOrder(dbOrder: typeof orders.$inferSelect): Order {
+  const items = (dbOrder.items || []).map((item: any) => ({
+    id: item.id,
+    type: item.type as any,
+    productId: item.productId,
+    variantId: item.variantId,
+    sku: item.sku,
+    name: item.name,
+    description: item.description,
+    image: item.image,
+    unitPrice: item.unitPrice / 100,
+    quantity: item.quantity,
+    subtotal: item.subtotal / 100,
+    taxAmount: item.taxAmount / 100,
+    total: item.total / 100,
+    attachment: item.attachment,
+    customMix: item.customMix,
+    isRefill: item.isRefill,
+    originalBottleSerial: item.originalBottleSerial,
+    unlocksOilId: item.unlocksOilId,
+    properties: item.properties,
+  }));
+
+  return {
+    id: dbOrder.id,
+    customerId: dbOrder.customerId,
+    customerEmail: dbOrder.customerEmail,
+    customerName: dbOrder.customerName,
+    isGuest: dbOrder.isGuest,
+    status: dbOrder.status as OrderStatus,
+    statusHistory: (dbOrder.statusHistory || []) as Order['statusHistory'],
+    items,
+    subtotal: dbOrder.subtotal / 100,
+    taxTotal: dbOrder.taxTotal / 100,
+    shippingTotal: dbOrder.shippingTotal / 100,
+    discountTotal: dbOrder.discountTotal / 100,
+    storeCreditUsed: dbOrder.storeCreditUsed / 100,
+    giftCardUsed: dbOrder.giftCardUsed / 100,
+    total: dbOrder.total / 100,
+    currency: dbOrder.currency,
+    payment: (dbOrder.payment || { method: 'credit-card' as const, status: 'pending' as const }) as Order['payment'],
+    shippingAddress: (dbOrder.shippingAddress || {
+      firstName: '',
+      lastName: '',
+      address1: '',
+      city: '',
+      province: '',
+      country: 'AU',
+      zip: '',
+    }) as Order['shippingAddress'],
+    shipping: (dbOrder.shipping || { carrier: 'auspost' as const, service: 'Standard', cost: 0 }) as Order['shipping'],
+    isGift: false,
+    giftReceipt: false,
+    requiresBlending: items.some((i: any) => i.customMix),
+    eligibleForReturns: false,
+    returnCreditsEarned: 0,
+    returnCreditsUsed: 0,
+    createdAt: dbOrder.createdAt.toISOString(),
+    updatedAt: dbOrder.updatedAt.toISOString(),
+  };
+}
+
 export async function GET(request: NextRequest) {
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
+
   try {
     const { searchParams } = new URL(request.url);
     const filter = searchParams.get('filter') || 'all';
     const limit = parseInt(searchParams.get('limit') || '100');
+    const offset = parseInt(searchParams.get('offset') || '0');
 
-    // Build status filter
-    let statusFilter: string[] | undefined;
-    if (filter === 'blending') {
-      statusFilter = ['received', 'inspecting', 'refilling'];
-    } else if (filter === 'pending') {
-      statusFilter = ['pending-return'];
-    } else if (filter === 'ready') {
-      statusFilter = ['refilling'];
-    } else if (filter === 'shipped') {
-      statusFilter = ['completed'];
-    }
-
-    // Fetch real refill orders from database
-    let refillOrdersList: typeof refillOrders.$inferSelect[];
+    // Build status filters
+    let refillStatusFilter: string[] | undefined;
+    let orderStatusFilter: string[] | undefined;
     
-    if (statusFilter && statusFilter.length > 0) {
-      // Build OR conditions for status filter
-      const statusConditions = statusFilter.map(s => eq(refillOrders.status, s as any));
-      refillOrdersList = await db.query.refillOrders.findMany({
-        where: or(...statusConditions),
-        orderBy: [desc(refillOrders.createdAt)],
-        limit,
-      });
-    } else {
-      refillOrdersList = await db.query.refillOrders.findMany({
-        orderBy: [desc(refillOrders.createdAt)],
-        limit,
-      });
+    if (filter === 'blending') {
+      refillStatusFilter = ['received', 'inspecting', 'refilling'];
+      orderStatusFilter = ['blending', 'quality-check'];
+    } else if (filter === 'pending') {
+      refillStatusFilter = ['pending-return'];
+      orderStatusFilter = ['pending', 'confirmed'];
+    } else if (filter === 'ready') {
+      refillStatusFilter = ['refilling'];
+      orderStatusFilter = ['ready-to-ship'];
+    } else if (filter === 'shipped') {
+      refillStatusFilter = ['completed'];
+      orderStatusFilter = ['shipped', 'delivered'];
     }
 
-    // Convert to Order format
-    const orders: Order[] = await Promise.all(
-      refillOrdersList.map(convertRefillToOrder)
+    // Fetch refill orders
+    let refillOrdersList: typeof refillOrders.$inferSelect[] = [];
+    if (!orderStatusFilter || orderStatusFilter.length > 0) {
+      if (refillStatusFilter && refillStatusFilter.length > 0) {
+        const statusConditions = refillStatusFilter.map(s => eq(refillOrders.status, s as any));
+        refillOrdersList = await db.query.refillOrders.findMany({
+          where: or(...statusConditions),
+          orderBy: [desc(refillOrders.createdAt)],
+          limit,
+        });
+      } else {
+        refillOrdersList = await db.query.refillOrders.findMany({
+          orderBy: [desc(refillOrders.createdAt)],
+          limit,
+        });
+      }
+    }
+
+    // Fetch regular orders
+    let regularOrdersList: typeof orders.$inferSelect[] = [];
+    if (!refillStatusFilter || refillStatusFilter.length > 0) {
+      if (orderStatusFilter && orderStatusFilter.length > 0) {
+        const statusConditions = orderStatusFilter.map(s => eq(orders.status, s as any));
+        regularOrdersList = await db.query.orders.findMany({
+          where: or(...statusConditions),
+          orderBy: [desc(orders.createdAt)],
+          limit,
+          offset,
+        });
+      } else {
+        regularOrdersList = await db.query.orders.findMany({
+          orderBy: [desc(orders.createdAt)],
+          limit,
+          offset,
+        });
+      }
+    }
+
+    // Convert both to Order format
+    const convertedRefills = await Promise.all(refillOrdersList.map(convertRefillToOrder));
+    const convertedRegulars = regularOrdersList.map(mapDbOrderToOrder);
+
+    // Combine and sort by createdAt desc
+    const allOrders = [...convertedRefills, ...convertedRegulars].sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
 
-    return NextResponse.json({ orders });
+    return NextResponse.json({ orders: allOrders.slice(0, limit) });
   } catch (error) {
     console.error('Orders API error:', error);
     return NextResponse.json(
@@ -155,6 +253,9 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
+
   try {
     const body = await request.json();
     const { orderId, status, trackingNumber, carrier } = body;
@@ -189,6 +290,16 @@ export async function POST(request: NextRequest) {
         .where(eq(orders.id, orderId))
         .returning();
 
+      await db.insert(auditLogs).values({
+        id: `audit_${nanoid(8)}`,
+        adminId: 'admin-api',
+        action: 'update_order_status',
+        entityType: 'order',
+        entityId: orderId,
+        before: { status: existingOrder.status, shipping: existingOrder.shipping },
+        after: { status, shipping: updatedShipping },
+      });
+
       return NextResponse.json({ success: true, order: updated });
     }
 
@@ -215,6 +326,16 @@ export async function POST(request: NextRequest) {
         })
         .where(eq(refillOrders.id, orderId))
         .returning();
+
+      await db.insert(auditLogs).values({
+        id: `audit_${nanoid(8)}`,
+        adminId: 'admin-api',
+        action: 'update_refill_status',
+        entityType: 'refillOrder',
+        entityId: orderId,
+        before: { status: existingRefill.status },
+        after: { status: refillStatus },
+      });
 
       const converted = await convertRefillToOrder(updated);
       return NextResponse.json({ success: true, order: converted });

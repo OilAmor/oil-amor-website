@@ -406,10 +406,10 @@ export async function generateTierDiscountCode(
 /**
  * Generate a unique discount code string
  */
-function generateDiscountCode(customerId: string, tier: TierLevel): string {
+function generateDiscountCode(customerId: string | number, tier: TierLevel): string {
   const tierPrefix = tier.substring(0, 3).toUpperCase()
   const timestamp = Date.now().toString(36).toUpperCase()
-  const customerHash = customerId.slice(-6).toUpperCase()
+  const customerHash = String(customerId).slice(-6).toUpperCase()
   
   return `OILAMOR-${tierPrefix}-${customerHash}-${timestamp}`
 }
@@ -582,6 +582,7 @@ export async function checkTierUpgrade(
     
     await updateCustomerMetafields(customerId, {
       crystal_circle_tier: newTier,
+      total_spend: totalSpend,
       tier_upgrade_date: new Date().toISOString(),
       unlocked_chains: CRYSTAL_CIRCLE_TIERS[newTier].unlockedChains,
     })

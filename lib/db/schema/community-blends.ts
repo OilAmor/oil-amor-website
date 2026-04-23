@@ -13,6 +13,7 @@ import {
   jsonb,
   boolean,
   index,
+  unique,
   pgEnum,
   uuid,
 } from 'drizzle-orm/pg-core';
@@ -149,7 +150,7 @@ export const blendRatings = pgTable(
     userIdIdx: index('rating_user_id_idx').on(table.userId),
     createdAtIdx: index('rating_created_at_idx').on(table.createdAt),
     // Ensure one rating per user per blend
-    uniqueUserBlend: index('rating_unique_user_blend_idx').on(table.blendId, table.userId),
+    uniqueUserBlend: unique('rating_unique_user_blend').on(table.blendId, table.userId),
   })
 );
 
@@ -199,7 +200,7 @@ export const userBlendStats = pgTable(
     totalRatingsReceived: integer('total_ratings_received').notNull().default(0),
     averageRating: integer('average_rating').notNull().default(0), // Stored as percentage (4.5 = 450)
     
-    // Creator earnings (5% commission on community blend sales)
+    // Creator earnings (10% commission on community blend sales)
     totalCommissionEarned: integer('total_commission_earned').notNull().default(0), // in cents
     pendingCommission: integer('pending_commission').notNull().default(0), // in cents
     
@@ -234,7 +235,7 @@ export const blendCommissions = pgTable(
     
     // Financial details
     saleAmount: integer('sale_amount').notNull(), // in cents
-    commissionRate: integer('commission_rate').notNull().default(5), // percentage (5 = 5%)
+    commissionRate: integer('commission_rate').notNull().default(10), // percentage (10 = 10%)
     commissionAmount: integer('commission_amount').notNull(), // in cents
     
     // Status
@@ -251,6 +252,7 @@ export const blendCommissions = pgTable(
     orderIdIdx: index('commission_order_id_idx').on(table.orderId),
     statusIdx: index('commission_status_idx').on(table.status),
     createdAtIdx: index('commission_created_at_idx').on(table.createdAt),
+    orderBlendUnique: unique('commission_order_blend_unique').on(table.orderId, table.blendId),
   })
 );
 

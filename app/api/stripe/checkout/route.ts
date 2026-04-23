@@ -236,6 +236,14 @@ export async function POST(request: NextRequest) {
         shipping: String(shipping.amount),
         tax: String(taxAmount),
         itemCount: String(totalItems),
+        // Store original shipping address as source of truth
+        shipName: `${body.shippingAddress.firstName} ${body.shippingAddress.lastName}`,
+        shipLine1: body.shippingAddress.address1,
+        shipLine2: body.shippingAddress.address2 || '',
+        shipCity: body.shippingAddress.city,
+        shipState: body.shippingAddress.province,
+        shipPostcode: body.shippingAddress.postalCode,
+        shipCountry: body.shippingAddress.country,
       },
       
       // Success and cancel URLs

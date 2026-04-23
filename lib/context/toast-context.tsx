@@ -28,7 +28,10 @@ export function useToast() {
   const context = useContext(ToastContext)
   if (context === undefined) {
     // Return a stub instead of throwing
-    return { showToast: (message: string) => console.log(`[Toast]: ${message}`) }
+    return {
+      showToast: (message: string) => console.log(`[Toast]: ${message}`),
+      addToast: (message: string) => console.log(`[Toast]: ${message}`),
+    }
   }
   return context
 }

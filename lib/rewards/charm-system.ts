@@ -239,12 +239,13 @@ export function getAvailableCharms(
   purchaseCount: number,
   tier: TierLevel
 ): CharmOption[] {
-  return CHARM_DISPLAY_ORDER.map(charmId => {
+  return CHARM_DISPLAY_ORDER.map((charmId): CharmOption | null => {
     const config = CHARM_CATALOG[charmId];
     if (!config) return null;
     
     const isUnlocked = isCharmUnlocked(charmId, purchaseCount, tier);
     const isCollected = false;
+    const purchasesNeeded = getPurchasesNeeded(charmId, purchaseCount);
     
     return {
       id: charmId,
@@ -252,8 +253,8 @@ export function getAvailableCharms(
       isLocked: !isUnlocked,
       isCollected,
       progressToUnlock: calculateCharmProgress(charmId, purchaseCount, tier),
-      purchasesNeeded: getPurchasesNeeded(charmId, purchaseCount)
-    };
+      ...(purchasesNeeded !== undefined ? { purchasesNeeded } : {})
+    } as CharmOption;
   }).filter((c): c is CharmOption => c !== null);
 }
 

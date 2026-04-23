@@ -183,10 +183,9 @@ export interface CommunityShareResult {
   error?: string
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function processCommunityBlendShares(
   order: Order,
-  createBlendFn: (input: Record<string, any>) => Promise<{ success: boolean; blendId?: string; error?: string }>,
+  createBlendFn: (input: Record<string, unknown>) => Promise<{ success: boolean; blendId?: string; error?: string }>,
   publishBlendFn?: (input: { blendId: string; creatorId: string; orderId: string; consentToShare: boolean }) => Promise<{ success: boolean; slug?: string; error?: string }>
 ): Promise<CommunityShareResult[]> {
   const shares = extractCommunityBlendShares(order)
@@ -470,6 +469,7 @@ export interface CompleteOrderResult {
   savedBlends: UserBlendSaveResult[]
   unlockedRefills: UnlockedRefillResult[]
   referralResult?: ReferralResult
+  commissionResults: Array<{ blendId: string; success: boolean; commissionAmount?: number }>
   xpEarned: number
 }
 
@@ -494,11 +494,10 @@ export async function completeOrderProcessing(
   // 2. Share to community (if user consented)
   const communityShares = await processCommunityBlendShares(
     order,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    async (input: any) => {
+    async (input: unknown) => {
       // Import dynamically to avoid circular dependency
       const { createCommunityBlend } = await import('@/lib/community-blends/actions')
-      return createCommunityBlend(input)
+      return createCommunityBlend(input as any)
     },
     // Publish blend immediately since user has already consented and purchased
     async (input) => {
@@ -531,6 +530,21 @@ export async function completeOrderProcessing(
     ipAddress: options?.ipAddress,
   })
 
+  // 5.5 Award community blend commissions
+  const commissionResults: Array<{ blendId: string; success: boolean; commissionAmount?: number }> = []
+  for (const item of order.items) {
+    if (item.blendId) {
+      const { recordBlendPurchase } = await import('@/lib/community-blends/actions')
+      const result = await recordBlendPurchase(
+        item.blendId,
+        order.id,
+        userId,
+        Math.round(item.price * 100 * (item.quantity || 1))
+      )
+      commissionResults.push({ blendId: item.blendId, success: result.success, commissionAmount: result.commissionAmount })
+    }
+  }
+
   // 6. Calculate XP earned
   const xpEarned = calculateOrderXP(order, existingUnlocks)
 
@@ -541,6 +555,7 @@ export async function completeOrderProcessing(
     savedBlends,
     unlockedRefills,
     referralResult,
+    commissionResults,
     xpEarned,
   }
 }

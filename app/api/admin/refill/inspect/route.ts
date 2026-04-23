@@ -1,11 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminAuth } from '@/lib/admin/auth';
 import { db } from '@/lib/db';
 import { refillOrders, customerCredits, creditTransactions } from '@/lib/db/schema-refill';
 import { eq } from 'drizzle-orm';
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
+
   try {
-    const { orderId, bottleId, inspectionData, result } = await request.json();
+    const body = await request.json();
+    const { orderId, bottleId, inspectionData, result } = body;
+
+    // Input validation
+    if (!orderId || typeof orderId !== 'string') {
+      return NextResponse.json({ error: 'Missing or invalid orderId' }, { status: 400 });
+    }
+    if (!bottleId || typeof bottleId !== 'string') {
+      return NextResponse.json({ error: 'Missing or invalid bottleId' }, { status: 400 });
+    }
+    if (!inspectionData || typeof inspectionData !== 'object') {
+      return NextResponse.json({ error: 'Missing or invalid inspectionData' }, { status: 400 });
+    }
+    if (!result || typeof result !== 'object') {
+      return NextResponse.json({ error: 'Missing or invalid result' }, { status: 400 });
+    }
 
     const inspectionResult = {
       cracks: !!inspectionData.cracks,
@@ -35,6 +54,18 @@ export async function POST(request: NextRequest) {
       });
       if (order) {
         const customerId = order.customerId;
+
+        // Idempotency guard: skip if credit already awarded for this order
+        const existingTx = await db.select().from(creditTransactions)
+          .where(eq(creditTransactions.customerId, customerId))
+          .limit(50);
+        const alreadyCredited = existingTx.some(
+          (tx) => tx.type === 'earned' && tx.metadata && (tx.metadata as any).orderId === orderId
+        );
+        if (alreadyCredited) {
+          return NextResponse.json({ success: true, alreadyCredited: true });
+        }
+
         const credit = await db.query.customerCredits.findFirst({
           where: eq(customerCredits.customerId, customerId),
         });

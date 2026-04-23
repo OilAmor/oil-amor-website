@@ -17,7 +17,7 @@ interface AddToCartSectionProps {
 export function AddToCartSection({ title, crystalName, variant }: AddToCartSectionProps) {
   const handleAddToCart = () => {
     // TODO: Implement add to cart logic
-    console.log('Add to cart:', title, 'with', crystalName)
+    // This component is currently unused; the live AddToCartSection is imported from @/app/components/add-to-cart-section
   }
 
   return (

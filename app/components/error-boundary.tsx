@@ -73,7 +73,7 @@ function DefaultErrorFallback({
           {sectionName ? (
             <>We encountered an issue loading the {sectionName}. Please try again.</>
           ) : (
-            <>We encountered an unexpected issue. Our team has been notified and we're working on a fix.</>
+            <>We encountered an unexpected issue. Our team has been notified and we&apos;re working on a fix.</>
           )}
         </p>
 

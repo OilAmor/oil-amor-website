@@ -220,16 +220,8 @@ export default function CheckoutPage() {
   const { cart, isLoading, clearCart } = useCart()
   const { user, isAuthenticated } = useUser()
   
-  // Debug logging
-  useEffect(() => {
-    console.log('[Checkout] Cart state:', { 
-      cartId: cart?.id, 
-      itemCount: cart?.items?.length, 
-      isLoading,
-      items: cart?.items?.map((i: any) => ({ name: i.name, id: i.id }))
-    })
-  }, [cart, isLoading])
-  
+  // Cart state is managed by useCart hook
+
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [shippingRate, setShippingRate] = useState<{ amount: number; description: string } | null>(null)

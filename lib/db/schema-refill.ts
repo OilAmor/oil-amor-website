@@ -214,6 +214,7 @@ export const creditTransactions = pgTable(
       previousBalance?: number;
       originalTransactionId?: string;
       originalCommissionId?: string;
+      expiredAt?: string;
       commissionRate?: number;
     }>(),
     createdAt: timestamp('created_at', { mode: 'date' }).notNull().defaultNow(),
@@ -314,9 +315,6 @@ export type InsertCreditTransaction = typeof creditTransactions.$inferInsert;
 export type AusPostShipment = typeof ausPostShipments.$inferSelect;
 export type InsertAusPostShipment = typeof ausPostShipments.$inferInsert;
 
-export type InventoryItem = typeof inventoryItems.$inferSelect;
-export type InsertInventoryItem = typeof inventoryItems.$inferInsert;
-
 /**
  * Inventory Items
  * Tracks stock levels for oils, bottles, crystals, cords, and caps
@@ -345,6 +343,9 @@ export const inventoryItems = pgTable(
   })
 );
 
+export type InventoryItem = typeof inventoryItems.$inferSelect;
+export type InsertInventoryItem = typeof inventoryItems.$inferInsert;
+
 // ============================================================================
 // PLACEHOLDER TABLES (for eligibility.ts compatibility)
 // ============================================================================
@@ -359,11 +360,7 @@ export const customers = pgTableCore(
     firstName: textCore('first_name'),
     lastName: textCore('last_name'),
     phone: textCore('phone'),
-    metadata: jsonbCore('metadata').$type<{
-      refillUnlocked?: boolean;
-      unlockDate?: string;
-      firstPurchaseDate?: string;
-    }>(),
+    metadata: jsonbCore('metadata').$type<Record<string, any>>(),
     createdAt: timestampCore('created_at', { mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestampCore('updated_at', { mode: 'date' }).notNull().defaultNow(),
   },
@@ -398,7 +395,7 @@ export const orders = pgTableCore(
   'orders',
   {
     id: textCore('id').primaryKey(),
-    customerId: textCore('customer_id').notNull(),
+    customerId: textCore('customer_id').notNull().references(() => customers.id),
     customerEmail: textCore('customer_email').notNull(),
     customerName: textCore('customer_name').notNull(),
     isGuest: booleanCore('is_guest').notNull().default(false),
@@ -505,10 +502,8 @@ export const orders = pgTableCore(
     customerNote: textCore('customer_note'),
     internalNote: textCore('internal_note'),
     
-    metadata: jsonbCore('metadata').$type<{
-      has30mlBottle?: boolean;
-    }>(),
-    
+    metadata: jsonbCore('metadata').$type<Record<string, any>>(),
+    processingCompletedAt: timestampCore('processing_completed_at', { mode: 'date' }),
     createdAt: timestampCore('created_at', { mode: 'date' }).notNull().defaultNow(),
     updatedAt: timestampCore('updated_at', { mode: 'date' }).notNull().defaultNow(),
   },
@@ -517,6 +512,24 @@ export const orders = pgTableCore(
     customerEmailIdx: indexCore('order_customer_email_idx').on(table.customerEmail),
     statusIdx: indexCore('order_status_idx').on(table.status),
     createdAtIdx: indexCore('order_created_idx').on(table.createdAt),
+  })
+);
+
+export const auditLogs = pgTableCore(
+  'audit_logs',
+  {
+    id: textCore('id').primaryKey(),
+    adminId: textCore('admin_id').notNull(),
+    action: textCore('action').notNull(),
+    entityType: textCore('entity_type').notNull(),
+    entityId: textCore('entity_id').notNull(),
+    before: jsonbCore('before'),
+    after: jsonbCore('after'),
+    createdAt: timestampCore('created_at', { mode: 'date' }).notNull().defaultNow(),
+  },
+  (table) => ({
+    entityIdx: indexCore('audit_entity_idx').on(table.entityType, table.entityId),
+    createdAtIdx: indexCore('audit_created_idx').on(table.createdAt),
   })
 );
 

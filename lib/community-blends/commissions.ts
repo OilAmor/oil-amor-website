@@ -39,6 +39,14 @@ export async function awardBlendCommission(
   saleAmount: number // in cents
 ): Promise<CommissionResult> {
   try {
+    // Idempotency check
+    const existing = await db.query.blendCommissions.findFirst({
+      where: and(eq(blendCommissions.orderId, orderId), eq(blendCommissions.blendId, blendId)),
+    });
+    if (existing) {
+      return { success: true, commissionAmount: existing.commissionAmount, alreadyExists: true };
+    }
+
     // Get blend details
     const blend = await db.query.communityBlends.findFirst({
       where: eq(communityBlends.id, blendId),

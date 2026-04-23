@@ -106,7 +106,7 @@ async function ausPostRequest<T>(
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     'Account-Number': AUSPOST_ACCOUNT_NUMBER || '',
-    ...options.headers,
+    ...(options.headers as Record<string, string> || {}),
   };
 
   // Add authentication if credentials are available
@@ -608,7 +608,7 @@ export async function handleTrackingWebhook(
   await db
     .update(ausPostShipments)
     .set({
-      status: mapWebhookStatus(currentStatus),
+      status: mapWebhookStatus(currentStatus) as 'pending' | 'in-transit' | 'delivered' | 'exception' | 'cancelled',
       lastEvent: {
         timestamp: payload.timestamp,
         status: currentStatus,
@@ -641,17 +641,18 @@ export async function handleTrackingWebhook(
 /**
  * Map webhook status to internal status
  */
-function mapWebhookStatus(status: string): string {
-  const statusMap: Record<string, string> = {
+function mapWebhookStatus(status: string): 'pending' | 'in-transit' | 'delivered' | 'exception' | 'cancelled' {
+  const statusMap: Record<string, 'pending' | 'in-transit' | 'delivered' | 'exception' | 'cancelled'> = {
     'Created': 'pending',
     'Pending': 'pending',
     'Picked Up': 'in-transit',
     'In Transit': 'in-transit',
     'Delivered': 'delivered',
     'Exception': 'exception',
+    'Cancelled': 'cancelled',
   };
 
-  return statusMap[status] || status.toLowerCase();
+  return statusMap[status] || 'exception';
 }
 
 // ============================================================================

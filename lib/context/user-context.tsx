@@ -49,6 +49,7 @@ export interface OrderItem {
   quantity?: number
   itemType?: 'standard-oil' | 'refill-oil' | 'custom-mix' | 'accessory' | 'gift-card' | 'shipping'
   customMix?: import('@/lib/db/schema/orders').OrderCustomMix
+  blendId?: string
 }
 
 export interface UnlockedBlendRefill {
@@ -167,36 +168,13 @@ const DEMO_UNLOCKED_OILS: UnlockedOil[] = [
 const STORAGE_KEY = 'oil_amor_user_state_v2'
 const BLEND_REFILLS_KEY = 'oil_amor_blend_refills_v2'
 
+// LocalStorage persistence removed for security — user data is fetched from server
 function loadStateFromStorage(): Partial<UserState> | null {
-  if (typeof window === 'undefined') return null
-  try {
-    const stored = localStorage.getItem(STORAGE_KEY)
-    const blendRefillsStored = localStorage.getItem(BLEND_REFILLS_KEY)
-    const parsed = stored ? JSON.parse(stored) : null
-    if (blendRefillsStored) {
-      parsed.unlockedBlendRefills = JSON.parse(blendRefillsStored)
-    }
-    return parsed
-  } catch (e) {
-    console.error('Failed to load user state:', e)
-  }
   return null
 }
 
 function saveStateToStorage(state: UserState) {
-  if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({
-      user: state.user,
-      orders: state.orders,
-      unlockedOils: state.unlockedOils,
-      isAuthenticated: state.isAuthenticated,
-      isDemo: state.isDemo,
-    }))
-    localStorage.setItem(BLEND_REFILLS_KEY, JSON.stringify(state.unlockedBlendRefills))
-  } catch (e) {
-    console.error('Failed to save user state:', e)
-  }
+  // No-op: we do not persist PII to localStorage
 }
 
 const UserContext = createContext<UserContextType | undefined>(undefined)
@@ -233,14 +211,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     isLoading: true,
   })
 
-  // Load from storage on mount
+  // Load on mount — no localStorage, just finish loading
   useEffect(() => {
-    const stored = loadStateFromStorage()
-    if (stored) {
-      setState(prev => ({ ...prev, ...stored, isLoading: false }))
-    } else {
-      setState(prev => ({ ...prev, isLoading: false }))
-    }
+    setState(prev => ({ ...prev, isLoading: false }))
   }, [])
 
   // Save to storage when state changes
@@ -259,11 +232,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-customer-id': state.user?.id || '',
         },
         body: JSON.stringify({
           email: state.user.email,
-          customerId: state.user.id,
         }),
       })
       
@@ -287,21 +258,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       await linkGuestOrders()
       
       // Fetch profile
-      const profileRes = await fetch('/api/user/profile', {
-        headers: {
-          'x-customer-id': state.user?.id || '',
-        },
-      })
+      const profileRes = await fetch('/api/user/profile')
       
       if (profileRes.ok) {
         const profile = await profileRes.json()
         
         // Fetch orders
-        const ordersRes = await fetch('/api/user/orders', {
-          headers: {
-            'x-customer-id': state.user?.id || '',
-          },
-        })
+        const ordersRes = await fetch('/api/user/orders')
         
         if (ordersRes.ok) {
           const ordersData = await ordersRes.json()
@@ -323,7 +286,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
   }, [state.isAuthenticated, state.isDemo, state.user?.id, linkGuestOrders])
 
   const login = useCallback(async (email: string, password: string) => {
-    console.log('Login attempted:', email)
+    // Login initiated
     
     try {
       const response = await fetch('/api/auth/login', {
@@ -332,7 +295,7 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
         body: JSON.stringify({ email, password }),
       })
       
-      console.log('Login response status:', response.status)
+    // Login response received
       
       if (!response.ok) {
         const data = await response.json().catch(() => ({}))
@@ -341,7 +304,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       }
       
       const data = await response.json()
-      console.log('Login successful:', data.user?.id)
       const userId = data.user.id
       
       // Set authenticated state
@@ -364,11 +326,9 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'x-customer-id': userId,
           },
           body: JSON.stringify({
             email: data.user.email,
-            customerId: userId,
           }),
         })
         if (!linkRes.ok) {
@@ -382,12 +342,8 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
       // Fetch orders and unlocked oils
       try {
         const [profileRes, ordersRes] = await Promise.all([
-          fetch('/api/user/profile', {
-            headers: { 'x-customer-id': userId },
-          }),
-          fetch('/api/user/orders', {
-            headers: { 'x-customer-id': userId },
-          }),
+          fetch('/api/user/profile'),
+          fetch('/api/user/orders'),
         ])
         
         if (!profileRes.ok) {
@@ -436,7 +392,13 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
-  const logout = useCallback(() => {
+  const logout = useCallback(async () => {
+    // Tell server to destroy session
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch {
+      // Ignore network errors
+    }
     setState({
       user: null,
       orders: [],

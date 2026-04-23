@@ -36,9 +36,14 @@ async function getAuthenticatedUserId(request: NextRequest): Promise<string | nu
   }
   
   // Option 3: For demo/testing - allow userId from query param (DEV ONLY)
+  // Requires both NODE_ENV=development AND ALLOW_DEV_USERID_QUERY=true to prevent misconfiguration
   const { searchParams } = new URL(request.url)
   const devUserId = searchParams.get('userId')
-  if (devUserId && process.env.NODE_ENV === 'development') {
+  if (
+    devUserId &&
+    process.env.NODE_ENV === 'development' &&
+    process.env.ALLOW_DEV_USERID_QUERY === 'true'
+  ) {
     return devUserId
   }
   

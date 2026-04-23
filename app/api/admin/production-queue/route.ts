@@ -4,13 +4,17 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminAuth } from '@/lib/admin/auth';
 import { db } from '@/lib/db';
 import { refillOrders, customers } from '@/lib/db/schema-refill';
 import { desc, eq, inArray } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
+
   try {
     // Get orders that need production (received, inspecting, refilling status)
     const ordersNeedingProduction = await db.query.refillOrders.findMany({
@@ -50,10 +54,10 @@ export async function GET() {
             oils: [{
               oilId: order.oilType,
               oilName: order.oilType,
-              ml: 30, // Full bottle amount
+              ml: 100, // Forever Bottle capacity
               percentage: 100,
             }],
-            totalVolume: 30,
+            totalVolume: 100,
             safetyScore: 95,
             safetyRating: 'safe',
             safetyWarnings: [],
@@ -76,6 +80,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
+
   try {
     const { orderId, action } = await request.json();
 

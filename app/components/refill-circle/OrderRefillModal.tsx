@@ -51,6 +51,7 @@ interface OrderResult {
   labelUrl: string;
   finalPrice: number;
   creditUsed: number;
+  checkoutUrl?: string;
 }
 
 // ============================================================================
@@ -709,11 +710,22 @@ function SuccessStep({
       </div>
 
       <div className="flex flex-col gap-3">
+        {result.checkoutUrl && (
+          <a
+            href={result.checkoutUrl}
+            className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 font-medium text-white hover:bg-emerald-700"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            Complete Payment (${result.finalPrice.toFixed(2)})
+          </a>
+        )}
         <a
           href={result.labelUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-3 font-medium text-white hover:bg-emerald-700"
+          className="flex items-center justify-center gap-2 rounded-lg bg-gray-700 px-4 py-3 font-medium text-white hover:bg-gray-800"
         >
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />

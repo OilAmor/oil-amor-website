@@ -6,11 +6,26 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 
-// Secret key to prevent unauthorized access
-const SETUP_KEY = process.env.DB_SETUP_KEY || 'oil-amor-setup-2024'
+// Secret key to prevent unauthorized access — NO FALLBACK
+const SETUP_KEY = process.env.DB_SETUP_KEY
+const ALLOW_DDL = process.env.ALLOW_DDL_ENDPOINTS === 'true'
 
 export async function POST(request: NextRequest) {
   try {
+    // DDL endpoints are disabled by default in production
+    if (!ALLOW_DDL) {
+      return NextResponse.json(
+        { error: 'Forbidden: DDL endpoints are disabled' },
+        { status: 403 }
+      )
+    }
+
+    // Fail closed if setup key is not configured
+    if (!SETUP_KEY) {
+      console.error('DB_SETUP_KEY is not configured')
+      return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
+    }
+
     // Verify setup key
     const { key } = await request.json()
     if (key !== SETUP_KEY) {

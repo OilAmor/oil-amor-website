@@ -121,9 +121,9 @@ async function fixedWindowLimit(
     }
     
     // Increment counter
-    pipeline.incr(windowKey)
+    ;(pipeline as any).incr(windowKey)
     // Set expiry if new key
-    pipeline.expire(windowKey, Math.ceil(config.windowMs / 1000))
+    ;(pipeline as any).expire(windowKey, Math.ceil(config.windowMs / 1000))
     
     const results = await pipeline.exec()
     const count = (results?.[0] as number) || 0

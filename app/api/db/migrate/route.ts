@@ -6,10 +6,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { pool } from '@/lib/db'
 
-const MIGRATE_KEY = process.env.DB_SETUP_KEY || 'oil-amor-setup-2024'
+const MIGRATE_KEY = process.env.DB_SETUP_KEY
+const ALLOW_DDL = process.env.ALLOW_DDL_ENDPOINTS === 'true'
 
 export async function POST(request: NextRequest) {
   try {
+    // DDL endpoints are disabled by default in production
+    if (!ALLOW_DDL) {
+      return NextResponse.json(
+        { error: 'Forbidden: DDL endpoints are disabled' },
+        { status: 403 }
+      )
+    }
+
+    // Fail closed if setup key is not configured
+    if (!MIGRATE_KEY) {
+      console.error('DB_SETUP_KEY is not configured')
+      return NextResponse.json({ error: 'Service unavailable' }, { status: 503 })
+    }
+
     const { key } = await request.json()
     if (key !== MIGRATE_KEY) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })

@@ -7,6 +7,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { BottleInspectionForm } from './BottleInspectionForm';
+import { adminFetch } from '@/lib/admin/api';
 
 // ============================================================================
 // TYPES
@@ -75,7 +76,7 @@ export default function RefillManagementPage() {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch('/api/admin/refill/analytics');
+      const response = await adminFetch('/api/admin/refill/analytics');
       if (response.ok) {
         const data = await response.json();
         setAnalytics(data);
@@ -214,7 +215,7 @@ function IncomingTab() {
 
   const fetchIncomingOrders = async () => {
     try {
-      const response = await fetch('/api/admin/refill/incoming');
+      const response = await adminFetch('/api/admin/refill/incoming');
       if (response.ok) {
         const data = await response.json();
         setOrders(data.orders);
@@ -228,7 +229,7 @@ function IncomingTab() {
 
   const handleMarkReceived = async (orderId: string) => {
     try {
-      const response = await fetch('/api/admin/refill/mark-received', {
+      const response = await adminFetch('/api/admin/refill/mark-received', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId }),
@@ -355,7 +356,7 @@ function InspectingTab() {
 
   const fetchInspectingOrders = async () => {
     try {
-      const response = await fetch('/api/admin/refill/inspecting');
+      const response = await adminFetch('/api/admin/refill/inspecting');
       if (response.ok) {
         const data = await response.json();
         setOrders(data.orders);
@@ -406,7 +407,7 @@ function FulfillmentTab() {
 
   const fetchFulfillmentOrders = async () => {
     try {
-      const response = await fetch('/api/admin/refill/fulfillment');
+      const response = await adminFetch('/api/admin/refill/fulfillment');
       if (response.ok) {
         const data = await response.json();
         setOrders(data.orders);
@@ -420,7 +421,7 @@ function FulfillmentTab() {
 
   const handleComplete = async (orderId: string) => {
     try {
-      const response = await fetch('/api/admin/refill/complete', {
+      const response = await adminFetch('/api/admin/refill/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId }),
@@ -489,7 +490,7 @@ function CreditsTab() {
 
   const fetchCreditTransactions = async () => {
     try {
-      const response = await fetch('/api/admin/refill/credits');
+      const response = await adminFetch('/api/admin/refill/credits');
       if (response.ok) {
         const data = await response.json();
         setTransactions(data.transactions);
@@ -569,7 +570,7 @@ function AnalyticsTab() {
 
   const fetchAnalytics = async () => {
     try {
-      const response = await fetch('/api/admin/refill/analytics');
+      const response = await adminFetch('/api/admin/refill/analytics');
       if (response.ok) {
         const data = await response.json();
         setAnalytics(data);

@@ -87,7 +87,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       
       try {
         const returnResult = await processBottleReturn(trackingNumber, {
-          autoApplyCredit: true,
+          autoApplyCredit: false,
           skipInspection: false,
         });
 
@@ -167,8 +167,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
  */
 function verifyTimestamp(timestamp: string | null): boolean {
   if (!timestamp) {
-    // Allow if no timestamp in development
-    return process.env.NODE_ENV === 'development';
+    // Never bypass timestamp verification based on environment
+    console.error('AusPost webhook missing timestamp');
+    return false;
   }
 
   const webhookTime = parseInt(timestamp);
@@ -176,7 +177,8 @@ function verifyTimestamp(timestamp: string | null): boolean {
     // Try parsing as ISO string
     const parsed = new Date(timestamp).getTime();
     if (isNaN(parsed)) {
-      return process.env.NODE_ENV === 'development';
+      console.error('AusPost webhook has invalid timestamp');
+      return false;
     }
   }
 
@@ -197,7 +199,9 @@ function verifyTimestamp(timestamp: string | null): boolean {
  */
 function verifyWebhookSignature(payload: string, signature: string): boolean {
   if (!AUSPOST_WEBHOOK_SECRET) {
-    return process.env.NODE_ENV === 'development'; // Skip verification if secret not configured
+    // Never bypass signature verification based on environment
+    console.error('AusPost webhook verification failed: missing secret');
+    return false;
   }
 
   try {

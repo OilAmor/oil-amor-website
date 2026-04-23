@@ -8,6 +8,17 @@ import Link from 'next/link'
 import { useCart } from '../hooks/use-cart'
 import { formatPrice } from '@/lib/utils'
 import { ShopifyProduct, ShopifyProductVariant } from '../types'
+import DOMPurify from 'isomorphic-dompurify'
+
+// Strict allowlist for Shopify product descriptions in quick view
+const PURIFY_CONFIG = {
+  ALLOWED_TAGS: [
+    'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'span',
+    'ul', 'ol', 'li', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6',
+  ],
+  ALLOWED_ATTR: ['class', 'style'],
+  KEEP_CONTENT: true,
+}
 
 interface Props {
   product: ShopifyProduct | null
@@ -108,7 +119,7 @@ export function QuickViewModal({ product, isOpen, onClose }: Props) {
 
                 <div 
                   className="text-gray-600 mb-6 line-clamp-3"
-                  dangerouslySetInnerHTML={{ __html: product.descriptionHtml }}
+                  dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(product.descriptionHtml || '', PURIFY_CONFIG) }}
                 />
 
                 {/* Variants */}

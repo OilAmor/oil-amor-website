@@ -20,7 +20,7 @@
 
 'use client'
 
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { motion, AnimatePresence, useAnimation } from 'framer-motion'
 import { X, Sparkles, Clock, Zap, Wind, Droplets, Mountain, Flame, Orbit, Star, Waves, Hexagon, Circle, Triangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -68,6 +68,29 @@ export function AwakenedRevelationModal({ revelation, isOpen, onClose }: Awakene
   const [particles, setParticles] = useState<Particle[]>([])
   const containerRef = useRef<HTMLDivElement>(null)
   
+  const initializeParticles = useCallback(() => {
+    if (!revelation) return
+    
+    const visualDNA = revelation.soulSignature.visualDNA
+    const newParticles: Particle[] = []
+    
+    for (let i = 0; i < Math.min(30, visualDNA.particleSystem.count); i++) {
+      newParticles.push({
+        id: i,
+        x: Math.random() * 100,
+        y: Math.random() * 100,
+        vx: (Math.random() - 0.5) * 0.3,
+        vy: (Math.random() - 0.5) * 0.3,
+        size: Math.random() * 3 + 1,
+        color: visualDNA.particleSystem.colors[i % visualDNA.particleSystem.colors.length] || '#C9A227',
+        life: 100 + Math.random() * 100,
+        maxLife: 200
+      })
+    }
+    
+    setParticles(newParticles)
+  }, [revelation])
+  
   // Initialize revelation sequence
   useEffect(() => {
     if (isOpen && revelation) {
@@ -89,7 +112,7 @@ export function AwakenedRevelationModal({ revelation, isOpen, onClose }: Awakene
       
       return () => clearInterval(timer)
     }
-  }, [isOpen, revelation])
+  }, [isOpen, revelation, initializeParticles])
   
   // Particle animation loop
   useEffect(() => {
@@ -117,29 +140,6 @@ export function AwakenedRevelationModal({ revelation, isOpen, onClose }: Awakene
     
     return () => clearInterval(interval)
   }, [isOpen, particles.length])
-  
-  const initializeParticles = () => {
-    if (!revelation) return
-    
-    const visualDNA = revelation.soulSignature.visualDNA
-    const newParticles: Particle[] = []
-    
-    for (let i = 0; i < Math.min(30, visualDNA.particleSystem.count); i++) {
-      newParticles.push({
-        id: i,
-        x: Math.random() * 100,
-        y: Math.random() * 100,
-        vx: (Math.random() - 0.5) * 0.3,
-        vy: (Math.random() - 0.5) * 0.3,
-        size: Math.random() * 3 + 1,
-        color: visualDNA.particleSystem.colors[i % visualDNA.particleSystem.colors.length] || '#C9A227',
-        life: 100 + Math.random() * 100,
-        maxLife: 200
-      })
-    }
-    
-    setParticles(newParticles)
-  }
   
   if (!revelation || !isOpen) return null
   
@@ -343,7 +343,7 @@ function SoulSignatureSection({ revelation }: { revelation: AwakenedRevelation }
           transition={{ delay: 0.2 }}
           className="text-2xl font-serif italic text-white/90 leading-relaxed"
         >
-          "{invocation}"
+          &quot;{invocation}&quot;
         </motion.h2>
       </div>
       
@@ -1069,7 +1069,7 @@ function RevelationSection({ revelation }: { revelation: AwakenedRevelation }) {
         transition={{ delay: 1 }}
         className="text-center pt-4 border-t border-white/10"
       >
-        <p className="text-lg font-serif italic text-[#C9A227]">"{closingBlessing}"</p>
+        <p className="text-lg font-serif italic text-[#C9A227]">&quot;{closingBlessing}&quot;</p>
         <div className="mt-4 flex items-center justify-center gap-2 text-xs text-white/40">
           <span>Transmission complete</span>
           <span className="font-mono text-[#C9A227]">{soulSignature.hash}</span>

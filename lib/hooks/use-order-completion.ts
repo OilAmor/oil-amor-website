@@ -42,8 +42,11 @@ export function useOrderCompletion(options: UseOrderCompletionOptions = {}) {
     addOrderFn(order)
 
     // Then process community blend shares
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const shareResults = await processCommunityBlendShares(order, createCommunityBlend as any, publishBlend as any)
+    const shareResults = await processCommunityBlendShares(
+      order,
+      createCommunityBlend as unknown as (input: Record<string, unknown>) => Promise<{ success: boolean; blendId?: string; error?: string }>,
+      publishBlend as unknown as (input: { blendId: string; creatorId: string; orderId: string; consentToShare: boolean }) => Promise<{ success: boolean; slug?: string; error?: string }>
+    )
 
     // Build summary
     const summary: OrderCompletionSummary = {
@@ -68,7 +71,7 @@ export function useOrderCompletion(options: UseOrderCompletionOptions = {}) {
     }
 
     return summary
-  }, [options.onSuccess, options.onError])
+  }, [options])
 
   return {
     completeOrder,

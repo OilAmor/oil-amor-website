@@ -8,7 +8,7 @@
 // CONSTANTS
 // ============================================================================
 
-export const CREATOR_COMMISSION_RATE = 5; // 5% commission rate
+export const CREATOR_COMMISSION_RATE = 10; // 10% commission rate
 
 // ============================================================================
 // TYPES
@@ -20,6 +20,7 @@ export interface CommissionResult {
   commissionAmount: number; // in cents
   creatorId?: string;
   error?: string;
+  alreadyExists?: boolean;
 }
 
 export interface CreatorEarnings {

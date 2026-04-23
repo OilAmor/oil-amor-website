@@ -446,7 +446,7 @@ export function createOnboardingRecord(oilId: string, createdBy: string): OilOnb
   return {
     oilId,
     status: [
-      { stage: 'draft', completedAt: new Date().toISOString(), completedBy, notes: 'Initial draft created' }
+      { stage: 'draft', completedAt: new Date().toISOString(), completedBy: createdBy, notes: 'Initial draft created' }
     ],
     currentStage: 'draft',
     createdAt: new Date().toISOString(),

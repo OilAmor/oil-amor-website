@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminAuth } from '@/lib/admin/auth';
 import { db } from '@/lib/db';
 import { refillOrders, foreverBottles, customers } from '@/lib/db/schema-refill';
 import { desc, eq } from 'drizzle-orm';
@@ -11,7 +12,10 @@ import { scaleToRefill, normalizeRecipe } from '@/lib/refill/recipe-scaling';
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
+
   try {
     // Get recent refill orders
     const orders = await db.query.refillOrders.findMany({
@@ -81,6 +85,9 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
+
   try {
     const { orderId, action } = await request.json();
 

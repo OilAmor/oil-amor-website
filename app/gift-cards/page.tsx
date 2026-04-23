@@ -165,7 +165,7 @@ export default function GiftCardsPage() {
         quantity: 1,
         properties: {
           name: `Oil Amor Gift Card - $${selectedAmount}`,
-          price: selectedAmount,
+          price: String(selectedAmount),
           image: '/gift-card.jpg',
           sku: `GIFT-${selectedAmount}`,
           recipientName: details.recipientName,

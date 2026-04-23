@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Sparkles, Zap, Droplets, Wind, Flame, Mountain, Infinity, Music, Gem, Leaf, Clock, Moon, Sun, Star } from 'lucide-react';
+import { X, Sparkles, Zap, Droplets, Wind, Flame, Mountain, Infinity as InfinityIcon, Music, Gem, Leaf, Clock, Moon, Sun, Star } from 'lucide-react';
 import { AdvancedBlendRevelation } from '@/lib/atelier/blend-revelation-engine-v2';
 import { ATELIER_CORD_OPTIONS } from '@/lib/atelier/cord-data-atelier';
 
@@ -17,7 +17,7 @@ const elementIcons: Record<string, React.ReactNode> = {
   water: <Droplets className="w-5 h-5" />,
   earth: <Mountain className="w-5 h-5" />,
   air: <Wind className="w-5 h-5" />,
-  ether: <Infinity className="w-5 h-5" />
+  ether: <InfinityIcon className="w-5 h-5" />
 };
 
 const elementColors: Record<string, string> = {

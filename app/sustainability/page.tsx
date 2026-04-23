@@ -19,7 +19,7 @@ export default function SustainabilityPage() {
             Designed for <span className="italic text-[#c9a227]">Forever</span>
           </h1>
           <p className="text-[#a69b8a] max-w-2xl mx-auto leading-relaxed">
-            Sustainability isn't a feature—it's our foundation. From refillable Miron bottles 
+            Sustainability isn&apos;t a feature—it&apos;s our foundation. From refillable Miron bottles 
             to ethical sourcing, every decision considers its impact on the planet.
           </p>
         </div>
@@ -118,7 +118,7 @@ export default function SustainabilityPage() {
               </h2>
               <p className="text-[#a69b8a] leading-relaxed mb-4">
                 We offset 100% of our shipping emissions through verified carbon offset programs. 
-                Our atelier runs on renewable energy, and we're working toward carbon-negative operations.
+                Our atelier runs on renewable energy, and we&apos;re working toward carbon-negative operations.
               </p>
               <p className="text-[#a69b8a] leading-relaxed">
                 Local customers on the Central Coast can opt for bicycle delivery, 

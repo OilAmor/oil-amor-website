@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminAuth } from '@/lib/admin/auth';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,9 @@ export interface LabelData {
 }
 
 export async function POST(request: NextRequest) {
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
+
   try {
     const data: LabelData = await request.json();
     const labelHtml = generateLabelHtml(data);
@@ -54,6 +58,15 @@ export async function POST(request: NextRequest) {
   }
 }
 
+function escapeHtml(unsafe: string): string {
+  return unsafe
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 function generateLabelHtml(data: LabelData): string {
   const {
     showIngredients = true,
@@ -66,11 +79,11 @@ function generateLabelHtml(data: LabelData): string {
   } = data;
 
   const ingredients = data.oils.map(o => 
-    `${o.name} (${o.percentage}%)`
+    `${escapeHtml(o.name)} (${o.percentage}%)`
   ).join(', ');
 
   const warnings = data.warnings.length > 0 
-    ? data.warnings.join(' • ')
+    ? data.warnings.map(w => escapeHtml(w)).join(' • ')
     : 'External use only • Do not ingest • Keep away from children';
 
   return `<!DOCTYPE html>
@@ -126,7 +139,7 @@ function generateLabelHtml(data: LabelData): string {
 <body>
   <div class="brand">
     <div class="brand-name">Oil Amor</div>
-    <div class="blend-name">${data.blendName}</div>
+    <div class="blend-name">${escapeHtml(data.blendName)}</div>
     <div class="blend-type">${data.carrierOil ? 'Carrier Oil Dilution' : 'Pure Essential Oil Blend'}</div>
   </div>
   
@@ -134,22 +147,22 @@ function generateLabelHtml(data: LabelData): string {
   <div class="ingredients">
     <div class="ingredients-label">Ingredients:</div>
     ${ingredients}
-    ${data.carrierOil ? `<br><em>in ${data.carrierOil} (${data.carrierPercentage}%)</em>` : ''}
+    ${data.carrierOil ? `<br><em>in ${escapeHtml(data.carrierOil)} (${data.carrierPercentage}%)</em>` : ''}
   </div>
   ` : ''}
   
   ${showCrystal && data.crystal ? `
   <div class="ingredients">
     <div class="ingredients-label">Crystal:</div>
-    ${data.crystal}
+    ${escapeHtml(data.crystal)}
   </div>
   ` : ''}
   
   <div class="details">
     <div><span class="detail-label">Size:</span> <span class="detail-value">${data.size}ml</span></div>
-    ${showBatchId ? `<div><span class="detail-label">Batch:</span> <span class="detail-value">${data.batchId}</span></div>` : ''}
-    ${showMadeDate ? `<div><span class="detail-label">Made:</span> <span class="detail-value">${data.madeDate}</span></div>` : ''}
-    ${showExpiry ? `<div><span class="detail-label">Expires:</span> <span class="detail-value">${data.expiryDate}</span></div>` : ''}
+    ${showBatchId ? `<div><span class="detail-label">Batch:</span> <span class="detail-value">${escapeHtml(data.batchId)}</span></div>` : ''}
+    ${showMadeDate ? `<div><span class="detail-label">Made:</span> <span class="detail-value">${escapeHtml(data.madeDate)}</span></div>` : ''}
+    ${showExpiry ? `<div><span class="detail-label">Expires:</span> <span class="detail-value">${escapeHtml(data.expiryDate)}</span></div>` : ''}
   </div>
   
   ${showWarnings ? `

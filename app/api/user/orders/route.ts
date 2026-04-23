@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { orders, unlockedOils, customers } from '@/lib/db/schema-refill'
 import { eq, desc } from 'drizzle-orm'
+import { getSession } from '@/lib/auth/session'
 
 export const dynamic = 'force-dynamic'
 
@@ -16,15 +17,14 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
   try {
-    // Get customer ID from session/token (simplified for now)
-    const customerId = request.headers.get('x-customer-id')
-    
-    if (!customerId) {
+    const session = await getSession()
+    if (!session.isLoggedIn || !session.customerId) {
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 401 }
       )
     }
+    const customerId = session.customerId
     
     // Parse query params
     const { searchParams } = new URL(request.url)
@@ -35,8 +35,6 @@ export async function GET(request: NextRequest) {
     const customer = await db.query.customers.findFirst({
       where: eq(customers.id, customerId),
     })
-    
-    console.log('[UserOrders] Fetching orders for:', { customerId, email: customer?.email })
     
     // Fetch orders from database by customerId
     let userOrders = await db.query.orders.findMany({
@@ -68,7 +66,7 @@ export async function GET(request: NextRequest) {
       userOrders.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
     }
     
-    console.log('[UserOrders] Found', userOrders.length, 'orders')
+    // Orders fetched successfully
     
     // Fetch unlocked oils for this customer
     const userUnlockedOils = await db.query.unlockedOils.findMany({

@@ -66,7 +66,7 @@ export default async function OilPage({ params }: Props) {
     notFound()
   }
   
-  const variant = product?.variants?.edges?.[0]?.node || null
+  const variant = product?.variants?.edges?.[0]?.node || undefined
   const title = product?.title || oilData?.commonName || 'Essential Oil'
 
   return (

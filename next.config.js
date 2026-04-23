@@ -6,10 +6,10 @@ const nextConfig = {
     domains: ['localhost', 'cdn.shopify.com', 'cdn.sanity.io', 'images.unsplash.com'],
   },
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: false,
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {

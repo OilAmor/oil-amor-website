@@ -2,6 +2,7 @@
 
 import { useMemo } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Check, Lock, Droplets, ArrowRight, Sparkles } from 'lucide-react'
 import { 
   getRefillEligibleOils, 
@@ -168,10 +169,12 @@ function UnlockedOilCard({
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-4">
           {oil.image && (
-            <img 
-              src={oil.image} 
+            <Image
+              src={oil.image}
               alt={oil.oilName}
-              className="w-16 h-16 rounded-lg object-cover"
+              width={64}
+              height={64}
+              className="rounded-lg object-cover"
             />
           )}
           <div>

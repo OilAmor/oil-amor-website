@@ -4,6 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
+import { requireAdminAuth } from '@/lib/admin/auth';
 import { db } from '@/lib/db';
 import { refillOrders, foreverBottles, customerCredits } from '@/lib/db/schema-refill';
 import { sql } from 'drizzle-orm';
@@ -11,6 +12,9 @@ import { sql } from 'drizzle-orm';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
+
   try {
     // Get today's date range
     const today = new Date();

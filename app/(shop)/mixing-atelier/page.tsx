@@ -2741,6 +2741,7 @@ export default function MixingAtelierPage() {
   const [recipeName, setRecipeName] = useState('')
   const [blendDescription, setBlendDescription] = useState('')
   const [blendStory, setBlendStory] = useState('')
+  const [sourceBlendId, setSourceBlendId] = useState<string | null>(null)
   const [consentToShare, setConsentToShare] = useState(false)
   const [cartQuantity, setCartQuantity] = useState(1)
   const [isSaving, setIsSaving] = useState(false)
@@ -2794,6 +2795,9 @@ export default function MixingAtelierPage() {
         }
         if (data.name) {
           setRecipeName(data.name)
+        }
+        if (data.blendId) {
+          setSourceBlendId(data.blendId)
         }
         // Also persist this shared blend to localStorage so it survives refresh
         localStorage.setItem('oil-amor-atelier-draft', json)
@@ -3351,6 +3355,7 @@ export default function MixingAtelierPage() {
           cord: cord.name,
           intendedUse: INTENDED_USES.find(u => u.id === intendedUse)?.label || 'Other',
           rarity: blendRarity?.rarity || 'Common',
+          ...(sourceBlendId && { blendId: sourceBlendId }),
         },
       }
       
@@ -3360,7 +3365,7 @@ export default function MixingAtelierPage() {
       console.error('Failed to add to cart:', error)
       addToast('Failed to add to cart. Please try again.', 'error')
     }
-  }, [canAddToCart, selectedOils, recipeName, mode, carrierRatio, selectedCarrierOilId, bottleSize, selectedCordId, selectedCrystalId, oilPercentages, comprehensiveSafety, intendedUse, blendRarity, addItem, addToast, consentToShare, user, cartQuantity])
+  }, [canAddToCart, selectedOils, recipeName, mode, carrierRatio, selectedCarrierOilId, bottleSize, selectedCordId, selectedCrystalId, oilPercentages, comprehensiveSafety, intendedUse, blendRarity, addItem, addToast, consentToShare, user, cartQuantity, sourceBlendId])
   
   // Share blend functionality
   const handleShareBlend = useCallback(() => {
