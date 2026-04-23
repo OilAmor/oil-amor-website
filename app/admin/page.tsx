@@ -587,43 +587,62 @@ function OrderDetailView({ order, onBack, onOrderUpdate }: { order: Order; onBac
   };
 
   const handlePrintLabels = async () => {
-    const item = order.items?.find(i => i.customMix);
-    const standardItems = order.items?.filter(i => !i.customMix && i.type !== 'shipping') || [];
-    const dateSuffix = new Date().toISOString().slice(2,10).replace(/-/g,'');
-    const randomSuffix = Math.random().toString(36).substr(2, 4).toUpperCase();
-    const data = {
-      blendName: item?.customMix?.recipeName || standardItems.map(i => i.name).join(' + ') || 'Oil Amor Blend',
-      oils: item?.customMix?.oils?.map(o => ({ name: o.oilName, percentage: o.percentage, ml: o.ml })) 
-        || standardItems.map(i => ({ name: i.name + (i.sku ? ` (${i.sku})` : ''), percentage: 100, ml: i.quantity || 1 })),
-      carrierOil: item?.customMix?.mode === 'carrier' ? 'Jojoba' : undefined,
-      carrierPercentage: item?.customMix?.carrierRatio,
-      size: item?.customMix?.totalVolume || 30,
-      batchId: `OA-${dateSuffix}-${randomSuffix}`,
-      madeDate: new Date().toLocaleDateString('en-AU'),
-      expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU'),
-      warnings: item?.customMix?.safetyWarnings || [],
-      crystal: item?.customMix?.crystalId,
-      showIngredients: true,
-      showExpiry: true,
-      showWarnings: true,
-      showQRCode: true,
-      showBatchId: true,
-      showMadeDate: true,
-      showCrystal: true,
-    };
     try {
-      const res = await adminFetch('/api/admin/labels/generate', {
+      // Use the order-based label generator for full safety data lookup
+      const res = await adminFetch('/api/admin/labels/order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ orderId: order.id }),
       });
       const json = await res.json();
       if (json.html) {
         const w = window.open('', '_blank');
         if (w) w.document.write(json.html);
+      } else {
+        alert(json.error || 'Failed to generate label');
       }
     } catch {
-      alert('Failed to generate label');
+      // Fallback: generate manually if order-based fails
+      const item = order.items?.find(i => i.customMix);
+      const standardItems = order.items?.filter(i => !i.customMix && i.type !== 'shipping') || [];
+      const dateSuffix = new Date().toISOString().slice(2,10).replace(/-/g,'');
+      const randomSuffix = Math.random().toString(36).substr(2, 4).toUpperCase();
+      const data = {
+        blendName: item?.customMix?.recipeName || standardItems.map(i => i.name).join(' + ') || 'Oil Amor Blend',
+        oils: item?.customMix?.oils?.map((o: any) => ({ name: o.oilName, percentage: o.percentage, ml: o.ml, oilId: o.oilId })) 
+          || standardItems.map((i: any) => ({ name: i.name + (i.sku ? ` (${i.sku})` : ''), percentage: 100, ml: i.quantity || 1 })),
+        carrierOil: item?.customMix?.mode === 'carrier' ? (item.customMix.carrierOilId || 'Jojoba') : undefined,
+        carrierPercentage: item?.customMix?.carrierRatio,
+        size: item?.customMix?.totalVolume || 30,
+        batchId: `OA-${dateSuffix}-${randomSuffix}`,
+        madeDate: new Date().toLocaleDateString('en-AU'),
+        expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU'),
+        warnings: item?.customMix?.safetyWarnings || [],
+        crystal: item?.customMix?.crystalId,
+        intendedUse: item?.customMix?.intendedUse,
+        showIngredients: true,
+        showExpiry: true,
+        showWarnings: true,
+        showQRCode: true,
+        showBatchId: true,
+        showMadeDate: true,
+        showCrystal: true,
+        showSafetyIcons: true,
+      };
+      try {
+        const res2 = await adminFetch('/api/admin/labels/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data),
+        });
+        const json2 = await res2.json();
+        if (json2.html) {
+          const w = window.open('', '_blank');
+          if (w) w.document.write(json2.html);
+        }
+      } catch {
+        alert('Failed to generate label');
+      }
     }
   };
 
@@ -977,22 +996,43 @@ function ProductionCard({ item, onRefresh }: { item: ProductionQueueItem; onRefr
   };
 
   const handlePrint = async () => {
+    // Try order-based label first for full safety data
+    if (item.orderId) {
+      try {
+        const res = await adminFetch('/api/admin/labels/order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ orderId: item.orderId }),
+        });
+        const json = await res.json();
+        if (json.html) {
+          const w = window.open('', '_blank');
+          if (w) w.document.write(json.html);
+          return;
+        }
+      } catch {
+        // Fall through to manual generation
+      }
+    }
+    
     const data = {
       blendName: item.customMix?.recipeName || 'Blend',
-      oils: item.customMix?.oils?.map(o => ({ name: o.oilName, percentage: o.percentage, ml: o.ml })) || [],
+      oils: item.customMix?.oils?.map((o: any) => ({ name: o.oilName, percentage: o.percentage, ml: o.ml, oilId: o.oilId })) || [],
       size: item.customMix?.totalVolume || 30,
       batchId: `OA-${Date.now().toString().slice(-6)}-${Math.random().toString(36).slice(2, 4)}`,
       madeDate: new Date().toLocaleDateString('en-AU'),
       expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toLocaleDateString('en-AU'),
       warnings: item.customMix?.safetyWarnings || [],
-      crystal: undefined,
+      crystal: item.customMix?.crystalId,
+      intendedUse: item.customMix?.intendedUse,
       showIngredients: true,
       showExpiry: true,
       showWarnings: true,
       showQRCode: true,
       showBatchId: true,
       showMadeDate: true,
-      showCrystal: false,
+      showCrystal: true,
+      showSafetyIcons: true,
     };
     try {
       const res = await adminFetch('/api/admin/labels/generate', {
