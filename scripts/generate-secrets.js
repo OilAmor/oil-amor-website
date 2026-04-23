@@ -14,7 +14,7 @@
 const crypto = require('crypto');
 
 // Use local bcrypt from the project
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 
 function generateRandomString(length = 64) {
   return crypto.randomBytes(length).toString('hex').slice(0, length);

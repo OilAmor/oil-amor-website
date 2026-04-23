@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { env } from '@/env'
 import { getAdminSession } from '@/lib/auth/admin-session'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 
 export const dynamic = 'force-dynamic'
 
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       console.error(
         '[SECURITY] ADMIN_PASSWORD_HASH is not set. ' +
         'Admin login is using plaintext comparison. ' +
-        "Run: node -e \"require('bcrypt').hash('your-password', 10).then(console.log)\" " +
+        "Run: node -e \"require('bcryptjs').hash('your-password', 10).then(console.log)\" " +
         'and set ADMIN_PASSWORD_HASH in your environment.'
       )
       valid = password === env.ADMIN_API_KEY

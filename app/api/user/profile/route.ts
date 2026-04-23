@@ -7,7 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { customers, orders, unlockedOils } from '@/lib/db/schema-refill'
 import { eq } from 'drizzle-orm'
-import bcrypt from 'bcrypt'
+import bcrypt from 'bcryptjs'
 import { getSession } from '@/lib/auth/session'
 
 // ============================================================================
