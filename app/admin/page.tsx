@@ -12,6 +12,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { 
   Package, 
   Beaker, 
@@ -99,6 +100,7 @@ interface LabelSettings {
 // ============================================================================
 
 export default function AdminDashboard() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>('orders');
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [loading, setLoading] = useState(true);
@@ -111,6 +113,10 @@ export default function AdminDashboard() {
     try {
       setError(null);
       const response = await adminFetch('/api/admin/dashboard/stats');
+      if (response.status === 401) {
+        router.push('/admin/login');
+        return;
+      }
       if (!response.ok) throw new Error('Failed to fetch stats');
       const data = await response.json();
       setStats(data);
@@ -121,7 +127,7 @@ export default function AdminDashboard() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     fetchDashboardStats();
