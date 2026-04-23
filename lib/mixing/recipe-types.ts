@@ -21,7 +21,7 @@ export interface MixRecipe {
   mode: 'pure' | 'carrier'
   oils: RecipeOilComponent[]
   carrierRatio?: number // For carrier mode (5-75%)
-  totalVolume: 5 | 10 | 15 | 20 | 30 // ml
+  totalVolume: 5 | 10 | 15 | 20 | 30 | 50 | 100 // ml
   
   // Safety data
   safetyScore: number
@@ -108,7 +108,7 @@ export interface CreateRecipeInput {
   oils: { oilId: string; ml: number; percentage?: number }[]
   carrierRatio?: number
   carrierOilId?: string
-  totalVolume: 5 | 10 | 15 | 20 | 30
+  totalVolume: 5 | 10 | 15 | 20 | 30 | 50 | 100
   isPublic: boolean
   tags: RecipeTag[]
   intendedUse: MixRecipe['intendedUse']

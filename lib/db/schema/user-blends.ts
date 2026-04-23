@@ -32,7 +32,7 @@ export const userBlends = pgTable(
         percentage: number
       }>
       carrierRatio?: number
-      totalVolume: 5 | 10 | 15 | 20 | 30
+      totalVolume: 5 | 10 | 15 | 20 | 30 | 50 | 100
       safetyScore: number
       safetyRating: string
       safetyWarnings: string[]

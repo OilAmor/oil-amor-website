@@ -730,3 +730,185 @@ export async function regenerateReturnLabel(
   // Generate new label
   return generateReturnLabel(customerAddress, bottleId);
 }
+
+
+// ============================================================================
+// OUTBOUND SHIPPING LABELS (Warehouse → Customer)
+// ============================================================================
+
+/**
+ * Generate an outbound shipping label for a customer order
+ * This creates a shipment from Oil Amor warehouse to the customer
+ */
+export async function generateOutboundLabel(
+  customerAddress: Address,
+  orderReference: string,
+  options?: {
+    weightKg?: number;
+    dimensions?: { length: number; width: number; height: number };
+    serviceCode?: string;
+    description?: string;
+    emailNotification?: boolean;
+  }
+): Promise<AusPostLabel & { cost?: number }> {
+  // Validate customer address
+  if (!customerAddress.postcode || !customerAddress.state) {
+    throw new Error('Customer address must include postcode and state');
+  }
+
+  const weight = options?.weightKg || 0.3;
+  const dims = options?.dimensions || { length: 15, width: 12, height: 8 };
+
+  const shipmentRequest: ShipmentRequest = {
+    from: OIL_AMOR_WAREHOUSE,
+    to: customerAddress,
+    parcels: [
+      {
+        length: dims.length,
+        width: dims.width,
+        height: dims.height,
+        weight,
+      },
+    ],
+    shipmentReference: orderReference,
+  };
+
+  try {
+    const response = await ausPostRequest<{
+      shipments: Array<{
+        shipment_id: string;
+        tracking_number: string;
+        labels?: Array<{
+          label_url: string;
+          format: string;
+        }>;
+        shipment_summary?: {
+          total_cost: number;
+        };
+      }>;
+    }>('/shipments', {
+      method: 'POST',
+      body: JSON.stringify({
+        shipments: [{
+          from: {
+            name: shipmentRequest.from.name,
+            business_name: shipmentRequest.from.company,
+            lines: [
+              shipmentRequest.from.addressLine1,
+              shipmentRequest.from.addressLine2,
+            ].filter(Boolean),
+            suburb: shipmentRequest.from.city,
+            state: shipmentRequest.from.state,
+            postcode: shipmentRequest.from.postcode,
+            country: shipmentRequest.from.country,
+            email: shipmentRequest.from.email,
+            phone: shipmentRequest.from.phone,
+          },
+          to: {
+            name: shipmentRequest.to.name,
+            lines: [
+              shipmentRequest.to.addressLine1,
+              shipmentRequest.to.addressLine2,
+            ].filter(Boolean),
+            suburb: shipmentRequest.to.city,
+            state: shipmentRequest.to.state,
+            postcode: shipmentRequest.to.postcode,
+            country: shipmentRequest.to.country,
+            email: shipmentRequest.to.email,
+            phone: shipmentRequest.to.phone,
+          },
+          items: [{
+            product_id: options?.serviceCode || 'T25S',
+            length: dims.length,
+            width: dims.width,
+            height: dims.height,
+            weight,
+            description: options?.description || 'Oil Amor Order',
+          }],
+          shipment_reference: shipmentRequest.shipmentReference,
+          customer_references: [orderReference],
+          email_tracking_enabled: options?.emailNotification ?? true,
+        }],
+      }),
+    });
+
+    const shipment = response.shipments[0];
+    if (!shipment) {
+      throw new Error('No shipment created');
+    }
+
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + LABEL_EXPIRY_DAYS);
+
+    const labelUrl = shipment.labels?.find((l) => l.format === 'PDF')?.label_url 
+      || shipment.labels?.[0]?.label_url 
+      || '';
+
+    return {
+      trackingNumber: shipment.tracking_number,
+      labelUrl,
+      expiresAt,
+      shipmentId: shipment.shipment_id,
+      cost: shipment.shipment_summary?.total_cost,
+    };
+  } catch (error) {
+    console.error('Failed to generate outbound Australia Post label:', error);
+    
+    // Fallback: Generate a simulated label for development/testing
+    if (env.NODE_ENV === 'development' || !AUSPOST_API_KEY) {
+      const simulated = generateSimulatedLabel(orderReference, customerAddress);
+      return { ...simulated, cost: 1000 };
+    }
+    
+    throw error;
+  }
+}
+
+/**
+ * Calculate parcel dimensions and weight for an order
+ */
+export function calculateOrderParcel(orderItems: Array<{ quantity: number; type?: string }>): {
+  weightKg: number;
+  dimensions: { length: number; width: number; height: number };
+} {
+  const itemCount = orderItems.reduce((sum, item) => sum + (item.quantity || 1), 0);
+  const hasCustomBlends = orderItems.some(item => item.type === 'custom-mix');
+  
+  const weightKg = calculateParcelWeight(itemCount, hasCustomBlends);
+  
+  // Dimensions based on item count
+  let dimensions = { length: 15, width: 12, height: 5 };
+  if (itemCount >= 3) {
+    dimensions = { length: 22, width: 18, height: 10 };
+  } else if (itemCount >= 5) {
+    dimensions = { length: 31, width: 22, height: 12 };
+  }
+  
+  return { weightKg, dimensions };
+}
+
+/**
+ * Validate an Australian address against basic rules
+ */
+export function validateAustralianAddress(address: Address): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  if (!address.name) errors.push('Name is required');
+  if (!address.addressLine1) errors.push('Street address is required');
+  if (!address.city) errors.push('Suburb/City is required');
+  if (!address.state) errors.push('State is required');
+  if (!address.postcode) errors.push('Postcode is required');
+  
+  // Validate Australian postcode format
+  if (address.postcode && !/^\d{4}$/.test(address.postcode)) {
+    errors.push('Australian postcode must be 4 digits');
+  }
+  
+  // Validate state
+  const validStates = ['ACT', 'NSW', 'NT', 'QLD', 'SA', 'TAS', 'VIC', 'WA'];
+  if (address.state && !validStates.includes(address.state.toUpperCase())) {
+    errors.push(`State must be one of: ${validStates.join(', ')}`);
+  }
+  
+  return { valid: errors.length === 0, errors };
+}

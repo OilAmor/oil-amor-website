@@ -70,7 +70,7 @@ export interface OrderCustomMix {
   }[]
   carrierRatio?: number       // 5-75% for carrier mode
   carrierOilId?: string       // Selected carrier oil ID
-  totalVolume: 5 | 10 | 15 | 20 | 30
+  totalVolume: 5 | 10 | 15 | 20 | 30 | 50 | 100
   
   // Enhancements
   crystalId?: string          // Selected crystal ID

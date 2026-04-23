@@ -314,7 +314,7 @@ export default function RefillStorePage() {
             percentage: oil.percentage,
           })),
           carrierRatio: blend.normalizedRecipe.carrierRatio,
-          totalVolume: size as 5 | 10 | 15 | 20 | 30,
+          totalVolume: size as 5 | 10 | 15 | 20 | 30 | 50 | 100,
           safetyScore: 0, // Refills maintain same safety as original
           safetyRating: 'Certified',
           safetyWarnings: [],

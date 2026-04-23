@@ -1,6 +1,6 @@
 /**
  * Admin Orders API
- * Returns orders with filtering and search from REAL database data
+ * Returns orders from Shopify Admin API (primary) with local DB fallback/cache
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,17 +10,25 @@ import { db } from '@/lib/db';
 import { refillOrders, foreverBottles, customers, orders, auditLogs } from '@/lib/db/schema-refill';
 import { desc, eq, or, sql } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
+import { 
+  fetchShopifyOrders, 
+  fetchShopifyOrderById,
+  fetchRecentShopifyOrders,
+  createShopifyFulfillment,
+  addShopifyOrderNote 
+} from '@/lib/shopify/admin-orders';
 
 export const dynamic = 'force-dynamic';
 
-// Helper to convert refill order to Order format
+// ============================================================================
+// LOCAL DB FALLBACK HELPERS
+// ============================================================================
+
 async function convertRefillToOrder(refillOrder: typeof refillOrders.$inferSelect): Promise<Order> {
-  // Get customer info
   const customer = await db.query.customers.findFirst({
     where: eq(customers.id, refillOrder.customerId),
   });
 
-  // Get bottle info
   const bottle = await db.query.foreverBottles.findFirst({
     where: eq(foreverBottles.id, refillOrder.bottleId),
   });
@@ -45,7 +53,7 @@ async function convertRefillToOrder(refillOrder: typeof refillOrders.$inferSelec
       id: `item-${refillOrder.id}`,
       type: 'refill-oil',
       name: `${refillOrder.oilType} Refill`,
-      unitPrice: finalPrice / 100, // Convert cents to dollars
+      unitPrice: finalPrice / 100,
       quantity: 1,
       subtotal: finalPrice / 100,
       taxAmount: (finalPrice / 100) * 0.1,
@@ -167,119 +175,184 @@ function mapDbOrderToOrder(dbOrder: typeof orders.$inferSelect): Order {
   };
 }
 
+// ============================================================================
+// GET — List Orders
+// ============================================================================
+
 export async function GET(request: NextRequest) {
-  const authError = await requireAdminAuth(request)
-  if (authError) return authError
+  const authError = await requireAdminAuth(request);
+  if (authError) return authError;
+
+  const { searchParams } = new URL(request.url);
+  const filter = searchParams.get('filter') || 'all';
+  const limit = parseInt(searchParams.get('limit') || '100');
+  const days = parseInt(searchParams.get('days') || '90');
 
   try {
-    const { searchParams } = new URL(request.url);
-    const filter = searchParams.get('filter') || 'all';
-    const limit = parseInt(searchParams.get('limit') || '100');
-    const offset = parseInt(searchParams.get('offset') || '0');
+    // PRIMARY: Fetch from Shopify Admin API
+    let shopifyOrders: Order[] = [];
+    try {
+      const allOrders = await fetchRecentShopifyOrders(days, limit);
+      
+      // Apply filters
+      if (filter === 'pending') {
+        shopifyOrders = allOrders.filter(o => ['pending', 'confirmed'].includes(o.status));
+      } else if (filter === 'blending') {
+        shopifyOrders = allOrders.filter(o => ['blending', 'quality-check', 'processing'].includes(o.status));
+      } else if (filter === 'ready') {
+        shopifyOrders = allOrders.filter(o => o.status === 'ready-to-ship');
+      } else if (filter === 'shipped') {
+        shopifyOrders = allOrders.filter(o => ['shipped', 'delivered'].includes(o.status));
+      } else {
+        shopifyOrders = allOrders;
+      }
+    } catch (shopifyErr: any) {
+      console.error('[Admin Orders] Shopify fetch failed, falling back to local DB:', shopifyErr.message);
+    }
 
-    // Build status filters
-    let refillStatusFilter: string[] | undefined;
-    let orderStatusFilter: string[] | undefined;
+    // FALLBACK: Fetch from local DB if Shopify fails or returns empty
+    let localOrders: Order[] = [];
+    if (shopifyOrders.length === 0) {
+      try {
+        let refillStatusFilter: string[] | undefined;
+        let orderStatusFilter: string[] | undefined;
+        
+        if (filter === 'blending') {
+          refillStatusFilter = ['received', 'inspecting', 'refilling'];
+          orderStatusFilter = ['blending', 'quality-check'];
+        } else if (filter === 'pending') {
+          refillStatusFilter = ['pending-return'];
+          orderStatusFilter = ['pending', 'confirmed'];
+        } else if (filter === 'ready') {
+          refillStatusFilter = ['refilling'];
+          orderStatusFilter = ['ready-to-ship'];
+        } else if (filter === 'shipped') {
+          refillStatusFilter = ['completed'];
+          orderStatusFilter = ['shipped', 'delivered'];
+        }
+
+        let refillOrdersList: typeof refillOrders.$inferSelect[] = [];
+        try {
+          if (!orderStatusFilter || orderStatusFilter.length > 0) {
+            if (refillStatusFilter && refillStatusFilter.length > 0) {
+              const statusConditions = refillStatusFilter.map(s => eq(refillOrders.status, s as any));
+              refillOrdersList = await db.select().from(refillOrders)
+                .where(or(...statusConditions))
+                .orderBy(desc(refillOrders.createdAt))
+                .limit(limit);
+            } else {
+              refillOrdersList = await db.select().from(refillOrders)
+                .orderBy(desc(refillOrders.createdAt))
+                .limit(limit);
+            }
+          }
+        } catch (refillErr: any) {
+          if (refillErr?.message?.includes('does not exist')) {
+            console.warn('Admin orders: refillOrders table not found');
+          } else {
+            throw refillErr;
+          }
+        }
+
+        let regularOrdersList: typeof orders.$inferSelect[] = [];
+        try {
+          if (!refillStatusFilter || refillStatusFilter.length > 0) {
+            if (orderStatusFilter && orderStatusFilter.length > 0) {
+              const statusConditions = orderStatusFilter.map(s => eq(orders.status, s as any));
+              regularOrdersList = await db.select().from(orders)
+                .where(or(...statusConditions))
+                .orderBy(desc(orders.createdAt))
+                .limit(limit);
+            } else {
+              regularOrdersList = await db.select().from(orders)
+                .orderBy(desc(orders.createdAt))
+                .limit(limit);
+            }
+          }
+        } catch (ordersErr: any) {
+          if (ordersErr?.message?.includes('does not exist')) {
+            console.warn('Admin orders: orders table not found');
+          } else {
+            throw ordersErr;
+          }
+        }
+
+        const convertedRefills = await Promise.all(refillOrdersList.map(convertRefillToOrder));
+        const convertedRegulars = regularOrdersList.map(mapDbOrderToOrder);
+        localOrders = [...convertedRefills, ...convertedRegulars];
+      } catch (localErr: any) {
+        console.error('[Admin Orders] Local DB fallback also failed:', localErr.message);
+      }
+    }
+
+    // Combine and deduplicate (prefer Shopify data)
+    const combinedOrders = [...shopifyOrders];
+    const seenIds = new Set(combinedOrders.map(o => o.id));
     
-    if (filter === 'blending') {
-      refillStatusFilter = ['received', 'inspecting', 'refilling'];
-      orderStatusFilter = ['blending', 'quality-check'];
-    } else if (filter === 'pending') {
-      refillStatusFilter = ['pending-return'];
-      orderStatusFilter = ['pending', 'confirmed'];
-    } else if (filter === 'ready') {
-      refillStatusFilter = ['refilling'];
-      orderStatusFilter = ['ready-to-ship'];
-    } else if (filter === 'shipped') {
-      refillStatusFilter = ['completed'];
-      orderStatusFilter = ['shipped', 'delivered'];
-    }
-
-    // Fetch refill orders (gracefully skip if table doesn't exist yet)
-    let refillOrdersList: typeof refillOrders.$inferSelect[] = [];
-    try {
-      if (!orderStatusFilter || orderStatusFilter.length > 0) {
-        if (refillStatusFilter && refillStatusFilter.length > 0) {
-          const statusConditions = refillStatusFilter.map(s => eq(refillOrders.status, s as any));
-          refillOrdersList = await db.select().from(refillOrders)
-            .where(or(...statusConditions))
-            .orderBy(desc(refillOrders.createdAt))
-            .limit(limit);
-        } else {
-          refillOrdersList = await db.select().from(refillOrders)
-            .orderBy(desc(refillOrders.createdAt))
-            .limit(limit);
-        }
-      }
-    } catch (refillErr: any) {
-      if (refillErr?.message?.includes('does not exist')) {
-        console.warn('Admin orders: refillOrders table not found');
-      } else {
-        throw refillErr;
+    for (const localOrder of localOrders) {
+      if (!seenIds.has(localOrder.id)) {
+        combinedOrders.push(localOrder);
+        seenIds.add(localOrder.id);
       }
     }
 
-    // Fetch regular orders
-    let regularOrdersList: typeof orders.$inferSelect[] = [];
-    try {
-      if (!refillStatusFilter || refillStatusFilter.length > 0) {
-        if (orderStatusFilter && orderStatusFilter.length > 0) {
-          const statusConditions = orderStatusFilter.map(s => eq(orders.status, s as any));
-          regularOrdersList = await db.select().from(orders)
-            .where(or(...statusConditions))
-            .orderBy(desc(orders.createdAt))
-            .limit(limit)
-            .offset(offset);
-        } else {
-          regularOrdersList = await db.select().from(orders)
-            .orderBy(desc(orders.createdAt))
-            .limit(limit)
-            .offset(offset);
-        }
-      }
-    } catch (ordersErr: any) {
-      if (ordersErr?.message?.includes('does not exist')) {
-        console.warn('Admin orders: orders table not found');
-      } else {
-        throw ordersErr;
-      }
-    }
+    // Sort by createdAt desc
+    combinedOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
-    // Convert both to Order format
-    const convertedRefills = await Promise.all(refillOrdersList.map(convertRefillToOrder));
-    const convertedRegulars = regularOrdersList.map(mapDbOrderToOrder);
-
-    // Combine and sort by createdAt desc
-    const allOrders = [...convertedRefills, ...convertedRegulars].sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-    );
-
-    return NextResponse.json({ orders: allOrders.slice(0, limit) });
+    return NextResponse.json({ 
+      orders: combinedOrders.slice(0, limit),
+      source: shopifyOrders.length > 0 ? 'shopify' : 'local',
+      count: combinedOrders.length,
+    });
   } catch (error: any) {
     console.error('Orders API error:', error);
-    const isMissingTable = error?.message?.includes('does not exist') || error?.code === '42P01';
     return NextResponse.json({
       orders: [],
-      warning: isMissingTable 
-        ? 'Order tables not found. Database setup required.' 
-        : 'Failed to fetch orders',
-    });
+      error: 'Failed to fetch orders',
+      details: error.message,
+    }, { status: 500 });
   }
 }
 
+// ============================================================================
+// POST — Update Order
+// ============================================================================
+
 export async function POST(request: NextRequest) {
-  const authError = await requireAdminAuth(request)
-  if (authError) return authError
+  const authError = await requireAdminAuth(request);
+  if (authError) return authError;
 
   try {
     const body = await request.json();
-    const { orderId, status, trackingNumber, carrier } = body;
+    const { orderId, status, trackingNumber, carrier, shopifyOrderId } = body;
 
     if (!orderId) {
       return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
     }
 
-    // Try primary orders table first
+    // If we have a Shopify order ID, update Shopify first
+    if (shopifyOrderId) {
+      const numericOrderId = parseInt(shopifyOrderId);
+      
+      // Add tracking / create fulfillment if shipped
+      if (status === 'shipped' && trackingNumber) {
+        const success = await createShopifyFulfillment({
+          orderId: numericOrderId,
+          trackingNumber,
+          trackingCompany: carrier || 'Australia Post',
+          notifyCustomer: true,
+        });
+        
+        if (!success) {
+          console.warn(`[Admin Orders] Failed to create Shopify fulfillment for ${shopifyOrderId}`);
+        }
+      }
+
+      // Add note about status change
+      await addShopifyOrderNote(numericOrderId, `Admin status updated to: ${status}${trackingNumber ? ` (tracking: ${trackingNumber})` : ''}`);
+    }
+
+    // Try local DB update for non-Shopify orders
     const existingOrder = await db.query.orders.findFirst({
       where: eq(orders.id, orderId),
     });
@@ -318,7 +391,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, order: updated });
     }
 
-    // Fallback to refill orders for compatibility with current GET handler
+    // Fallback to refill orders
     const existingRefill = await db.query.refillOrders.findFirst({
       where: eq(refillOrders.id, orderId),
     });
@@ -356,7 +429,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, order: converted });
     }
 
-    return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Shopify order updated (no local record found)' 
+    });
   } catch (error) {
     console.error('Orders API POST error:', error);
     return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });

@@ -63,11 +63,15 @@ interface DashboardStats {
 
 interface ProductionQueueItem {
   orderId: string;
+  shopifyOrderId?: string;
   customerName: string;
+  customerEmail: string;
   item: OrderLineItem;
   customMix: OrderCustomMix;
   priority: 'normal' | 'rush';
   queuedAt: string;
+  status: string;
+  shippingAddress?: Order['shippingAddress'];
 }
 
 interface RefillOrderItem {
@@ -505,7 +509,7 @@ function OrderDetailView({ order, onBack, onOrderUpdate }: { order: Order; onBac
       const res = await adminFetch('/api/admin/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id, status }),
+        body: JSON.stringify({ orderId: order.id, status, shopifyOrderId: order.shopifyOrderId }),
       });
       if (!res.ok) throw new Error('Failed');
       onOrderUpdate?.();
@@ -534,13 +538,51 @@ function OrderDetailView({ order, onBack, onOrderUpdate }: { order: Order; onBac
       const res = await adminFetch('/api/admin/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id, carrier, trackingNumber }),
+        body: JSON.stringify({ orderId: order.id, carrier, trackingNumber, shopifyOrderId: order.shopifyOrderId }),
       });
       if (!res.ok) throw new Error('Failed');
       onOrderUpdate?.();
       alert('Tracking number added');
     } catch {
       alert('Failed to add tracking number');
+    }
+  };
+
+  const handleGenerateShippingLabel = async () => {
+    const addr = order.shippingAddress;
+    if (!addr || !addr.address1 || !addr.city || !addr.province || !addr.zip) {
+      alert('Shipping address is incomplete. Cannot generate label.');
+      return;
+    }
+    try {
+      const res = await adminFetch('/api/admin/shipping/label', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: order.id,
+          orderReference: order.id,
+          customerName: `${addr.firstName} ${addr.lastName}`.trim() || order.customerName,
+          customerEmail: order.customerEmail,
+          addressLine1: addr.address1,
+          addressLine2: addr.address2,
+          city: addr.city,
+          state: addr.province,
+          postcode: addr.zip,
+          country: addr.country || 'AU',
+          items: order.items?.map(i => ({ quantity: i.quantity, type: i.type })),
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Label generated! Tracking: ${data.trackingNumber}`);
+        if (data.labelUrl) {
+          window.open(data.labelUrl, '_blank');
+        }
+      } else {
+        alert('Failed to generate label: ' + (data.error || 'Unknown error'));
+      }
+    } catch {
+      alert('Failed to generate shipping label');
     }
   };
 
@@ -596,10 +638,14 @@ function OrderDetailView({ order, onBack, onOrderUpdate }: { order: Order; onBac
           <ChevronDown className="w-4 h-4 rotate-90" />
           Back to Orders
         </button>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <button onClick={handlePrintLabels} className="flex items-center gap-2 px-4 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
             <Printer className="w-4 h-4" />
             Print Labels
+          </button>
+          <button onClick={handleGenerateShippingLabel} className="flex items-center gap-2 px-4 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
+            <Package className="w-4 h-4" />
+            Ship Label
           </button>
           <button onClick={handleUpdateStatus} className="flex items-center gap-2 px-4 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#111]/80 transition-colors">
             <Zap className="w-4 h-4" />
@@ -866,7 +912,7 @@ function ProductionCard({ item, onRefresh }: { item: ProductionQueueItem; onRefr
       const res = await adminFetch('/api/admin/production-queue', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: item.orderId, action: 'start' }),
+        body: JSON.stringify({ orderId: item.orderId, action: 'start', shopifyOrderId: item.shopifyOrderId }),
       });
       if (res.ok) {
         onRefresh();
@@ -875,6 +921,58 @@ function ProductionCard({ item, onRefresh }: { item: ProductionQueueItem; onRefr
       }
     } catch {
       alert('Failed to start blending');
+    }
+  };
+
+  const handleCompleteBlending = async () => {
+    try {
+      const res = await adminFetch('/api/admin/production-queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId: item.orderId, action: 'complete', shopifyOrderId: item.shopifyOrderId }),
+      });
+      if (res.ok) {
+        onRefresh();
+      } else {
+        alert('Failed to complete blending');
+      }
+    } catch {
+      alert('Failed to complete blending');
+    }
+  };
+
+  const handleGenerateShippingLabel = async () => {
+    const addr = item.shippingAddress;
+    if (!addr || !addr.address1 || !addr.city || !addr.province || !addr.zip) {
+      alert('Shipping address is incomplete. Cannot generate label.');
+      return;
+    }
+    try {
+      const res = await adminFetch('/api/admin/shipping/label', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId: item.orderId,
+          orderReference: item.orderId,
+          customerName: `${addr.firstName} ${addr.lastName}`.trim() || item.customerName,
+          customerEmail: item.customerEmail,
+          addressLine1: addr.address1,
+          addressLine2: addr.address2,
+          city: addr.city,
+          state: addr.province,
+          postcode: addr.zip,
+          country: addr.country || 'AU',
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(`Label generated! Tracking: ${data.trackingNumber}`);
+        if (data.labelUrl) window.open(data.labelUrl, '_blank');
+      } else {
+        alert('Failed: ' + (data.error || 'Unknown'));
+      }
+    } catch {
+      alert('Failed to generate shipping label');
     }
   };
 
@@ -936,12 +1034,21 @@ function ProductionCard({ item, onRefresh }: { item: ProductionQueueItem; onRefr
         ))}
       </div>
 
-      <div className="flex gap-2">
-        <button onClick={handleStartBlending} className="flex-1 px-3 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
-          Start Blending
-        </button>
-        <button onClick={handlePrint} className="px-3 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors">
+      <div className="flex gap-2 flex-wrap">
+        {item.status === 'blending' || item.status === 'processing' ? (
+          <button onClick={handleStartBlending} className="flex-1 px-3 py-2 bg-[#c9a227] text-[#0a080c] rounded-lg text-sm font-medium hover:bg-[#c9a227]/90 transition-colors">
+            Start Blending
+          </button>
+        ) : (
+          <button onClick={handleCompleteBlending} className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-500 transition-colors">
+            Complete
+          </button>
+        )}
+        <button onClick={handlePrint} className="px-3 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors" title="Print label">
           <Printer className="w-4 h-4" />
+        </button>
+        <button onClick={handleGenerateShippingLabel} className="px-3 py-2 bg-[#111] border border-[#f5f3ef]/10 text-[#f5f3ef] rounded-lg text-sm hover:bg-[#f5f3ef]/5 transition-colors" title="Generate shipping label">
+          <Package className="w-4 h-4" />
         </button>
       </div>
     </div>
@@ -1033,7 +1140,7 @@ function BlendingCard({ order, onRefresh }: { order: Order; onRefresh: () => voi
       const res = await adminFetch('/api/admin/orders', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId: order.id, status }),
+        body: JSON.stringify({ orderId: order.id, status, shopifyOrderId: order.shopifyOrderId }),
       });
       if (!res.ok) throw new Error('Failed');
       onRefresh();
