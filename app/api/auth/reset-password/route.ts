@@ -1,7 +1,7 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { customers } from '@/lib/db/schema-refill'
-import { eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import bcrypt from 'bcryptjs'
 
 // POST /api/auth/reset-password
@@ -10,26 +10,24 @@ export async function POST(request: NextRequest) {
     const { token, password } = await request.json()
 
     if (!token || !password) {
-      return Response.json(
+      return NextResponse.json(
         { error: 'Token and password are required' },
         { status: 400 }
       )
     }
 
     if (password.length < 8) {
-      return Response.json(
+      return NextResponse.json(
         { error: 'Password must be at least 8 characters' },
         { status: 400 }
       )
     }
 
     // Find customer with matching reset token (secure JSONB query)
-    const customer = await db.query.customers.findFirst({
-      where: (customers, { sql }) => sql`${customers.metadata}->>'resetToken' = ${token}`,
-    })
+    const customer = await db.select().from(customers).where(sql`${customers.metadata}->>'resetToken' = ${token}`).limit(1).then(rows => rows[0])
 
     if (!customer) {
-      return Response.json(
+      return NextResponse.json(
         { error: 'Invalid or expired reset token' },
         { status: 400 }
       )
@@ -38,7 +36,7 @@ export async function POST(request: NextRequest) {
     // Check token expiry
     const tokenExpiry = customer.metadata?.resetTokenExpiry
     if (!tokenExpiry || new Date(tokenExpiry) < new Date()) {
-      return Response.json(
+      return NextResponse.json(
         { error: 'Reset token has expired' },
         { status: 400 }
       )
@@ -59,13 +57,13 @@ export async function POST(request: NextRequest) {
       })
       .where(eq(customers.id, customer.id))
 
-    return Response.json({
+    return NextResponse.json({
       success: true,
       message: 'Password has been reset successfully',
     })
   } catch (error) {
     console.error('Reset password error:', error)
-    return Response.json(
+    return NextResponse.json(
       { error: 'Failed to reset password' },
       { status: 500 }
     )

@@ -57,7 +57,15 @@ export async function POST(request: NextRequest) {
 
     if (env.ADMIN_PASSWORD_HASH) {
       // Secure: bcrypt comparison against hashed password
-      valid = await bcrypt.compare(password, env.ADMIN_PASSWORD_HASH)
+      try {
+        valid = await bcrypt.compare(password, env.ADMIN_PASSWORD_HASH)
+      } catch (bcryptError: any) {
+        console.error('bcrypt compare error:', bcryptError?.message)
+        return NextResponse.json(
+          { error: 'Invalid credentials' },
+          { status: 401 }
+        )
+      }
     } else {
       // Deprecated: direct comparison (migrate to ADMIN_PASSWORD_HASH immediately)
       console.error(

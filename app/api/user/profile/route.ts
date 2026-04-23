@@ -26,9 +26,7 @@ export async function GET(request: NextRequest) {
     const customerId = session.customerId
     
     // Fetch customer from database
-    const customer = await db.query.customers.findFirst({
-      where: eq(customers.id, customerId),
-    })
+    const customer = await db.select().from(customers).where(eq(customers.id, customerId)).limit(1).then(rows => rows[0])
     
     if (!customer) {
       return NextResponse.json(

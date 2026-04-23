@@ -23,9 +23,7 @@ export async function POST(request: NextRequest) {
     }
     
     // Find customer by email
-    const customer = await db.query.customers.findFirst({
-      where: eq(customers.email, email.toLowerCase()),
-    })
+    const customer = await db.select().from(customers).where(eq(customers.email, email.toLowerCase())).limit(1).then(rows => rows[0])
     
     if (!customer) {
       return NextResponse.json(

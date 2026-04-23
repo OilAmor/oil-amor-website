@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { customers } from '@/lib/db/schema-refill'
 import { eq } from 'drizzle-orm'
@@ -11,16 +11,14 @@ export async function POST(request: NextRequest) {
     const { email } = await request.json()
 
     if (!email) {
-      return Response.json(
+      return NextResponse.json(
         { error: 'Email is required' },
         { status: 400 }
       )
     }
 
     // Find customer
-    const customer = await db.query.customers.findFirst({
-      where: eq(customers.email, email.toLowerCase()),
-    })
+    const customer = await db.select().from(customers).where(eq(customers.email, email.toLowerCase())).limit(1).then(rows => rows[0])
 
     // Always return success to prevent email enumeration
     // But only send email if customer exists
@@ -57,13 +55,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return Response.json({
+    return NextResponse.json({
       success: true,
       message: 'If an account exists, a reset link has been sent',
     })
   } catch (error) {
     console.error('Forgot password error:', error)
-    return Response.json(
+    return NextResponse.json(
       { error: 'Failed to process request' },
       { status: 500 }
     )
