@@ -1,187 +1,240 @@
 /**
- * Admin Dashboard Stats API
- * Returns key metrics from Shopify Admin API (primary) with local DB fallback
+ * Admin Dashboard Stats API v2
+ * Local DB only — comprehensive analytics for the admin dashboard
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminAuth } from '@/lib/admin/auth';
-import { db } from '@/lib/db';
-import { refillOrders, foreverBottles, customerCredits, inventoryItems } from '@/lib/db/schema-refill';
-import { sql } from 'drizzle-orm';
-import { fetchShopifyOrderStats } from '@/lib/shopify/admin-orders';
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminAuth } from '@/lib/admin/auth'
+import { db } from '@/lib/db'
+import { orders, refillOrders, foreverBottles, customerCredits, inventoryItems, blendCommissions } from '@/lib/db/schema-refill'
+import { sql, eq, gte } from 'drizzle-orm'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
 export async function GET(request: NextRequest) {
-  const authError = await requireAdminAuth(request);
-  if (authError) return authError;
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
 
   try {
-    // PRIMARY: Fetch stats from Shopify Admin API
-    let shopifyStats: Awaited<ReturnType<typeof fetchShopifyOrderStats>> | null = null;
-    try {
-      shopifyStats = await fetchShopifyOrderStats(30);
-    } catch (shopifyErr: any) {
-      console.error('[Dashboard Stats] Shopify stats fetch failed:', shopifyErr.message);
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const weekAgo = new Date(today)
+    weekAgo.setDate(weekAgo.getDate() - 7)
+    const monthAgo = new Date(today)
+    monthAgo.setMonth(monthAgo.getMonth() - 1)
+
+    // =========================================================================
+    // REGULAR ORDERS STATS
+    // =========================================================================
+
+    const orderStats = await db.select({
+      status: orders.status,
+      count: sql<number>`count(*)`,
+    })
+    .from(orders)
+    .groupBy(orders.status)
+
+    const totalOrders = orderStats.reduce((sum, s) => sum + Number(s.count), 0)
+    const pendingOrders = orderStats.find(s => s.status === 'pending')?.count || 0
+    const confirmedOrders = orderStats.find(s => s.status === 'confirmed')?.count || 0
+    const mixingOrders = orderStats.find(s => s.status === 'blending')?.count || 0
+    const qualityCheckOrders = orderStats.find(s => s.status === 'quality-check')?.count || 0
+    const readyOrders = orderStats.find(s => s.status === 'ready-to-ship')?.count || 0
+    const shippedOrders = orderStats.find(s => s.status === 'shipped')?.count || 0
+    const deliveredOrders = orderStats.find(s => s.status === 'delivered')?.count || 0
+    const cancelledOrders = orderStats.find(s => s.status === 'cancelled')?.count || 0
+
+    // Revenue calculations
+    const todayRevenueResult = await db.select({
+      total: sql<number>`COALESCE(SUM(total), 0)`,
+    })
+    .from(orders)
+    .where(gte(orders.createdAt, today))
+
+    const weekRevenueResult = await db.select({
+      total: sql<number>`COALESCE(SUM(total), 0)`,
+    })
+    .from(orders)
+    .where(gte(orders.createdAt, weekAgo))
+
+    const monthRevenueResult = await db.select({
+      total: sql<number>`COALESCE(SUM(total), 0)`,
+    })
+    .from(orders)
+    .where(gte(orders.createdAt, monthAgo))
+
+    const avgOrderResult = await db.select({
+      avg: sql<number>`COALESCE(AVG(total), 0)`,
+    })
+    .from(orders)
+
+    // =========================================================================
+    // REFILL ORDERS STATS
+    // =========================================================================
+
+    let refillStats = {
+      total: 0,
+      pending: 0,
+      blending: 0,
+      completed: 0,
+      revenue: 0,
     }
 
-    // FALLBACK / SUPPLEMENT: Local DB stats for refill program
-    let localStats = {
-      totalOrders: 0,
-      pendingBlending: 0,
-      pendingRefills: 0,
-      todayRevenue: 0,
-      weekRevenue: 0,
-      monthRevenue: 0,
-      activeCustomers: 0,
-      totalBottles: 0,
-      completedRefills: 0,
-      orderBreakdown: {} as Record<string, number>,
-    };
-
     try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      const weekAgo = new Date(today);
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      const monthAgo = new Date(today);
-      monthAgo.setMonth(monthAgo.getMonth() - 1);
-
-      // Refill order statistics
-      const orderStats = await db.select({
+      const rStats = await db.select({
         status: refillOrders.status,
         count: sql<number>`count(*)`,
       })
       .from(refillOrders)
-      .groupBy(refillOrders.status);
+      .groupBy(refillOrders.status)
 
-      const totalRefillOrders = orderStats.reduce((sum, stat) => sum + Number(stat.count), 0);
-      const pendingRefills = orderStats.find(s => s.status === 'pending-return')?.count || 0;
-      const inTransit = orderStats.find(s => s.status === 'in-transit')?.count || 0;
-      const completedRefills = orderStats.find(s => s.status === 'completed')?.count || 0;
+      refillStats.total = rStats.reduce((sum, s) => sum + Number(s.count), 0)
+      refillStats.pending = rStats.find(s => s.status === 'pending-return')?.count || 0
+      refillStats.blending = rStats
+        .filter(s => ['received', 'inspecting', 'refilling'].includes(s.status))
+        .reduce((sum, s) => sum + Number(s.count), 0)
+      refillStats.completed = rStats.find(s => s.status === 'completed')?.count || 0
 
-      // Bottle statistics
-      const bottleStats = await db.select({
+      const refillRevenue = await db.execute(sql`
+        SELECT COALESCE(SUM((pricing->>'finalPrice')::int), 0) as total
+        FROM ${refillOrders}
+        WHERE created_at >= ${monthAgo.toISOString()}
+      `)
+      refillStats.revenue = Number(refillRevenue.rows[0]?.total || 0)
+    } catch (err: any) {
+      if (!err?.message?.includes('does not exist')) {
+        console.error('[Dashboard Stats] Refill stats error:', err)
+      }
+    }
+
+    // =========================================================================
+    // BOTTLE STATS
+    // =========================================================================
+
+    let bottleStats = { total: 0, active: 0 }
+    try {
+      const bStats = await db.select({
         status: foreverBottles.status,
         count: sql<number>`count(*)`,
       })
       .from(foreverBottles)
-      .groupBy(foreverBottles.status);
+      .groupBy(foreverBottles.status)
 
-      const totalBottles = bottleStats.reduce((sum, stat) => sum + Number(stat.count), 0);
-
-      // Customer statistics
-      const customerStats = await db.select({
-        count: sql<number>`count(*)`,
-      })
-      .from(customerCredits);
-
-      const activeCustomers = Number(customerStats[0]?.count || 0);
-
-      // Revenue from refill orders
-      const revenueResult = await db.execute(sql`
-        SELECT COALESCE(SUM((pricing->>'finalPrice')::int), 0) as total
-        FROM ${refillOrders}
-        WHERE created_at >= ${monthAgo.toISOString()}
-      `);
-      const monthRevenueCents = Number(revenueResult.rows[0]?.total || 0);
-
-      const todayRevenueResult = await db.execute(sql`
-        SELECT COALESCE(SUM((pricing->>'finalPrice')::int), 0) as total
-        FROM ${refillOrders}
-        WHERE created_at >= ${today.toISOString()}
-      `);
-      const todayRevenueCents = Number(todayRevenueResult.rows[0]?.total || 0);
-
-      const weekRevenueResult = await db.execute(sql`
-        SELECT COALESCE(SUM((pricing->>'finalPrice')::int), 0) as total
-        FROM ${refillOrders}
-        WHERE created_at >= ${weekAgo.toISOString()}
-      `);
-      const weekRevenueCents = Number(weekRevenueResult.rows[0]?.total || 0);
-
-      const pendingBlending = orderStats
-        .filter(s => ['received', 'inspecting', 'refilling'].includes(s.status))
-        .reduce((sum, s) => sum + Number(s.count), 0);
-
-      localStats = {
-        totalOrders: totalRefillOrders,
-        pendingBlending,
-        pendingRefills: Number(pendingRefills) + Number(inTransit),
-        todayRevenue: todayRevenueCents / 100,
-        weekRevenue: weekRevenueCents / 100,
-        monthRevenue: monthRevenueCents / 100,
-        activeCustomers,
-        totalBottles,
-        completedRefills: Number(completedRefills),
-        orderBreakdown: orderStats.reduce((acc, curr) => {
-          acc[curr.status] = Number(curr.count);
-          return acc;
-        }, {} as Record<string, number>),
-      };
-    } catch (localErr: any) {
-      if (localErr?.message?.includes('does not exist') || localErr?.code === '42P01') {
-        console.warn('Dashboard stats: local refill tables not found');
-      } else {
-        console.error('Dashboard stats: local DB error:', localErr);
+      bottleStats.total = bStats.reduce((sum, s) => sum + Number(s.count), 0)
+      bottleStats.active = bStats.find(s => s.status === 'active')?.count || 0
+    } catch (err: any) {
+      if (!err?.message?.includes('does not exist')) {
+        console.error('[Dashboard Stats] Bottle stats error:', err)
       }
     }
 
-    // Low stock check
-    let lowStockOils: string[] = [];
+    // =========================================================================
+    // CUSTOMER STATS
+    // =========================================================================
+
+    let customerCount = 0
+    try {
+      const cResult = await db.select({
+        count: sql<number>`count(*)`,
+      })
+      .from(customerCredits)
+      customerCount = Number(cResult[0]?.count || 0)
+    } catch (err: any) {
+      if (!err?.message?.includes('does not exist')) {
+        console.error('[Dashboard Stats] Customer stats error:', err)
+      }
+    }
+
+    // =========================================================================
+    // COMMISSION STATS
+    // =========================================================================
+
+    let commissionStats = { total: 0, pending: 0, paid: 0 }
+    try {
+      const commResult = await db.select({
+        status: blendCommissions.status,
+        total: sql<number>`COALESCE(SUM(commission_amount), 0)`,
+      })
+      .from(blendCommissions)
+      .groupBy(blendCommissions.status)
+
+      commissionStats.total = commResult.reduce((sum, s) => sum + Number(s.total), 0)
+      commissionStats.pending = commResult.find(s => s.status === 'purchased')?.total || 0
+      commissionStats.paid = commResult.find(s => s.status === 'paid')?.total || 0
+    } catch (err: any) {
+      if (!err?.message?.includes('does not exist')) {
+        console.error('[Dashboard Stats] Commission stats error:', err)
+      }
+    }
+
+    // =========================================================================
+    // LOW STOCK
+    // =========================================================================
+
+    let lowStockItems: string[] = []
     try {
       const lowStock = await db.select()
         .from(inventoryItems)
-        .where(sql`${inventoryItems.quantity} <= ${inventoryItems.reorderPoint}`);
-      lowStockOils = lowStock.map(item => item.name);
+        .where(sql`${inventoryItems.quantity} <= ${inventoryItems.reorderPoint}`)
+      lowStockItems = lowStock.map(item => item.name)
     } catch {
       // Inventory table may not exist
     }
 
-    // MERGE: Prefer Shopify for order/revenue stats, supplement with local refill data
-    if (shopifyStats) {
-      return NextResponse.json({
-        totalOrders: shopifyStats.totalOrders + localStats.totalOrders,
-        pendingBlending: shopifyStats.pendingBlending + localStats.pendingBlending,
-        pendingRefills: shopifyStats.pendingFulfillment + localStats.pendingRefills,
-        todayRevenue: (shopifyStats.todayRevenue / 100) + localStats.todayRevenue,
-        weekRevenue: (shopifyStats.weekRevenue / 100) + localStats.weekRevenue,
-        monthRevenue: (shopifyStats.monthRevenue / 100) + localStats.monthRevenue,
-        activeCustomers: Math.max(shopifyStats.totalOrders > 0 ? Math.round(shopifyStats.totalOrders * 0.7) : 0, localStats.activeCustomers),
-        totalBottles: localStats.totalBottles,
-        completedRefills: shopifyStats.shippedOrders + localStats.completedRefills,
-        lowStockOils,
-        orderBreakdown: {
-          ...shopifyStats.ordersByStatus,
-          ...localStats.orderBreakdown,
-        },
-        source: 'shopify',
-        averageOrderValue: shopifyStats.averageOrderValue / 100,
-      });
-    }
+    // =========================================================================
+    // COMBINED RESPONSE
+    // =========================================================================
 
-    // Pure local fallback
+    const todayRevenueCents = Number(todayRevenueResult[0]?.total || 0)
+    const weekRevenueCents = Number(weekRevenueResult[0]?.total || 0)
+    const monthRevenueCents = Number(monthRevenueResult[0]?.total || 0)
+    const avgOrderCents = Number(avgOrderResult[0]?.avg || 0)
+
     return NextResponse.json({
-      ...localStats,
-      lowStockOils,
+      totalOrders: totalOrders + refillStats.total,
+      pendingOrders: Number(pendingOrders) + Number(confirmedOrders) + refillStats.pending,
+      mixingOrders: Number(mixingOrders) + Number(qualityCheckOrders) + refillStats.blending,
+      readyOrders: Number(readyOrders),
+      shippedOrders: Number(shippedOrders) + refillStats.completed,
+      deliveredOrders: Number(deliveredOrders),
+      cancelledOrders: Number(cancelledOrders),
+      todayRevenue: (todayRevenueCents + (todayRevenueCents > 0 ? 0 : refillStats.revenue / 30)) / 100, // Rough daily estimate if no orders today
+      weekRevenue: (weekRevenueCents + refillStats.revenue / 4) / 100,
+      monthRevenue: (monthRevenueCents + refillStats.revenue) / 100,
+      averageOrderValue: avgOrderCents / 100,
+      totalCommissions: commissionStats.total / 100,
+      pendingCommissions: commissionStats.pending / 100,
+      paidCommissions: commissionStats.paid / 100,
+      activeCustomers: customerCount,
+      totalBottles: bottleStats.total,
+      activeBottles: bottleStats.active,
+      lowStockItems,
+      orderBreakdown: {
+        ...orderStats.reduce((acc, s) => ({ ...acc, [s.status]: Number(s.count) }), {}),
+        refill: refillStats.total,
+      },
       source: 'local',
-    });
+    })
   } catch (error: any) {
-    console.error('Dashboard stats error:', error);
+    console.error('[Dashboard Stats v2] Error:', error)
     return NextResponse.json({
       totalOrders: 0,
-      pendingBlending: 0,
-      pendingRefills: 0,
+      pendingOrders: 0,
+      mixingOrders: 0,
+      readyOrders: 0,
+      shippedOrders: 0,
+      deliveredOrders: 0,
+      cancelledOrders: 0,
       todayRevenue: 0,
       weekRevenue: 0,
       monthRevenue: 0,
-      activeCustomers: 0,
-      totalBottles: 0,
-      completedRefills: 0,
-      lowStockOils: [],
+      averageOrderValue: 0,
+      totalCommissions: 0,
+      pendingCommissions: 0,
+      lowStockItems: [],
       orderBreakdown: {},
       error: 'Failed to fetch stats',
       details: error.message,
-    });
+    }, { status: 500 })
   }
 }

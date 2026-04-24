@@ -1,140 +1,75 @@
 /**
- * Admin Orders API
- * Returns orders from Shopify Admin API (primary) with local DB fallback/cache
+ * Admin Orders API v2
+ * Local DB only — Shopify-independent enterprise order management
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminAuth } from '@/lib/admin/auth';
-import { Order, OrderStatus } from '@/lib/db/schema/orders';
-import { db } from '@/lib/db';
-import { refillOrders, foreverBottles, customers, orders, auditLogs } from '@/lib/db/schema-refill';
-import { desc, eq, or, sql } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
-import { 
-  fetchShopifyOrders, 
-  fetchShopifyOrderById,
-  fetchRecentShopifyOrders,
-  createShopifyFulfillment,
-  addShopifyOrderNote 
-} from '@/lib/shopify/admin-orders';
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminAuth } from '@/lib/admin/auth'
+import { db } from '@/lib/db'
+import { orders, customers, refillOrders, auditLogs } from '@/lib/db/schema-refill'
+import { desc, eq, or, and, sql, gte, lte, ilike, inArray } from 'drizzle-orm'
+import { nanoid } from 'nanoid'
+import { OrderStatus } from '@/lib/db/schema/orders'
+import { EnrichedOrder, OrderFilters } from '@/lib/orders/types'
+import { getStatusLabel, getStatusColor, transitionOrderStatus } from '@/lib/orders/status-workflow'
+import { orderRequiresBlending, getOrderTypeLabel } from '@/lib/orders/order-classifier'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
 // ============================================================================
-// LOCAL DB FALLBACK HELPERS
+// ORDER MAPPERS
 // ============================================================================
 
-async function convertRefillToOrder(refillOrder: typeof refillOrders.$inferSelect): Promise<Order> {
-  const customer = await db.query.customers.findFirst({
-    where: eq(customers.id, refillOrder.customerId),
-  });
-
-  const bottle = await db.query.foreverBottles.findFirst({
-    where: eq(foreverBottles.id, refillOrder.bottleId),
-  });
-
-  const pricing = refillOrder.pricing || { standardPrice: 0, creditApplied: 0, finalPrice: 0 };
-  const finalPrice = pricing.finalPrice || 0;
-  const creditApplied = pricing.creditApplied || 0;
-  const returnLabel = refillOrder.returnLabel || {};
-
-  return {
-    id: refillOrder.id,
-    customerId: refillOrder.customerId,
-    customerEmail: customer?.email || '',
-    customerName: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown' : 'Unknown',
-    isGuest: false,
-    status: mapRefillStatusToOrderStatus(refillOrder.status),
-    statusHistory: [{
-      status: mapRefillStatusToOrderStatus(refillOrder.status),
-      timestamp: refillOrder.createdAt.toISOString(),
-    }],
-    items: [{
-      id: `item-${refillOrder.id}`,
-      type: 'refill-oil',
-      name: `${refillOrder.oilType} Refill`,
-      unitPrice: finalPrice / 100,
-      quantity: 1,
-      subtotal: finalPrice / 100,
-      taxAmount: (finalPrice / 100) * 0.1,
-      total: (finalPrice / 100) * 1.1,
-      isRefill: true,
-      originalBottleSerial: bottle?.serialNumber,
-    }],
-    subtotal: finalPrice / 100,
-    taxTotal: (finalPrice / 100) * 0.1,
-    shippingTotal: 0,
-    discountTotal: creditApplied / 100,
-    storeCreditUsed: creditApplied / 100,
-    giftCardUsed: 0,
-    total: finalPrice / 100,
-    currency: 'AUD',
-    payment: {
-      method: 'credit-card' as const,
-      status: 'captured' as const,
-    },
-    shippingAddress: {
-      firstName: customer?.firstName || '',
-      lastName: customer?.lastName || '',
-      address1: '',
-      city: '',
-      province: '',
-      country: 'AU',
-      zip: '',
-    },
-    shipping: {
-      carrier: 'auspost' as const,
-      service: 'Standard',
-      cost: 0,
-      trackingNumber: returnLabel?.trackingNumber,
-    },
-    isGift: false,
-    giftReceipt: false,
-    requiresBlending: ['received', 'inspecting', 'refilling'].includes(refillOrder.status),
-    eligibleForReturns: true,
-    returnCreditsEarned: 0,
-    returnCreditsUsed: creditApplied / 100,
-    createdAt: refillOrder.createdAt.toISOString(),
-    updatedAt: refillOrder.updatedAt.toISOString(),
-  };
-}
-
-function mapRefillStatusToOrderStatus(status: string): OrderStatus {
-  const statusMap: Record<string, OrderStatus> = {
-    'pending-return': 'pending',
-    'in-transit': 'processing',
-    'received': 'blending',
-    'inspecting': 'blending',
-    'refilling': 'blending',
-    'completed': 'shipped',
-    'cancelled': 'cancelled',
-    'rejected': 'cancelled',
-  };
-  return statusMap[status] || 'pending';
-}
-
-function mapDbOrderToOrder(dbOrder: typeof orders.$inferSelect): Order {
+function mapDbOrderToEnriched(dbOrder: typeof orders.$inferSelect): EnrichedOrder {
   const items = (dbOrder.items || []).map((item: any) => ({
-    id: item.id,
-    type: item.type as any,
-    productId: item.productId,
-    variantId: item.variantId,
-    sku: item.sku,
-    name: item.name,
-    description: item.description,
-    image: item.image,
-    unitPrice: item.unitPrice / 100,
-    quantity: item.quantity,
-    subtotal: item.subtotal / 100,
-    taxAmount: item.taxAmount / 100,
-    total: item.total / 100,
-    attachment: item.attachment,
-    customMix: item.customMix,
+    id: item.id || `item-${nanoid(4)}`,
+    name: item.name || 'Unknown Item',
+    type: (item.type as any) || inferItemType(item),
+    unitPrice: (item.unitPrice || 0) / 100,
+    quantity: item.quantity || 1,
+    totalPrice: (item.total || item.subtotal || 0) / 100,
+    productType: item.productType,
+    oilId: item.oilId,
+    crystalId: item.crystalId,
+    bottleSize: item.bottleSize || item.customMix?.totalVolume,
+    customMix: item.customMix ? {
+      name: item.customMix.recipeName || 'Custom Blend',
+      mode: item.customMix.mode,
+      totalVolume: item.customMix.totalVolume,
+      oils: item.customMix.oils.map((o: any) => ({
+        oilId: o.oilId,
+        oilName: o.oilName,
+        ml: o.ml,
+        percentage: o.percentage,
+        drops: o.drops,
+      })),
+      carrierOil: item.customMix.carrierOilId,
+      carrierPercentage: item.customMix.carrierRatio,
+      crystal: item.customMix.crystalId,
+      cord: item.customMix.cordId,
+      intendedUse: item.customMix.intendedUse,
+      safetyScore: item.customMix.safetyScore,
+      safetyRating: item.customMix.safetyRating,
+      safetyWarnings: item.customMix.safetyWarnings || [],
+      batchId: item.customMix.batchId || `OA-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${nanoid(4).toUpperCase()}`,
+    } : undefined,
+    collectionBlendId: item.collectionBlendId,
+    communityBlendId: item.communityBlendId,
+    communityBlendCreatorId: item.communityBlendCreatorId,
+    communityBlendCreatorName: item.communityBlendCreatorName,
+    commissionRate: item.commissionRate,
+    commissionAmount: item.commissionAmount ? item.commissionAmount / 100 : undefined,
     isRefill: item.isRefill,
-    originalBottleSerial: item.originalBottleSerial,
+    originalBatchId: item.originalBatchId,
+    sourceVolume: item.sourceVolume,
+    targetVolume: item.targetVolume,
+    originalOrderId: item.originalOrderId,
+    scaledRecipe: item.scaledRecipe,
+    imageUrl: item.image,
+    description: item.description,
+    attachment: item.attachment,
     unlocksOilId: item.unlocksOilId,
-    properties: item.properties,
-  }));
+  }))
 
   return {
     id: dbOrder.id,
@@ -143,7 +78,12 @@ function mapDbOrderToOrder(dbOrder: typeof orders.$inferSelect): Order {
     customerName: dbOrder.customerName,
     isGuest: dbOrder.isGuest,
     status: dbOrder.status as OrderStatus,
-    statusHistory: (dbOrder.statusHistory || []) as Order['statusHistory'],
+    statusHistory: (dbOrder.statusHistory || []).map((h: any) => ({
+      status: h.status as OrderStatus,
+      timestamp: h.timestamp,
+      note: h.note,
+      changedBy: h.changedBy,
+    })),
     items,
     subtotal: dbOrder.subtotal / 100,
     taxTotal: dbOrder.taxTotal / 100,
@@ -153,26 +93,35 @@ function mapDbOrderToOrder(dbOrder: typeof orders.$inferSelect): Order {
     giftCardUsed: dbOrder.giftCardUsed / 100,
     total: dbOrder.total / 100,
     currency: dbOrder.currency,
-    payment: (dbOrder.payment || { method: 'credit-card' as const, status: 'pending' as const }) as Order['payment'],
+    payment: (dbOrder.payment || { method: 'credit-card', status: 'pending' }) as any,
     shippingAddress: (dbOrder.shippingAddress || {
-      firstName: '',
-      lastName: '',
-      address1: '',
-      city: '',
-      province: '',
-      country: 'AU',
-      zip: '',
-    }) as Order['shippingAddress'],
-    shipping: (dbOrder.shipping || { carrier: 'auspost' as const, service: 'Standard', cost: 0 }) as Order['shipping'],
-    isGift: false,
-    giftReceipt: false,
-    requiresBlending: items.some((i: any) => i.customMix),
-    eligibleForReturns: false,
-    returnCreditsEarned: 0,
-    returnCreditsUsed: 0,
+      firstName: '', lastName: '', address1: '', city: '', province: '', country: 'AU', zip: '',
+    }) as any,
+    shipping: (dbOrder.shipping || { carrier: 'auspost', service: 'Standard', cost: 0 }) as any,
+    isGift: dbOrder.isGift,
+    giftMessage: dbOrder.giftMessage || undefined,
+    giftReceipt: dbOrder.giftReceipt,
+    requiresBlending: orderRequiresBlending(items as any),
+    blendingPriority: dbOrder.blendingPriority as any,
+    eligibleForReturns: dbOrder.eligibleForReturns,
+    returnCreditsEarned: dbOrder.returnCreditsEarned,
+    returnCreditsUsed: dbOrder.returnCreditsUsed,
+    customerNote: dbOrder.customerNote || undefined,
+    internalNote: dbOrder.internalNote || undefined,
+    metadata: dbOrder.metadata || {},
     createdAt: dbOrder.createdAt.toISOString(),
     updatedAt: dbOrder.updatedAt.toISOString(),
-  };
+    processingCompletedAt: dbOrder.processingCompletedAt?.toISOString(),
+  }
+}
+
+function inferItemType(item: any): string {
+  if (item.customMix) return 'custom_blend'
+  if (item.isRefill) return 'refill'
+  if (item.communityBlendId) return 'community_blend'
+  if (item.collectionBlendId) return 'collection_blend'
+  if (item.unlocksOilId) return 'pure_oil'
+  return 'pure_oil'
 }
 
 // ============================================================================
@@ -180,138 +129,199 @@ function mapDbOrderToOrder(dbOrder: typeof orders.$inferSelect): Order {
 // ============================================================================
 
 export async function GET(request: NextRequest) {
-  const authError = await requireAdminAuth(request);
-  if (authError) return authError;
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
 
-  const { searchParams } = new URL(request.url);
-  const filter = searchParams.get('filter') || 'all';
-  const limit = parseInt(searchParams.get('limit') || '100');
-  const days = parseInt(searchParams.get('days') || '90');
+  const { searchParams } = new URL(request.url)
+
+  // Parse filters
+  const filters: OrderFilters = {
+    status: searchParams.get('status')?.split(',') as OrderStatus[] || undefined,
+    type: searchParams.get('type')?.split(',') as any || undefined,
+    search: searchParams.get('search') || undefined,
+    dateFrom: searchParams.get('dateFrom') || undefined,
+    dateTo: searchParams.get('dateTo') || undefined,
+    requiresBlending: searchParams.has('requiresBlending') ? searchParams.get('requiresBlending') === 'true' : undefined,
+    limit: parseInt(searchParams.get('limit') || '100'),
+    offset: parseInt(searchParams.get('offset') || '0'),
+    sortBy: (searchParams.get('sortBy') as any) || 'createdAt',
+    sortOrder: (searchParams.get('sortOrder') as any) || 'desc',
+  }
 
   try {
-    // PRIMARY: Fetch from Shopify Admin API
-    let shopifyOrders: Order[] = [];
+    // Build query conditions
+    const conditions = []
+
+    if (filters.status && filters.status.length > 0) {
+      conditions.push(inArray(orders.status, filters.status))
+    }
+
+    if (filters.dateFrom) {
+      conditions.push(gte(orders.createdAt, new Date(filters.dateFrom)))
+    }
+
+    if (filters.dateTo) {
+      conditions.push(lte(orders.createdAt, new Date(filters.dateTo)))
+    }
+
+    // Search filter (customer name, email, order ID)
+    if (filters.search) {
+      const searchTerm = `%${filters.search}%`
+      conditions.push(
+        or(
+          ilike(orders.id, searchTerm),
+          ilike(orders.customerName, searchTerm),
+          ilike(orders.customerEmail, searchTerm)
+        )
+      )
+    }
+
+    // Execute query
+    const whereClause = conditions.length > 0 ? and(...conditions) : undefined
+
+    const orderList = await db.select()
+      .from(orders)
+      .where(whereClause)
+      .orderBy(filters.sortOrder === 'asc' ? orders.createdAt : desc(orders.createdAt))
+      .limit(filters.limit!)
+      .offset(filters.offset!)
+
+    // Also fetch refill orders and convert them
+    let refillList: typeof refillOrders.$inferSelect[] = []
     try {
-      const allOrders = await fetchRecentShopifyOrders(days, limit);
-      
-      // Apply filters
-      if (filter === 'pending') {
-        shopifyOrders = allOrders.filter(o => ['pending', 'confirmed'].includes(o.status));
-      } else if (filter === 'blending') {
-        shopifyOrders = allOrders.filter(o => ['blending', 'quality-check', 'processing'].includes(o.status));
-      } else if (filter === 'ready') {
-        shopifyOrders = allOrders.filter(o => o.status === 'ready-to-ship');
-      } else if (filter === 'shipped') {
-        shopifyOrders = allOrders.filter(o => ['shipped', 'delivered'].includes(o.status));
-      } else {
-        shopifyOrders = allOrders;
+      const refillConditions = []
+      if (filters.status && filters.status.length > 0) {
+        const refillStatusMap: Record<string, string[]> = {
+          pending: ['pending-return'],
+          confirmed: ['pending-return'],
+          blending: ['received', 'inspecting', 'refilling'],
+          'quality-check': ['inspecting'],
+          'ready-to-ship': ['refilling'],
+          shipped: ['completed'],
+          delivered: ['completed'],
+          cancelled: ['cancelled', 'rejected'],
+        }
+        const refillStatuses = filters.status.flatMap(s => refillStatusMap[s] || [])
+        if (refillStatuses.length > 0) {
+          refillConditions.push(inArray(refillOrders.status, refillStatuses as any))
+        }
       }
-    } catch (shopifyErr: any) {
-      console.error('[Admin Orders] Shopify fetch failed, falling back to local DB:', shopifyErr.message);
-    }
 
-    // FALLBACK: Fetch from local DB if Shopify fails or returns empty
-    let localOrders: Order[] = [];
-    if (shopifyOrders.length === 0) {
-      try {
-        let refillStatusFilter: string[] | undefined;
-        let orderStatusFilter: string[] | undefined;
-        
-        if (filter === 'blending') {
-          refillStatusFilter = ['received', 'inspecting', 'refilling'];
-          orderStatusFilter = ['blending', 'quality-check'];
-        } else if (filter === 'pending') {
-          refillStatusFilter = ['pending-return'];
-          orderStatusFilter = ['pending', 'confirmed'];
-        } else if (filter === 'ready') {
-          refillStatusFilter = ['refilling'];
-          orderStatusFilter = ['ready-to-ship'];
-        } else if (filter === 'shipped') {
-          refillStatusFilter = ['completed'];
-          orderStatusFilter = ['shipped', 'delivered'];
-        }
+      if (filters.search) {
+        // Refill orders don't have customer name/email in the same table
+        // Skip search for refill orders for now
+      }
 
-        let refillOrdersList: typeof refillOrders.$inferSelect[] = [];
-        try {
-          if (!orderStatusFilter || orderStatusFilter.length > 0) {
-            if (refillStatusFilter && refillStatusFilter.length > 0) {
-              const statusConditions = refillStatusFilter.map(s => eq(refillOrders.status, s as any));
-              refillOrdersList = await db.select().from(refillOrders)
-                .where(or(...statusConditions))
-                .orderBy(desc(refillOrders.createdAt))
-                .limit(limit);
-            } else {
-              refillOrdersList = await db.select().from(refillOrders)
-                .orderBy(desc(refillOrders.createdAt))
-                .limit(limit);
-            }
-          }
-        } catch (refillErr: any) {
-          if (refillErr?.message?.includes('does not exist')) {
-            console.warn('Admin orders: refillOrders table not found');
-          } else {
-            throw refillErr;
-          }
-        }
-
-        let regularOrdersList: typeof orders.$inferSelect[] = [];
-        try {
-          if (!refillStatusFilter || refillStatusFilter.length > 0) {
-            if (orderStatusFilter && orderStatusFilter.length > 0) {
-              const statusConditions = orderStatusFilter.map(s => eq(orders.status, s as any));
-              regularOrdersList = await db.select().from(orders)
-                .where(or(...statusConditions))
-                .orderBy(desc(orders.createdAt))
-                .limit(limit);
-            } else {
-              regularOrdersList = await db.select().from(orders)
-                .orderBy(desc(orders.createdAt))
-                .limit(limit);
-            }
-          }
-        } catch (ordersErr: any) {
-          if (ordersErr?.message?.includes('does not exist')) {
-            console.warn('Admin orders: orders table not found');
-          } else {
-            throw ordersErr;
-          }
-        }
-
-        const convertedRefills = await Promise.all(refillOrdersList.map(convertRefillToOrder));
-        const convertedRegulars = regularOrdersList.map(mapDbOrderToOrder);
-        localOrders = [...convertedRefills, ...convertedRegulars];
-      } catch (localErr: any) {
-        console.error('[Admin Orders] Local DB fallback also failed:', localErr.message);
+      const refillWhere = refillConditions.length > 0 ? and(...refillConditions) : undefined
+      refillList = await db.select().from(refillOrders)
+        .where(refillWhere)
+        .orderBy(desc(refillOrders.createdAt))
+        .limit(filters.limit!)
+    } catch (err: any) {
+      if (!err?.message?.includes('does not exist')) {
+        console.error('[Admin Orders] Refill query error:', err)
       }
     }
 
-    // Combine and deduplicate (prefer Shopify data)
-    const combinedOrders = [...shopifyOrders];
-    const seenIds = new Set(combinedOrders.map(o => o.id));
-    
-    for (const localOrder of localOrders) {
-      if (!seenIds.has(localOrder.id)) {
-        combinedOrders.push(localOrder);
-        seenIds.add(localOrder.id);
-      }
+    // Convert regular orders
+    const enrichedOrders = orderList.map(mapDbOrderToEnriched)
+
+    // Convert refill orders
+    const enrichedRefills = await Promise.all(
+      refillList.map(async (refill) => {
+        const customer = await db.query.customers.findFirst({
+          where: eq(customers.id, refill.customerId),
+        })
+        const pricing = refill.pricing || { standardPrice: 0, creditApplied: 0, finalPrice: 0 }
+        return {
+          id: refill.id,
+          customerId: refill.customerId,
+          customerEmail: customer?.email || '',
+          customerName: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown' : 'Unknown',
+          isGuest: false,
+          status: mapRefillStatus(refill.status),
+          statusHistory: [{ status: mapRefillStatus(refill.status), timestamp: refill.createdAt.toISOString(), note: 'Refill order' }],
+          items: [{
+            id: `item-${refill.id}`,
+            name: `${refill.oilType} Refill`,
+            type: 'refill',
+            unitPrice: (pricing.finalPrice || 0) / 100,
+            quantity: 1,
+            totalPrice: (pricing.finalPrice || 0) / 100,
+            isRefill: true,
+            bottleSize: 100,
+          }],
+          subtotal: (pricing.finalPrice || 0) / 100,
+          taxTotal: ((pricing.finalPrice || 0) * 0.1) / 100,
+          shippingTotal: 0,
+          discountTotal: (pricing.creditApplied || 0) / 100,
+          storeCreditUsed: (pricing.creditApplied || 0) / 100,
+          giftCardUsed: 0,
+          total: (pricing.finalPrice || 0) / 100,
+          currency: 'AUD',
+          payment: { method: 'credit-card', status: 'captured' },
+          shippingAddress: { firstName: '', lastName: '', address1: '', city: '', province: '', country: 'AU', zip: '' },
+          shipping: { carrier: 'auspost', service: 'Standard', cost: 0 },
+          isGift: false,
+          giftReceipt: false,
+          requiresBlending: ['received', 'inspecting', 'refilling'].includes(refill.status),
+          eligibleForReturns: true,
+          returnCreditsEarned: 0,
+          returnCreditsUsed: (pricing.creditApplied || 0) / 100,
+          createdAt: refill.createdAt.toISOString(),
+          updatedAt: refill.updatedAt.toISOString(),
+        } as EnrichedOrder
+      })
+    )
+
+    // Combine and sort
+    const combined = [...enrichedOrders, ...enrichedRefills]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, filters.limit!)
+
+    // Apply type filter post-query (since type is in JSONB)
+    let filtered = combined
+    if (filters.type && filters.type.length > 0) {
+      filtered = combined.filter(order =>
+        order.items.some(item => filters.type!.includes(item.type as any))
+      )
     }
 
-    // Sort by createdAt desc
-    combinedOrders.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    // Apply requiresBlending filter
+    if (filters.requiresBlending !== undefined) {
+      filtered = filtered.filter(order => order.requiresBlending === filters.requiresBlending)
+    }
 
-    return NextResponse.json({ 
-      orders: combinedOrders.slice(0, limit),
-      source: shopifyOrders.length > 0 ? 'shopify' : 'local',
-      count: combinedOrders.length,
-    });
+    return NextResponse.json({
+      orders: filtered,
+      count: filtered.length,
+      total: combined.length,
+      source: 'local',
+    })
   } catch (error: any) {
-    console.error('Orders API error:', error);
+    console.error('[Admin Orders v2] Error:', error)
     return NextResponse.json({
       orders: [],
+      count: 0,
+      total: 0,
       error: 'Failed to fetch orders',
       details: error.message,
-    }, { status: 500 });
+    }, { status: 500 })
   }
+}
+
+function mapRefillStatus(status: string): OrderStatus {
+  const map: Record<string, OrderStatus> = {
+    'pending-return': 'pending',
+    'in-transit': 'processing',
+    'received': 'blending',
+    'inspecting': 'quality-check',
+    'refilling': 'blending',
+    'completed': 'shipped',
+    'cancelled': 'cancelled',
+    'rejected': 'cancelled',
+  }
+  return map[status] || 'pending'
 }
 
 // ============================================================================
@@ -319,122 +329,103 @@ export async function GET(request: NextRequest) {
 // ============================================================================
 
 export async function POST(request: NextRequest) {
-  const authError = await requireAdminAuth(request);
-  if (authError) return authError;
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
 
   try {
-    const body = await request.json();
-    const { orderId, status, trackingNumber, carrier, shopifyOrderId } = body;
+    const body = await request.json()
+    const { orderId, status, trackingNumber, carrier, note, changedBy = 'admin-api' } = body
 
     if (!orderId) {
-      return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
+      return NextResponse.json({ error: 'orderId is required' }, { status: 400 })
     }
 
-    // If we have a Shopify order ID, update Shopify first
-    if (shopifyOrderId) {
-      const numericOrderId = parseInt(shopifyOrderId);
-      
-      // Add tracking / create fulfillment if shipped
-      if (status === 'shipped' && trackingNumber) {
-        const success = await createShopifyFulfillment({
-          orderId: numericOrderId,
-          trackingNumber,
-          trackingCompany: carrier || 'Australia Post',
-          notifyCustomer: true,
-        });
-        
-        if (!success) {
-          console.warn(`[Admin Orders] Failed to create Shopify fulfillment for ${shopifyOrderId}`);
-        }
-      }
-
-      // Add note about status change
-      await addShopifyOrderNote(numericOrderId, `Admin status updated to: ${status}${trackingNumber ? ` (tracking: ${trackingNumber})` : ''}`);
-    }
-
-    // Try local DB update for non-Shopify orders
+    // Try regular order first
     const existingOrder = await db.query.orders.findFirst({
       where: eq(orders.id, orderId),
-    });
+    })
 
     if (existingOrder) {
-      const now = new Date().toISOString();
-      const newHistory = [
-        ...(existingOrder.statusHistory || []),
-        { status, timestamp: now },
-      ];
-      const updatedShipping = {
-        ...(existingOrder.shipping || { carrier: 'auspost', service: 'Standard', cost: 0 }),
-        ...(trackingNumber ? { trackingNumber, carrier: carrier || 'auspost' } : {}),
-      };
+      // If status change, use workflow
+      if (status) {
+        const result = await transitionOrderStatus(orderId, status, {
+          note,
+          changedBy,
+          trackingNumber,
+          carrier,
+        })
+
+        if (!result.success) {
+          return NextResponse.json({ error: result.error }, { status: 400 })
+        }
+
+        return NextResponse.json({
+          success: true,
+          order: result.order ? mapDbOrderToEnriched(result.order) : undefined,
+          emailSent: result.emailSent,
+          emailTemplate: result.emailTemplate,
+        })
+      }
+
+      // Otherwise, simple field update
+      const updateData: Record<string, any> = { updatedAt: new Date() }
+      if (trackingNumber) {
+        updateData.shipping = {
+          ...(existingOrder.shipping || {}),
+          trackingNumber,
+          carrier: carrier || 'auspost',
+        }
+      }
+      if (note) {
+        updateData.internalNote = [existingOrder.internalNote, note].filter(Boolean).join('\n')
+      }
 
       const [updated] = await db.update(orders)
-        .set({
-          status,
-          statusHistory: newHistory,
-          shipping: updatedShipping,
-          updatedAt: new Date(),
-        })
+        .set(updateData)
         .where(eq(orders.id, orderId))
-        .returning();
+        .returning()
 
-      await db.insert(auditLogs).values({
-        id: `audit_${nanoid(8)}`,
-        adminId: 'admin-api',
-        action: 'update_order_status',
-        entityType: 'order',
-        entityId: orderId,
-        before: { status: existingOrder.status, shipping: existingOrder.shipping },
-        after: { status, shipping: updatedShipping },
-      });
-
-      return NextResponse.json({ success: true, order: updated });
+      return NextResponse.json({ success: true, order: mapDbOrderToEnriched(updated) })
     }
 
-    // Fallback to refill orders
+    // Try refill order
     const existingRefill = await db.query.refillOrders.findFirst({
       where: eq(refillOrders.id, orderId),
-    });
+    })
 
     if (existingRefill) {
       const reverseMap: Record<string, string> = {
         pending: 'pending-return',
         blending: 'refilling',
         'quality-check': 'inspecting',
-        ready: 'refilling',
+        'ready-to-ship': 'refilling',
         shipped: 'completed',
         cancelled: 'cancelled',
-      };
-      const refillStatus = reverseMap[status] || status;
+      }
+      const refillStatus = reverseMap[status] || status
 
       const [updated] = await db.update(refillOrders)
-        .set({
-          status: refillStatus as any,
-          updatedAt: new Date(),
-        })
+        .set({ status: refillStatus as any, updatedAt: new Date() })
         .where(eq(refillOrders.id, orderId))
-        .returning();
+        .returning()
 
       await db.insert(auditLogs).values({
         id: `audit_${nanoid(8)}`,
-        adminId: 'admin-api',
+        adminId: changedBy,
         action: 'update_refill_status',
         entityType: 'refillOrder',
         entityId: orderId,
         before: { status: existingRefill.status },
         after: { status: refillStatus },
-      });
+        createdAt: new Date(),
+      })
 
-      const converted = await convertRefillToOrder(updated);
-      return NextResponse.json({ success: true, order: converted });
+      return NextResponse.json({ success: true, refillOrder: updated })
     }
 
-    return NextResponse.json({ 
-      success: true, 
-      message: 'Shopify order updated (no local record found)' 
-    });
-  } catch (error) {
-    console.error('Orders API POST error:', error);
-    return NextResponse.json({ error: 'Failed to update order' }, { status: 500 });
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+  } catch (error: any) {
+    console.error('[Admin Orders v2] POST error:', error)
+    return NextResponse.json({ error: 'Failed to update order', details: error.message }, { status: 500 })
   }
 }

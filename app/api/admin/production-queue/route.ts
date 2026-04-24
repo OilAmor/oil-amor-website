@@ -1,202 +1,222 @@
 /**
- * Production Queue API
- * Returns orders that need blending/mixing atelier preparation
- * 
- * PRIMARY SOURCE: Shopify Admin API (orders with custom mix line items)
- * FALLBACK: Local refill orders
+ * Production Queue API v2
+ * Local DB only — orders that need blending/mixing atelier preparation
  */
 
-import { NextRequest, NextResponse } from 'next/server';
-import { requireAdminAuth } from '@/lib/admin/auth';
-import { db } from '@/lib/db';
-import { refillOrders, customers } from '@/lib/db/schema-refill';
-import { desc, eq, inArray } from 'drizzle-orm';
-import { fetchAtelierOrders, fetchRecentShopifyOrders } from '@/lib/shopify/admin-orders';
-import type { Order, OrderCustomMix } from '@/lib/db/schema/orders';
+import { NextRequest, NextResponse } from 'next/server'
+import { requireAdminAuth } from '@/lib/admin/auth'
+import { db } from '@/lib/db'
+import { orders, refillOrders, customers } from '@/lib/db/schema-refill'
+import { desc, eq, inArray } from 'drizzle-orm'
+import { ProductionQueueItem } from '@/lib/orders/types'
 
-export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic'
 
-interface ProductionQueueItem {
-  orderId: string;
-  shopifyOrderId?: string;
-  customerName: string;
-  customerEmail: string;
-  item: {
-    id: string;
-    type: string;
-    name: string;
-    unitPrice: number;
-    quantity: number;
-    subtotal: number;
-    taxAmount: number;
-    total: number;
-  };
-  customMix: OrderCustomMix;
-  priority: 'normal' | 'rush';
-  queuedAt: string;
-  status: string;
-  shippingAddress?: Order['shippingAddress'];
-}
+// ============================================================================
+// GET — Production Queue
+// ============================================================================
 
 export async function GET(request: NextRequest) {
-  const authError = await requireAdminAuth(request);
-  if (authError) return authError;
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
 
-  const { searchParams } = new URL(request.url);
-  const days = parseInt(searchParams.get('days') || '90');
+  const { searchParams } = new URL(request.url)
+  const days = parseInt(searchParams.get('days') || '90')
+  const statusFilter = searchParams.get('status')?.split(',') || ['confirmed', 'blending', 'quality-check']
 
-  const items: ProductionQueueItem[] = [];
+  const items: ProductionQueueItem[] = []
+  const since = new Date()
+  since.setDate(since.getDate() - days)
 
-  // PRIMARY: Fetch atelier orders from Shopify
   try {
-    const shopifyOrders = await fetchRecentShopifyOrders(days, 250);
-    
-    for (const order of shopifyOrders) {
-      // Skip cancelled/refunded orders
-      if (order.status === 'cancelled' || order.status === 'refunded') continue;
-      
-      // Find line items with custom mixes
-      for (const item of order.items || []) {
-        if (!item.customMix) continue;
+    // Regular orders that need blending
+    const regularOrders = await db.select()
+      .from(orders)
+      .where(inArray(orders.status, statusFilter as any))
+      .orderBy(desc(orders.createdAt))
+      .limit(200)
+
+    for (const order of regularOrders) {
+      const orderItems = (order.items || []) as any[]
+
+      for (const item of orderItems) {
+        // Skip non-blending items
+        if (!item.customMix && !item.isRefill && !item.communityBlendId && !item.collectionBlendId) {
+          continue
+        }
+
+        const mix = item.customMix
+        const isRefill = item.isRefill
 
         items.push({
           orderId: order.id,
-          shopifyOrderId: order.shopifyOrderId,
+          itemId: item.id || `item-${order.id}-${Math.random().toString(36).slice(2, 6)}`,
           customerName: order.customerName,
           customerEmail: order.customerEmail,
-          item: {
-            id: item.id,
-            type: item.type,
-            name: item.name,
-            unitPrice: item.unitPrice,
-            quantity: item.quantity,
-            subtotal: item.subtotal,
-            taxAmount: item.taxAmount,
-            total: item.total,
-          },
-          customMix: item.customMix,
-          priority: order.blendingPriority || 'normal',
-          queuedAt: order.createdAt,
-          status: order.status,
-          shippingAddress: order.shippingAddress,
-        });
-      }
-    }
-  } catch (shopifyErr: any) {
-    console.error('[Production Queue] Shopify fetch failed:', shopifyErr.message);
-  }
-
-  // FALLBACK: Local refill orders that need production
-  if (items.length === 0) {
-    try {
-      const ordersNeedingProduction = await db.query.refillOrders.findMany({
-        where: inArray(refillOrders.status, ['received', 'inspecting', 'refilling']),
-        orderBy: [desc(refillOrders.createdAt)],
-        limit: 100,
-      });
-
-      for (const order of ordersNeedingProduction) {
-        const customer = await db.query.customers.findFirst({
-          where: eq(customers.id, order.customerId),
-        });
-
-        const pricing = order.pricing || { standardPrice: 0, creditApplied: 0, finalPrice: 0 };
-        const finalPrice = pricing.finalPrice || 0;
-
-        items.push({
-          orderId: order.id,
-          customerName: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown' : 'Unknown',
-          customerEmail: customer?.email || '',
-          item: {
-            id: `item-${order.id}`,
-            type: 'refill-oil',
-            name: `${order.oilType} Refill`,
-            unitPrice: finalPrice / 100,
-            quantity: 1,
-            subtotal: finalPrice / 100,
-            taxAmount: (finalPrice / 100) * 0.1,
-            total: (finalPrice / 100) * 1.1,
-          },
-          customMix: {
-            recipeName: `${order.oilType} Refill`,
-            mode: 'carrier',
-            oils: [{
-              oilId: order.oilType,
-              oilName: order.oilType,
-              ml: 100,
-              percentage: 100,
-            }],
-            totalVolume: 100,
-            safetyScore: 95,
-            safetyRating: 'safe',
-            safetyWarnings: [],
-            labCertified: true,
-          },
-          priority: 'normal',
+          blendName: mix?.recipeName || item.name || 'Unknown Blend',
+          type: item.type || (isRefill ? 'refill' : mix ? 'custom_blend' : 'pure_oil'),
+          mode: mix?.mode,
+          bottleSize: mix?.totalVolume || item.bottleSize || 30,
+          oils: mix?.oils?.map((o: any) => ({
+            oilName: o.oilName,
+            ml: o.ml,
+            percentage: o.percentage,
+          })) || [],
+          carrierOil: mix?.carrierOilId,
+          carrierMl: mix?.carrierRatio ? (mix.totalVolume * mix.carrierRatio / 100) : undefined,
+          crystal: mix?.crystalId,
+          cord: mix?.cordId,
+          safetyScore: mix?.safetyScore || 95,
+          safetyWarnings: mix?.safetyWarnings || [],
+          priority: (order.blendingPriority as any) || 'normal',
           queuedAt: order.createdAt.toISOString(),
-          status: order.status,
-        });
+          status: order.status as any,
+          batchId: mix?.batchId,
+        })
       }
-    } catch (localErr: any) {
-      if (localErr?.message?.includes('does not exist')) {
-        console.warn('Production queue: local tables not found');
-      } else {
-        console.error('Production queue local fallback error:', localErr);
-      }
+    }
+  } catch (err: any) {
+    if (!err?.message?.includes('does not exist')) {
+      console.error('[Production Queue] Regular orders error:', err)
     }
   }
 
-  return NextResponse.json({ 
+  // Refill orders that need production
+  try {
+    const refillOrdersList = await db.select()
+      .from(refillOrders)
+      .where(inArray(refillOrders.status, ['received', 'inspecting', 'refilling']))
+      .orderBy(desc(refillOrders.createdAt))
+      .limit(100)
+
+    for (const refill of refillOrdersList) {
+      const customer = await db.query.customers.findFirst({
+        where: eq(customers.id, refill.customerId),
+      })
+
+      items.push({
+        orderId: refill.id,
+        itemId: `item-${refill.id}`,
+        customerName: customer ? `${customer.firstName || ''} ${customer.lastName || ''}`.trim() || 'Unknown' : 'Unknown',
+        customerEmail: customer?.email || '',
+        blendName: `${refill.oilType} Refill`,
+        type: 'refill',
+        mode: 'carrier',
+        bottleSize: 100,
+        oils: [{ oilName: refill.oilType, ml: 100, percentage: 100 }],
+        safetyScore: 95,
+        safetyWarnings: [],
+        priority: 'normal',
+        queuedAt: refill.createdAt.toISOString(),
+        status: mapRefillStatus(refill.status),
+      })
+    }
+  } catch (err: any) {
+    if (!err?.message?.includes('does not exist')) {
+      console.error('[Production Queue] Refill orders error:', err)
+    }
+  }
+
+  // Sort by priority then date
+  items.sort((a, b) => {
+    if (a.priority === 'rush' && b.priority !== 'rush') return -1
+    if (a.priority !== 'rush' && b.priority === 'rush') return 1
+    return new Date(b.queuedAt).getTime() - new Date(a.queuedAt).getTime()
+  })
+
+  return NextResponse.json({
     items,
     count: items.length,
-    source: items.length > 0 && items[0].shopifyOrderId ? 'shopify' : 'local',
-  });
+    source: 'local',
+  })
 }
 
+function mapRefillStatus(status: string): any {
+  const map: Record<string, any> = {
+    'pending-return': 'pending',
+    'in-transit': 'processing',
+    'received': 'blending',
+    'inspecting': 'quality-check',
+    'refilling': 'blending',
+    'completed': 'shipped',
+    'cancelled': 'cancelled',
+    'rejected': 'cancelled',
+  }
+  return map[status] || 'pending'
+}
+
+// ============================================================================
+// POST — Update Production Status
+// ============================================================================
+
 export async function POST(request: NextRequest) {
-  const authError = await requireAdminAuth(request);
-  if (authError) return authError;
+  const authError = await requireAdminAuth(request)
+  if (authError) return authError
 
   try {
-    const { orderId, action, shopifyOrderId } = await request.json();
+    const { orderId, action, changedBy = 'admin' } = await request.json()
 
     if (!orderId) {
-      return NextResponse.json({ error: 'orderId is required' }, { status: 400 });
+      return NextResponse.json({ error: 'orderId is required' }, { status: 400 })
     }
 
-    // If Shopify order, update tags to track production status
-    if (shopifyOrderId) {
-      try {
-        const { updateShopifyOrderTags } = await import('@/lib/shopify/admin-orders');
-        
-        if (action === 'start') {
-          await updateShopifyOrderTags(parseInt(shopifyOrderId), ['blending-started']);
-        } else if (action === 'complete') {
-          await updateShopifyOrderTags(parseInt(shopifyOrderId), ['blending-completed', 'ready-to-ship']);
-        }
-      } catch (err) {
-        console.warn('[Production Queue] Failed to update Shopify tags:', err);
+    // Try regular order
+    const existingOrder = await db.query.orders.findFirst({
+      where: eq(orders.id, orderId),
+    })
+
+    if (existingOrder) {
+      const { transitionOrderStatus } = await import('@/lib/orders/status-workflow')
+
+      if (action === 'start') {
+        const result = await transitionOrderStatus(orderId, 'blending', {
+          note: 'Production started',
+          changedBy,
+        })
+        return NextResponse.json({ success: result.success, action, orderId })
       }
+
+      if (action === 'complete') {
+        const result = await transitionOrderStatus(orderId, 'quality-check', {
+          note: 'Production completed, awaiting quality check',
+          changedBy,
+        })
+        return NextResponse.json({ success: result.success, action, orderId })
+      }
+
+      if (action === 'label') {
+        const result = await transitionOrderStatus(orderId, 'ready-to-ship', {
+          note: 'Label printed, ready for dispatch',
+          changedBy,
+        })
+        return NextResponse.json({ success: result.success, action, orderId })
+      }
+
+      return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
     }
 
-    // Also update local DB if this is a refill order
-    try {
+    // Try refill order
+    const existingRefill = await db.query.refillOrders.findFirst({
+      where: eq(refillOrders.id, orderId),
+    })
+
+    if (existingRefill) {
       if (action === 'start') {
         await db.update(refillOrders)
           .set({ status: 'refilling', updatedAt: new Date() })
-          .where(eq(refillOrders.id, orderId));
+          .where(eq(refillOrders.id, orderId))
       } else if (action === 'complete') {
         await db.update(refillOrders)
           .set({ status: 'completed', updatedAt: new Date(), completedAt: new Date() })
-          .where(eq(refillOrders.id, orderId));
+          .where(eq(refillOrders.id, orderId))
       }
-    } catch (localErr) {
-      // Local order may not exist, that's ok
+
+      return NextResponse.json({ success: true, action, orderId })
     }
 
-    return NextResponse.json({ success: true, action, orderId });
-  } catch (error) {
-    console.error('Production queue POST error:', error);
-    return NextResponse.json({ error: 'Failed to update production queue' }, { status: 500 });
+    return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+  } catch (error: any) {
+    console.error('[Production Queue] POST error:', error)
+    return NextResponse.json({ error: 'Failed to update production queue', details: error.message }, { status: 500 })
   }
 }
