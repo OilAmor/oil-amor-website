@@ -35,11 +35,11 @@ export const SECURITY_CONSTANTS = {
 
 export const CONTENT_SECURITY_POLICY = {
   'default-src': ["'self'"],
-  'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://cdn.shopify.com', 'https://vercel.live'],
+  'script-src': ["'self'", "'unsafe-inline'", "'unsafe-eval'", 'https://vercel.live'],
   'style-src': ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
   'font-src': ["'self'", 'https://fonts.gstatic.com'],
   'img-src': ["'self'", 'https:', 'data:', 'blob:'],
-  'connect-src': ["'self'", 'https://*.shopify.com', 'https://*.sanity.io'],
+  'connect-src': ["'self'", 'https://*.sanity.io'],
   'frame-ancestors': ["'none'"],
   'form-action': ["'self'"],
   'base-uri': ["'self'"],
@@ -107,14 +107,13 @@ export function decryptSensitiveData(encryptedData: string, key: string): string
 // Request Validation
 // ========================================
 
-export function isValidShopifyDomain(domain: string): boolean {
-  const shopifyDomainRegex = /^[a-zA-Z0-9][-a-zA-Z0-9]*\.myshopify\.com$/
-  return shopifyDomainRegex.test(domain)
+export function isValidDomain(domain: string): boolean {
+  const domainRegex = /^[a-zA-Z0-9][-a-zA-Z0-9]*\.[a-zA-Z]{2,}$/
+  return domainRegex.test(domain)
 }
 
-export function sanitizeShopifyId(id: string): string | null {
-  // Shopify GID format: gid://shopify/ProductVariant/123456789
-  const match = id.match(/^gid:\/\/shopify\/\w+\/\d+$/)
+export function sanitizeId(id: string): string | null {
+  const match = id.match(/^\d+$/)
   return match ? id : null
 }
 

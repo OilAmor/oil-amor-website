@@ -46,7 +46,6 @@ const securityConfig: SecurityConfig = {
         "'self'",
         "'unsafe-eval'",
         "'unsafe-inline'",
-        'https://cdn.shopify.com',
         'https://cdn.sanity.io',
         'https://js.sentry-cdn.com',
         'https://www.googletagmanager.com',
@@ -57,7 +56,6 @@ const securityConfig: SecurityConfig = {
       'script-src-elem': [
         "'self'",
         "'unsafe-inline'",
-        'https://cdn.shopify.com',
         'https://cdn.sanity.io',
         'https://js.sentry-cdn.com',
         'https://www.googletagmanager.com',
@@ -79,7 +77,6 @@ const securityConfig: SecurityConfig = {
         "'self'",
         'blob:',
         'data:',
-        'https://cdn.shopify.com',
         'https://cdn.sanity.io',
         'https://images.unsplash.com',
         'https://*.googleusercontent.com',
@@ -90,7 +87,7 @@ const securityConfig: SecurityConfig = {
       ],
       'connect-src': [
         "'self'",
-        'https://*.shopify.com',
+        'https://cdn.sanity.io',
         'https://*.sanity.io',
         'https://sentry.io',
         'https://*.sentry.io',

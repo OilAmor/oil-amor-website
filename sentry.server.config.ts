@@ -48,7 +48,7 @@ Sentry.init({
         delete event.request.headers['Authorization']
         delete event.request.headers['Cookie']
         delete event.request.headers['X-API-Key']
-        delete event.request.headers['X-Shopify-Access-Token']
+        delete event.request.headers['X-Admin-API-Key']
       }
       
       // Mask sensitive query params

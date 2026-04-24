@@ -9,7 +9,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { Redis } from '@upstash/redis'
 import { CartManager } from '@/lib/cart/cart-manager'
-import { syncCartToShopify } from '@/lib/cart/shopify-sync'
 import { logger } from '@/lib/logging/logger'
 import { checkApiRateLimit, createRateLimitHeaders } from '@/lib/redis/rate-limiter'
 
@@ -73,15 +72,8 @@ export async function POST(request: NextRequest) {
     // Merge carts
     const cart = await cartManager.mergeCarts(guestCartId, userCartId)
     
-    // Sync with Shopify (async) - optional
-    try {
-      syncCartToShopify(cart).catch((error) => {
-        logger.error('Shopify sync error after merge', error)
-      })
-    } catch {
-      // Shopify not configured, skip sync
-    }
-    
+    // Cart merged successfully (Shopify sync removed — local DB only)
+
     logger.info('Carts merged via API', { 
       guestCart: guestCartId.slice(0, 8), 
       userCart: userCartId.slice(0, 8) 

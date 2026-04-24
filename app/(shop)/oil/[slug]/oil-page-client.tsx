@@ -24,11 +24,8 @@ import { BOTTLE_SIZES } from '@/lib/content/product-config'
 import { calculatePurePrice, getAllPrices, formatPrice, CRYSTAL_COUNTS } from '@/lib/content/pricing-engine-final'
 import type { ProductType } from '@/lib/content/product-config'
 import type { RatioPreset } from '@/lib/content/ratio-engine'
-import type { ShopifyProductVariant } from '@/app/types'
-
 interface OilPageClientProps {
   slug: string
-  variant?: ShopifyProductVariant
 }
 
 // Element Badge Component
@@ -66,7 +63,7 @@ function ChakraBadge({ chakra, size = 'md' }: { chakra?: string; size?: 'sm' | '
   )
 }
 
-export default function OilPageClient({ slug, variant }: OilPageClientProps) {
+export default function OilPageClient({ slug }: OilPageClientProps) {
   const oilData = getOilByHandle(slug)
   
   // Calculate pure 30ml price as base
@@ -104,7 +101,6 @@ export default function OilPageClient({ slug, variant }: OilPageClientProps) {
   }
 
   const firstCrystal = oilData.crystalPairings[0]
-  const variantPrice = variant?.price ? parseFloat(variant.price.amount) : null
 
   // MOBILE: Stack vertically - Image, Purchase Info, Details
   // DESKTOP: Side by side - Image+Details left, Purchase sticky right

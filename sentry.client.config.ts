@@ -97,7 +97,6 @@ Sentry.init({
   tracePropagationTargets: [
     'localhost',
     /^https:\/\/.*\.oilamor\.com/,
-    /^https:\/\/.*\.shopify\.com/,
     /^https:\/\/.*\.sanity\.io/,
   ],
   
@@ -124,7 +123,6 @@ Sentry.init({
       // Network details to capture
       networkDetailAllowUrls: [
         window.location.origin,
-        'https://cdn.shopify.com',
         'https://cdn.sanity.io',
       ],
       // Don't capture these network requests
