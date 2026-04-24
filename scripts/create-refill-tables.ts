@@ -284,6 +284,38 @@ CREATE TABLE IF NOT EXISTS unlocked_oils (
 CREATE INDEX IF NOT EXISTS unlocked_oils_customer_idx ON unlocked_oils (customer_id);
 CREATE INDEX IF NOT EXISTS unlocked_oils_oil_idx ON unlocked_oils (oil_id);
 CREATE INDEX IF NOT EXISTS unlocked_oils_unique_idx ON unlocked_oils (customer_id, oil_id);
+
+-- ============================================================================
+-- BATCH RECORDS (for QR code label tracking)
+-- ============================================================================
+CREATE TABLE IF NOT EXISTS batch_records (
+  id text PRIMARY KEY,
+  blend_name text NOT NULL,
+  mode text NOT NULL DEFAULT 'pure',
+  oils jsonb NOT NULL DEFAULT '[]',
+  carrier_oil text,
+  carrier_percentage integer,
+  size integer NOT NULL,
+  crystal text,
+  cord text,
+  intended_use text,
+  safety_warnings jsonb DEFAULT '[]',
+  safety_score integer NOT NULL DEFAULT 95,
+  safety_rating text NOT NULL DEFAULT 'safe',
+  is_refill boolean NOT NULL DEFAULT false,
+  source_volume integer,
+  target_volume integer,
+  original_batch_id text,
+  order_id text,
+  shopify_order_id text,
+  customer_name text,
+  created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+  expires_at timestamp with time zone NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS batch_order_idx ON batch_records (order_id);
+CREATE INDEX IF NOT EXISTS batch_created_idx ON batch_records (created_at);
+CREATE INDEX IF NOT EXISTS batch_expires_idx ON batch_records (expires_at);
 `;
 
 async function main() {
@@ -307,7 +339,7 @@ async function main() {
       SELECT table_name 
       FROM information_schema.tables 
       WHERE table_schema = 'public' 
-      AND table_name IN ('forever_bottles', 'refill_orders', 'customer_credits', 'credit_transactions', 'auspost_shipments', 'inventory_items', 'orders', 'customers', 'audit_logs', 'unlocked_oils')
+      AND table_name IN ('forever_bottles', 'refill_orders', 'customer_credits', 'credit_transactions', 'auspost_shipments', 'inventory_items', 'orders', 'customers', 'audit_logs', 'unlocked_oils', 'batch_records')
       ORDER BY table_name
     `);
     

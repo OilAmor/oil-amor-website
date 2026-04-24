@@ -1,21 +1,52 @@
 /**
- * Label Generation API — Enhanced v2
- * 
- * Generates beautiful, print-ready bottle labels with:
- * - Oil-specific safety warnings from the Oil Amor Safety Database
- * - Real QR codes for batch tracking
- * - Per-oil ml measurements with percentages
- * - Professional Oil Amor branding
- * - Crystal pairing display
- * - Carrier oil dilution info
+ * Label Generation API — v3 Wrap-Around with Dynamic Sizing
+ *
+ * Generates landscape wrap-around bottle labels that adapt to bottle size:
+ * - 5ml–30ml: Standard atelier bottles
+ * - 50ml–100ml: Forever Bottle refills
+ *
+ * Smart space management: if blend is too complex for the label,
+ * shows summary + large QR code linking to full batch details.
+ *
+ * Front panel (left): Oil Amor brand, blend name, crystal, size
+ * Back panel (right): Ingredients, warnings, QR code, batch info
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdminAuth } from '@/lib/admin/auth';
 import { getOilSafetyProfile } from '@/lib/safety/database';
 import type { OilSafetyProfile } from '@/lib/safety/types';
+import { buildAndSaveBatchRecord } from '@/lib/batch/records';
 
 export const dynamic = 'force-dynamic';
+
+// ============================================================================
+// SIZE CONFIGURATIONS
+// ============================================================================
+
+interface LabelSizeConfig {
+  widthMm: number;   // Landscape width (wrap-around circumference)
+  heightMm: number;  // Label height
+  maxOils: number;   // Max oils shown before QR fallback
+  maxWarnings: number; // Max warning badges before QR fallback
+  fontScale: number; // Base font size multiplier
+  qrSizeMm: number;  // QR code size
+  isRefill: boolean; // Whether this is a refill size
+}
+
+const SIZE_CONFIGS: Record<number, LabelSizeConfig> = {
+  5:   { widthMm: 55, heightMm: 18, maxOils: 3, maxWarnings: 2, fontScale: 0.72, qrSizeMm: 10, isRefill: false },
+  10:  { widthMm: 60, heightMm: 20, maxOils: 4, maxWarnings: 2, fontScale: 0.78, qrSizeMm: 11, isRefill: false },
+  15:  { widthMm: 65, heightMm: 22, maxOils: 5, maxWarnings: 3, fontScale: 0.85, qrSizeMm: 12, isRefill: false },
+  20:  { widthMm: 70, heightMm: 25, maxOils: 6, maxWarnings: 3, fontScale: 0.92, qrSizeMm: 13, isRefill: false },
+  30:  { widthMm: 80, heightMm: 30, maxOils: 8, maxWarnings: 4, fontScale: 1.00, qrSizeMm: 15, isRefill: false },
+  50:  { widthMm: 95, heightMm: 35, maxOils: 10, maxWarnings: 5, fontScale: 1.12, qrSizeMm: 17, isRefill: true },
+  100: { widthMm: 110, heightMm: 40, maxOils: 12, maxWarnings: 6, fontScale: 1.25, qrSizeMm: 20, isRefill: true },
+};
+
+function getSizeConfig(size: number): LabelSizeConfig {
+  return SIZE_CONFIGS[size] || SIZE_CONFIGS[30];
+}
 
 // ============================================================================
 // TYPES
@@ -25,7 +56,7 @@ export interface LabelOil {
   name: string;
   percentage: number;
   ml: number;
-  oilId?: string; // For safety database lookup
+  oilId?: string;
 }
 
 export interface LabelData {
@@ -39,8 +70,17 @@ export interface LabelData {
   expiryDate: string;
   warnings: string[];
   crystal?: string;
+  cord?: string;
   intendedUse?: string;
-  // Toggleable elements
+  // Refill info
+  isRefill?: boolean;
+  sourceVolume?: number;
+  originalBatchId?: string;
+  // Order info for batch record
+  orderId?: string;
+  shopifyOrderId?: string;
+  customerName?: string;
+  // Display toggles
   showIngredients?: boolean;
   showExpiry?: boolean;
   showWarnings?: boolean;
@@ -48,13 +88,10 @@ export interface LabelData {
   showBatchId?: boolean;
   showMadeDate?: boolean;
   showCrystal?: boolean;
-  showSafetyIcons?: boolean;
-  // QR target
-  qrUrl?: string;
 }
 
 // ============================================================================
-// SAFETY WARNING EXTRACTION
+// SAFETY WARNINGS
 // ============================================================================
 
 interface ExtractedWarning {
@@ -73,62 +110,45 @@ function extractOilWarnings(oils: LabelOil[]): ExtractedWarning[] {
     const profile = getOilSafetyProfile(oil.oilId);
     if (!profile) continue;
 
-    // Photosensitivity
     if (profile.photosensitivity.isPhotosensitive) {
-      const key = `photosensitive-${oil.oilId}`;
+      const key = `photo-${oil.oilId}`;
       if (!seen.has(key)) {
         seen.add(key);
         warnings.push({
-          text: `${profile.commonName}: Avoid sun for ${profile.photosensitivity.safeAfterHours || 12}+ hrs after application`,
-          severity: 'warning',
-          icon: '☀️',
-          category: 'photosensitivity',
+          text: `${profile.commonName}: Avoid sun ${profile.photosensitivity.safeAfterHours || 12}+h`,
+          severity: 'warning', icon: '☀️', category: 'photosensitivity',
         });
       }
     }
 
-    // Skin sensitization
     if (profile.skinSensitization.isSensitizer && profile.skinSensitization.riskLevel !== 'low') {
-      const key = `sensitizer-${oil.oilId}`;
+      const key = `skin-${oil.oilId}`;
       if (!seen.has(key)) {
         seen.add(key);
         warnings.push({
-          text: `${profile.commonName}: May cause skin sensitization (risk: ${profile.skinSensitization.riskLevel})`,
+          text: `${profile.commonName}: Skin sensitizer (${profile.skinSensitization.riskLevel})`,
           severity: profile.skinSensitization.riskLevel === 'high' ? 'critical' : 'warning',
-          icon: '⚠️',
-          category: 'skin',
+          icon: '⚠️', category: 'skin',
         });
       }
     }
 
-    // Pregnancy
     if (profile.pregnancySafety === 'avoid') {
-      const key = `pregnancy-${oil.oilId}`;
+      const key = `preg-${oil.oilId}`;
       if (!seen.has(key)) {
         seen.add(key);
-        warnings.push({
-          text: `${profile.commonName}: Avoid during pregnancy`,
-          severity: 'critical',
-          icon: '🤰',
-          category: 'pregnancy',
-        });
+        warnings.push({ text: `${profile.commonName}: Avoid in pregnancy`, severity: 'critical', icon: '🤰', category: 'pregnancy' });
       }
     } else if (profile.pregnancySafety === 'caution') {
-      const key = `pregnancy-caution-${oil.oilId}`;
+      const key = `pregc-${oil.oilId}`;
       if (!seen.has(key)) {
         seen.add(key);
-        warnings.push({
-          text: `${profile.commonName}: Use with caution during pregnancy`,
-          severity: 'caution',
-          icon: '🤰',
-          category: 'pregnancy',
-        });
+        warnings.push({ text: `${profile.commonName}: Caution in pregnancy`, severity: 'caution', icon: '🤰', category: 'pregnancy' });
       }
     }
 
-    // Toxicity
     if (profile.toxicity.level !== 'none' && profile.toxicity.level !== 'low') {
-      const key = `toxicity-${oil.oilId}`;
+      const key = `tox-${oil.oilId}`;
       if (!seen.has(key)) {
         seen.add(key);
         const routes: string[] = [];
@@ -136,15 +156,13 @@ function extractOilWarnings(oils: LabelOil[]): ExtractedWarning[] {
         if (profile.toxicity.dermal) routes.push('dermal');
         if (profile.toxicity.inhalation) routes.push('inhalation');
         warnings.push({
-          text: `${profile.commonName}: Toxic via ${routes.join('/')}`,
+          text: `${profile.commonName}: Toxic (${routes.join('/')})`,
           severity: profile.toxicity.level === 'extreme' ? 'critical' : 'warning',
-          icon: '☠️',
-          category: 'toxicity',
+          icon: '☠️', category: 'toxicity',
         });
       }
     }
 
-    // Contraindications
     for (const c of profile.contraindications) {
       const key = `contra-${c.type}-${oil.oilId}`;
       if (!seen.has(key)) {
@@ -152,49 +170,51 @@ function extractOilWarnings(oils: LabelOil[]): ExtractedWarning[] {
         warnings.push({
           text: `${profile.commonName}: ${c.description}`,
           severity: c.severity === 'critical' || c.severity === 'avoid' ? 'critical' : 'warning',
-          icon: '🚫',
-          category: 'contraindication',
+          icon: '🚫', category: 'contraindication',
         });
       }
     }
 
-    // Drug interactions
     for (const di of profile.drugInteractions) {
       const key = `drug-${di.drugClass}-${oil.oilId}`;
       if (!seen.has(key)) {
         seen.add(key);
         warnings.push({
-          text: `${profile.commonName}: Interacts with ${di.drugClass} — ${di.description}`,
+          text: `${profile.commonName}: ${di.drugClass} interaction`,
           severity: di.severity === 'critical' ? 'critical' : di.severity === 'warning' ? 'warning' : 'caution',
-          icon: '💊',
-          category: 'drug-interaction',
+          icon: '💊', category: 'drug-interaction',
         });
       }
     }
   }
 
-  // Sort by severity
-  const severityOrder = { critical: 0, warning: 1, caution: 2, info: 3 };
-  warnings.sort((a, b) => severityOrder[a.severity] - severityOrder[b.severity]);
-
+  const order = { critical: 0, warning: 1, caution: 2, info: 3 };
+  warnings.sort((a, b) => order[a.severity] - order[b.severity]);
   return warnings;
 }
 
-function getSeverityColor(severity: ExtractedWarning['severity']): string {
-  switch (severity) {
-    case 'critical': return '#dc2626'; // red-600
-    case 'warning': return '#d97706'; // amber-600
-    case 'caution': return '#ca8a04'; // yellow-600
-    case 'info': return '#2563eb'; // blue-600
+function getSeverityColor(s: ExtractedWarning['severity']): string {
+  switch (s) {
+    case 'critical': return '#991b1b';
+    case 'warning': return '#9a3412';
+    case 'caution': return '#854d0e';
+    case 'info': return '#1e40af';
   }
 }
-
-function getSeverityBg(severity: ExtractedWarning['severity']): string {
-  switch (severity) {
-    case 'critical': return '#fef2f2'; // red-50
-    case 'warning': return '#fffbeb'; // amber-50
-    case 'caution': return '#fefce8'; // yellow-50
-    case 'info': return '#eff6ff'; // blue-50
+function getSeverityBg(s: ExtractedWarning['severity']): string {
+  switch (s) {
+    case 'critical': return '#fef2f2';
+    case 'warning': return '#fff7ed';
+    case 'caution': return '#fefce8';
+    case 'info': return '#eff6ff';
+  }
+}
+function getSeverityBorder(s: ExtractedWarning['severity']): string {
+  switch (s) {
+    case 'critical': return '#fecaca';
+    case 'warning': return '#fed7aa';
+    case 'caution': return '#fde047';
+    case 'info': return '#bfdbfe';
   }
 }
 
@@ -202,431 +222,349 @@ function getSeverityBg(severity: ExtractedWarning['severity']): string {
 // QR CODE
 // ============================================================================
 
-function generateQrCodeUrl(data: string): string {
-  // Use QRServer API for reliable QR generation
-  const encoded = encodeURIComponent(data);
-  return `https://api.qrserver.com/v1/create-qr-code/?size=120x120&margin=2&data=${encoded}`;
+function qrCodeUrl(data: string, size: number): string {
+  return `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&margin=1&data=${encodeURIComponent(data)}`;
 }
 
 // ============================================================================
 // HTML GENERATION
 // ============================================================================
 
-function escapeHtml(unsafe: string): string {
-  return unsafe
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
+function escapeHtml(u: string): string {
+  return u.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+}
+
+function pt(mm: number, scale: number): string {
+  return `${(mm * 2.835 * scale).toFixed(2)}pt`;
+}
+
+function mmCss(mm: number, scale: number): string {
+  return `${(mm * scale).toFixed(2)}mm`;
 }
 
 function generateLabelHtml(data: LabelData): string {
-  const {
-    showIngredients = true,
-    showExpiry = true,
-    showWarnings = true,
-    showQRCode = true,
-    showBatchId = true,
-    showMadeDate = true,
-    showCrystal = true,
-    showSafetyIcons = true,
-  } = data;
+  const config = getSizeConfig(data.size);
+  const s = config.fontScale;
+  const w = config.widthMm;
+  const h = config.heightMm;
 
-  const extractedWarnings = extractOilWarnings(data.oils);
-  const allWarnings = [...extractedWarnings];
-  
-  // Add user-provided warnings
-  for (const w of data.warnings) {
-    if (!allWarnings.some(ew => ew.text === w)) {
-      allWarnings.push({
-        text: w,
-        severity: 'warning',
-        icon: '⚠️',
-        category: 'general',
-      });
+  const extracted = extractOilWarnings(data.oils);
+  const allWarnings: ExtractedWarning[] = [...extracted];
+  for (const wText of data.warnings) {
+    if (!allWarnings.some(ew => ew.text === wText)) {
+      allWarnings.push({ text: wText, severity: 'warning', icon: '⚠️', category: 'general' });
     }
   }
-
-  // Default warnings if none found
   if (allWarnings.length === 0) {
     allWarnings.push(
       { text: 'External use only', severity: 'info', icon: '📌', category: 'general' },
       { text: 'Do not ingest', severity: 'info', icon: '📌', category: 'general' },
-      { text: 'Keep away from children', severity: 'info', icon: '📌', category: 'general' },
-      { text: 'Perform patch test before use', severity: 'caution', icon: '🔬', category: 'general' },
+      { text: 'Keep from children', severity: 'info', icon: '📌', category: 'general' },
     );
   }
 
-  // Build ingredient rows with ml and %
-  const ingredientRows = data.oils.map(o => `
+  // Smart space management
+  const needsQrFallback = data.oils.length > config.maxOils || allWarnings.length > config.maxWarnings;
+  const oilsToShow = needsQrFallback ? Math.min(3, data.oils.length) : data.oils.length;
+  const warningsToShow = needsQrFallback
+    ? allWarnings.filter(w => w.severity === 'critical').slice(0, 2)
+    : allWarnings.slice(0, config.maxWarnings);
+
+  const hiddenOils = data.oils.length - oilsToShow;
+  const hiddenWarnings = allWarnings.length - warningsToShow.length;
+
+  // Panel widths: front gets ~40%, back gets ~60%
+  const frontWidth = w * 0.38;
+  const backWidth = w * 0.62;
+
+  // Build oil rows
+  const oilRows = data.oils.slice(0, oilsToShow).map(o => `
     <tr>
       <td class="oil-name">${escapeHtml(o.name)}</td>
-      <td class="oil-ml">${o.ml.toFixed(1)}ml</td>
-      <td class="oil-pct">${o.percentage}%</td>
+      <td class="oil-amt">${o.ml.toFixed(1)}ml</td>
+      <td class="oil-pct">${o.percentage.toFixed(1)}%</td>
     </tr>
   `).join('');
 
-  // Carrier oil row
   const carrierRow = data.carrierOil ? `
     <tr class="carrier-row">
-      <td class="oil-name">${escapeHtml(data.carrierOil)} (carrier)</td>
-      <td class="oil-ml">—</td>
-      <td class="oil-pct">${data.carrierPercentage || 0}%</td>
+      <td class="oil-name">${escapeHtml(data.carrierOil)}</td>
+      <td class="oil-amt">carrier</td>
+      <td class="oil-pct">${(data.carrierPercentage || 0).toFixed(0)}%</td>
     </tr>
-  ` : '';
-
-  // QR code
-  const qrUrl = data.qrUrl || `https://oilamor.com/batch/${encodeURIComponent(data.batchId)}`;
-  const qrCodeUrl = generateQrCodeUrl(qrUrl);
-
-  // Crystal display
-  const crystalHtml = showCrystal && data.crystal ? `
-    <div class="crystal-section">
-      <span class="crystal-icon">💎</span>
-      <span class="crystal-name">${escapeHtml(data.crystal)}</span>
-    </div>
-  ` : '';
-
-  // Intended use
-  const useHtml = data.intendedUse ? `
-    <div class="intended-use">${escapeHtml(data.intendedUse)}</div>
   ` : '';
 
   // Warning badges
-  const warningBadges = allWarnings.slice(0, 4).map(w => `
-    <div class="warning-badge" style="background:${getSeverityBg(w.severity)};color:${getSeverityColor(w.severity)};">
-      <span class="warning-icon">${w.icon}</span>
-      <span class="warning-text">${escapeHtml(w.text)}</span>
+  const warningHtml = warningsToShow.map(w => `
+    <div class="w-badge" style="background:${getSeverityBg(w.severity)};color:${getSeverityColor(w.severity)};border:0.3px solid ${getSeverityBorder(w.severity)};">
+      <span class="w-icon">${w.icon}</span><span class="w-text">${escapeHtml(w.text)}</span>
     </div>
   `).join('');
 
-  // Count additional warnings
-  const moreWarnings = allWarnings.length > 4 ? `
-    <div class="more-warnings">+${allWarnings.length - 4} more warnings — scan QR for full safety info</div>
+  // QR code
+  const batchUrl = `https://oilamor.com/batch/${encodeURIComponent(data.batchId)}`;
+  const qrSizePx = Math.round(config.qrSizeMm * 3.78 * (needsQrFallback ? 1.4 : 1));
+  const qrImg = qrCodeUrl(batchUrl, qrSizePx);
+
+  // Refill banner
+  const refillBanner = data.isRefill ? `
+    <div class="refill-banner">
+      <span class="refill-icon">🔁</span>
+      <span class="refill-text">Forever Bottle Refill</span>
+    </div>
+    <div class="refill-sub">Original ${data.sourceVolume || 30}ml blend • Same ratio • Scaled to ${data.size}ml</div>
+  ` : '';
+
+  // Crystal
+  const crystalHtml = data.crystal ? `<div class="crystal">💎 ${escapeHtml(data.crystal)}</div>` : '';
+
+  // Intended use
+  const useHtml = data.intendedUse ? `<div class="use-tag">${escapeHtml(data.intendedUse)}</div>` : '';
+
+  // Hidden content note
+  const hiddenNote = needsQrFallback ? `
+    <div class="hidden-note">
+      ${hiddenOils > 0 ? `+${hiddenOils} more oils ` : ''}
+      ${hiddenWarnings > 0 ? `+${hiddenWarnings} more warnings ` : ''}
+      — scan QR for complete info
+    </div>
   ` : '';
 
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Oil Amor — ${escapeHtml(data.blendName)}</title>
+  <title>${escapeHtml(data.blendName)}</title>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap');
-    
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    
+    * { margin:0; padding:0; box-sizing:border-box; }
     body {
-      width: 70mm;
-      min-height: 120mm;
-      padding: 5mm 4mm;
-      font-family: 'Inter', 'Helvetica Neue', sans-serif;
-      background: #fff;
-      color: #1a1a1a;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
+      width: ${w}mm; height: ${h}mm;
+      font-family: 'Inter', sans-serif;
+      background: #fff; color: #1a1a1a;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+      overflow: hidden;
     }
-    
-    /* Brand Header */
-    .brand-header {
-      text-align: center;
-      border-bottom: 1.5px solid #c9a227;
-      padding-bottom: 2.5mm;
-      margin-bottom: 2.5mm;
+    .wrap {
+      display: flex; width: 100%; height: 100%;
     }
-    .brand-logo {
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      font-size: 9pt;
-      font-weight: 700;
-      letter-spacing: 0.25em;
-      color: #c9a227;
-      text-transform: uppercase;
+
+    /* ===== FRONT PANEL ===== */
+    .front {
+      width: ${frontWidth.toFixed(1)}mm; height: 100%;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: ${mmCss(1.5, s)};
+      border-right: 0.4px solid #e5e5e5;
+      position: relative;
     }
-    .brand-tagline {
-      font-size: 5pt;
-      color: #a69b8a;
-      letter-spacing: 0.1em;
-      margin-top: 0.5mm;
+    .front-logo {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: ${pt(3.2, s)}; font-weight: 700;
+      letter-spacing: ${pt(0.3, s)};
+      color: #c9a227; text-transform: uppercase;
     }
-    
-    /* Blend Info */
-    .blend-info {
-      text-align: center;
-      margin-bottom: 2mm;
+    .front-tagline {
+      font-size: ${pt(1.3, s)}; color: #a69b8a;
+      letter-spacing: ${pt(0.08, s)};
+      margin-top: ${mmCss(0.3, s)};
     }
-    .blend-name {
-      font-family: 'Cormorant Garamond', Georgia, serif;
-      font-size: 13pt;
-      font-weight: 700;
-      color: #0a080c;
-      line-height: 1.2;
+    .front-divider {
+      width: 60%; height: 0.4px; background: #c9a227;
+      margin: ${mmCss(1, s)} 0;
     }
-    .blend-type {
-      font-size: 6.5pt;
-      color: #666;
-      font-style: italic;
-      margin-top: 0.5mm;
+    .front-name {
+      font-family: 'Cormorant Garamond', serif;
+      font-size: ${pt(3.8, s)}; font-weight: 700;
+      color: #0a080c; text-align: center;
+      line-height: 1.15;
     }
-    .intended-use {
-      display: inline-block;
-      font-size: 5.5pt;
-      color: #c9a227;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-top: 1mm;
-      padding: 0.5mm 2mm;
-      border: 0.5px solid #c9a227;
-      border-radius: 1mm;
+    .front-type {
+      font-size: ${pt(1.5, s)}; color: #666;
+      font-style: italic; margin-top: ${mmCss(0.4, s)};
     }
-    
-    /* Crystal */
-    .crystal-section {
-      text-align: center;
-      margin: 1.5mm 0;
+    .front-size {
+      font-size: ${pt(2, s)}; font-weight: 600;
+      color: #c9a227; margin-top: ${mmCss(0.5, s)};
     }
-    .crystal-icon { font-size: 8pt; }
-    .crystal-name {
-      font-size: 6.5pt;
-      color: #6b5b4e;
-      font-style: italic;
+    .use-tag {
+      font-size: ${pt(1.2, s)}; color: #c9a227;
+      text-transform: uppercase; letter-spacing: ${pt(0.1, s)};
+      margin-top: ${mmCss(0.6, s)};
+      padding: ${mmCss(0.3, s)} ${mmCss(1, s)};
+      border: 0.3px solid #c9a227; border-radius: ${mmCss(0.5, s)};
     }
-    
+    .crystal {
+      font-size: ${pt(1.4, s)}; color: #6b5b4e;
+      font-style: italic; margin-top: ${mmCss(0.5, s)};
+    }
+    .refill-banner {
+      display: flex; align-items: center; gap: ${mmCss(0.5, s)};
+      margin-top: ${mmCss(0.8, s)};
+      padding: ${mmCss(0.3, s)} ${mmCss(1, s)};
+      background: #fefce8; border: 0.3px solid #fde047;
+      border-radius: ${mmCss(0.5, s)};
+    }
+    .refill-icon { font-size: ${pt(1.6, s)}; }
+    .refill-text {
+      font-size: ${pt(1.1, s)}; font-weight: 600;
+      color: #854d0e; text-transform: uppercase;
+      letter-spacing: ${pt(0.05, s)};
+    }
+    .refill-sub {
+      font-size: ${pt(1, s)}; color: #a69b8a;
+      margin-top: ${mmCss(0.3, s)}; text-align: center;
+    }
+    .front-footer {
+      position: absolute; bottom: ${mmCss(1, s)};
+      font-size: ${pt(1, s)}; color: #bbb;
+      letter-spacing: ${pt(0.05, s)};
+    }
+
+    /* ===== BACK PANEL ===== */
+    .back {
+      width: ${backWidth.toFixed(1)}mm; height: 100%;
+      display: flex; flex-direction: column;
+      padding: ${mmCss(1.5, s)} ${mmCss(2, s)};
+    }
+    .back-header {
+      font-size: ${pt(1.4, s)}; font-weight: 600;
+      color: #888; text-transform: uppercase;
+      letter-spacing: ${pt(0.1, s)};
+      margin-bottom: ${mmCss(0.8, s)};
+      border-bottom: 0.3px solid #ddd;
+      padding-bottom: ${mmCss(0.5, s)};
+    }
+
     /* Ingredients Table */
-    .ingredients-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 2mm 0;
-      font-size: 6.5pt;
+    .ing-table { width: 100%; border-collapse: collapse; font-size: ${pt(1.5, s)}; }
+    .ing-table thead th {
+      text-align: left; font-weight: 600; font-size: ${pt(1.2, s)};
+      color: #999; text-transform: uppercase; letter-spacing: ${pt(0.04, s)};
+      padding: ${mmCss(0.4, s)} ${mmCss(0.4, s)} ${mmCss(0.4, s)} 0;
+      border-bottom: 0.3px solid #ddd;
     }
-    .ingredients-table thead th {
-      text-align: left;
-      font-weight: 600;
-      font-size: 5.5pt;
-      color: #888;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      padding: 1mm 1mm 1mm 0;
-      border-bottom: 0.5px solid #ddd;
-    }
-    .ingredients-table thead th:last-child { text-align: right; }
-    .ingredients-table thead th:nth-child(2) { text-align: right; }
-    .ingredients-table tbody td {
-      padding: 0.8mm 1mm 0.8mm 0;
-      border-bottom: 0.3px solid #f0f0f0;
+    .ing-table thead th:last-child { text-align: right; }
+    .ing-table thead th:nth-child(2) { text-align: right; }
+    .ing-table tbody td {
+      padding: ${mmCss(0.35, s)} ${mmCss(0.4, s)} ${mmCss(0.35, s)} 0;
+      border-bottom: 0.2px solid #f0f0f0;
       vertical-align: top;
     }
-    .ingredients-table tbody td:last-child { text-align: right; }
-    .ingredients-table tbody td:nth-child(2) { text-align: right; font-variant-numeric: tabular-nums; }
+    .ing-table tbody td:last-child { text-align: right; }
+    .ing-table tbody td:nth-child(2) { text-align: right; }
     .oil-name { color: #1a1a1a; font-weight: 500; }
-    .oil-ml { color: #555; font-size: 6pt; }
-    .oil-pct { color: #c9a227; font-weight: 600; font-size: 6.5pt; }
+    .oil-amt { color: #555; font-size: ${pt(1.35, s)}; font-variant-numeric: tabular-nums; }
+    .oil-pct { color: #c9a227; font-weight: 600; font-size: ${pt(1.4, s)}; }
     .carrier-row .oil-name { color: #666; font-style: italic; }
     .carrier-row .oil-pct { color: #888; }
-    
-    /* Total row */
     .total-row td {
-      border-top: 0.8px solid #c9a227;
-      border-bottom: none;
-      padding-top: 1mm;
-      font-weight: 600;
-      color: #0a080c;
+      border-top: 0.5px solid #c9a227; border-bottom: none;
+      padding-top: ${mmCss(0.5, s)}; font-weight: 600; color: #0a080c;
     }
-    
-    /* Details Grid */
-    .details-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 1.5mm;
-      margin: 2mm 0;
-      padding: 2mm;
-      background: #faf9f7;
-      border-radius: 1.5mm;
-    }
-    .detail-item {
-      display: flex;
-      flex-direction: column;
-    }
-    .detail-label {
-      font-size: 5pt;
-      color: #999;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-    }
-    .detail-value {
-      font-size: 6.5pt;
-      font-weight: 600;
-      color: #0a080c;
-      font-variant-numeric: tabular-nums;
-    }
-    
+
     /* Warnings */
-    .warnings-section {
-      margin: 2mm 0;
+    .warnings-section { margin-top: ${mmCss(1, s)}; }
+    .w-badge {
+      display: flex; align-items: flex-start; gap: ${mmCss(0.4, s)};
+      padding: ${mmCss(0.4, s)} ${mmCss(0.8, s)};
+      border-radius: ${mmCss(0.4, s)}; margin-bottom: ${mmCss(0.4, s)};
+      font-size: ${pt(1.25, s)}; line-height: 1.3;
     }
-    .warning-badge {
-      display: flex;
-      align-items: flex-start;
-      gap: 1mm;
-      padding: 1mm 1.5mm;
-      border-radius: 1mm;
-      margin-bottom: 1mm;
-      font-size: 5.5pt;
-      line-height: 1.35;
+    .w-icon { flex-shrink: 0; font-size: ${pt(1.4, s)}; margin-top: 0.1mm; }
+    .w-text { flex: 1; }
+    .hidden-note {
+      font-size: ${pt(1.1, s)}; color: #999;
+      font-style: italic; text-align: center;
+      margin-top: ${mmCss(0.3, s)};
     }
-    .warning-icon { flex-shrink: 0; font-size: 6pt; margin-top: 0.2mm; }
-    .warning-text { flex: 1; }
-    .more-warnings {
-      font-size: 5pt;
-      color: #999;
-      text-align: center;
-      font-style: italic;
-      margin-top: 0.5mm;
+
+    /* QR + Batch footer */
+    .back-footer {
+      margin-top: auto;
+      display: flex; align-items: center; gap: ${mmCss(1.5, s)};
+      padding-top: ${mmCss(1, s)};
+      border-top: 0.3px solid #eee;
     }
-    
-    /* QR Section */
-    .qr-section {
-      display: flex;
-      align-items: center;
-      gap: 2mm;
-      margin-top: 2mm;
-      padding-top: 2mm;
-      border-top: 0.5px solid #eee;
-    }
-    .qr-image {
-      width: 16mm;
-      height: 16mm;
-      flex-shrink: 0;
-    }
-    .qr-image img {
-      width: 100%;
-      height: 100%;
+    .qr-wrap { flex-shrink: 0; }
+    .qr-wrap img {
+      width: ${config.qrSizeMm * (needsQrFallback ? 1.4 : 1)}mm;
+      height: ${config.qrSizeMm * (needsQrFallback ? 1.4 : 1)}mm;
       object-fit: contain;
     }
-    .qr-info {
-      flex: 1;
-    }
+    .batch-info { flex: 1; }
+    .batch-label { font-size: ${pt(1.1, s)}; color: #999; text-transform: uppercase; letter-spacing: ${pt(0.05, s)}; }
     .batch-id {
       font-family: 'Cormorant Garamond', serif;
-      font-size: 7pt;
-      font-weight: 600;
-      color: #0a080c;
-      letter-spacing: 0.03em;
+      font-size: ${pt(1.8, s)}; font-weight: 600; color: #0a080c;
     }
-    .batch-label {
-      font-size: 5pt;
-      color: #999;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
+    .batch-dates {
+      font-size: ${pt(1.1, s)}; color: #999;
+      margin-top: ${mmCss(0.2, s)};
     }
     .qr-hint {
-      font-size: 4.5pt;
-      color: #bbb;
-      margin-top: 0.5mm;
+      font-size: ${pt(1, s)}; color: #bbb;
+      margin-top: ${mmCss(0.2, s)};
     }
-    
-    /* Footer */
-    .label-footer {
-      margin-top: 1.5mm;
-      text-align: center;
-      font-size: 4.5pt;
-      color: #bbb;
-      letter-spacing: 0.05em;
-    }
-    
+
     @media print {
-      body { width: 70mm; min-height: 120mm; margin: 0; padding: 5mm 4mm; }
-      @page { size: 70mm 120mm; margin: 0; }
+      body { width: ${w}mm; height: ${h}mm; margin: 0; padding: 0; }
+      @page { size: ${w}mm ${h}mm; margin: 0; }
     }
   </style>
 </head>
 <body>
-  <!-- Brand Header -->
-  <div class="brand-header">
-    <div class="brand-logo">Oil Amor</div>
-    <div class="brand-tagline">Handcrafted Essential Oils</div>
-  </div>
-  
-  <!-- Blend Info -->
-  <div class="blend-info">
-    <div class="blend-name">${escapeHtml(data.blendName)}</div>
-    <div class="blend-type">${data.carrierOil ? `${escapeHtml(data.carrierOil)} Carrier Dilution` : 'Pure Essential Oil Blend'} • ${data.size}ml</div>
-    ${useHtml}
-  </div>
-  
-  ${crystalHtml}
-  
-  <!-- Ingredients -->
-  ${showIngredients ? `
-  <table class="ingredients-table">
-    <thead>
-      <tr>
-        <th>Ingredient</th>
-        <th>Amount</th>
-        <th>%</th>
-      </tr>
-    </thead>
-    <tbody>
-      ${ingredientRows}
-      ${carrierRow}
-      <tr class="total-row">
-        <td>Total</td>
-        <td>${data.size}ml</td>
-        <td>100%</td>
-      </tr>
-    </tbody>
-  </table>
-  ` : ''}
-  
-  <!-- Details -->
-  <div class="details-grid">
-    ${showBatchId ? `
-    <div class="detail-item">
-      <span class="detail-label">Batch</span>
-      <span class="detail-value">${escapeHtml(data.batchId)}</span>
+  <div class="wrap">
+    <!-- FRONT PANEL -->
+    <div class="front">
+      <div class="front-logo">Oil Amor</div>
+      <div class="front-tagline">Handcrafted</div>
+      <div class="front-divider"></div>
+      <div class="front-name">${escapeHtml(data.blendName)}</div>
+      <div class="front-type">${data.carrierOil ? 'Carrier Dilution' : 'Pure Essential Oil Blend'}</div>
+      <div class="front-size">${data.size}ml</div>
+      ${useHtml}
+      ${crystalHtml}
+      ${refillBanner}
+      <div class="front-footer">oilamor.com</div>
     </div>
-    ` : ''}
-    ${showMadeDate ? `
-    <div class="detail-item">
-      <span class="detail-label">Made</span>
-      <span class="detail-value">${escapeHtml(data.madeDate)}</span>
+
+    <!-- BACK PANEL -->
+    <div class="back">
+      <div class="back-header">Ingredients & Safety</div>
+
+      <table class="ing-table">
+        <thead>
+          <tr><th>Ingredient</th><th>Amt</th><th>%</th></tr>
+        </thead>
+        <tbody>
+          ${oilRows}
+          ${carrierRow}
+          <tr class="total-row">
+            <td>Total</td>
+            <td>${data.size}ml</td>
+            <td>100%</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="warnings-section">
+        ${warningHtml}
+        ${hiddenNote}
+      </div>
+
+      <div class="back-footer">
+        <div class="qr-wrap">
+          <img src="${qrImg}" alt="QR" onerror="this.style.display='none'">
+        </div>
+        <div class="batch-info">
+          <div class="batch-label">Batch</div>
+          <div class="batch-id">${escapeHtml(data.batchId)}</div>
+          <div class="batch-dates">Made ${escapeHtml(data.madeDate)} • Exp ${escapeHtml(data.expiryDate)}</div>
+          <div class="qr-hint">Scan for full recipe &amp; safety</div>
+        </div>
+      </div>
     </div>
-    ` : ''}
-    ${showExpiry ? `
-    <div class="detail-item">
-      <span class="detail-label">Expires</span>
-      <span class="detail-value">${escapeHtml(data.expiryDate)}</span>
-    </div>
-    ` : ''}
-    <div class="detail-item">
-      <span class="detail-label">Type</span>
-      <span class="detail-value">${data.carrierOil ? 'Diluted' : 'Pure'}</span>
-    </div>
-  </div>
-  
-  <!-- Warnings -->
-  ${showWarnings ? `
-  <div class="warnings-section">
-    ${warningBadges}
-    ${moreWarnings}
-  </div>
-  ` : ''}
-  
-  <!-- QR Code -->
-  ${showQRCode ? `
-  <div class="qr-section">
-    <div class="qr-image">
-      <img src="${qrCodeUrl}" alt="Batch QR Code" onerror="this.style.display='none'">
-    </div>
-    <div class="qr-info">
-      <div class="batch-label">Batch Number</div>
-      <div class="batch-id">${escapeHtml(data.batchId)}</div>
-      <div class="qr-hint">Scan for safety info &amp; reorder</div>
-    </div>
-  </div>
-  ` : ''}
-  
-  <div class="label-footer">
-    Hand-blended with intention • oilamor.com
   </div>
 </body>
 </html>`;
@@ -642,8 +580,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const data: LabelData = await request.json();
-    
-    // Validate required fields
+
     if (!data.blendName || !data.oils?.length || !data.batchId) {
       return NextResponse.json(
         { error: 'Missing required fields: blendName, oils, batchId' },
@@ -651,16 +588,58 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const config = getSizeConfig(data.size);
+    const warnings = extractOilWarnings(data.oils);
+    const needsFallback = data.oils.length > config.maxOils || warnings.length > config.maxWarnings;
+
+    // Save batch record for QR scanning
+    try {
+      await buildAndSaveBatchRecord({
+        batchId: data.batchId,
+        blendName: data.blendName,
+        mode: data.carrierOil ? 'carrier' : 'pure',
+        oils: data.oils.map(o => ({ oilId: o.oilId || '', oilName: o.name, ml: o.ml, percentage: o.percentage })),
+        carrierOil: data.carrierOil,
+        carrierPercentage: data.carrierPercentage,
+        size: data.size,
+        crystal: data.crystal,
+        cord: data.cord,
+        intendedUse: data.intendedUse,
+        safetyWarnings: [...data.warnings, ...warnings.map(w => w.text)],
+        safetyScore: 95,
+        safetyRating: 'safe',
+        isRefill: data.isRefill || false,
+        sourceVolume: data.sourceVolume,
+        targetVolume: data.isRefill ? data.size : undefined,
+        originalBatchId: data.originalBatchId,
+        orderId: data.orderId,
+        shopifyOrderId: data.shopifyOrderId,
+        customerName: data.customerName,
+      });
+    } catch (err) {
+      console.warn('[Label] Batch record save failed:', err);
+      // Non-fatal — label still works, QR just won't have data
+    }
+
     const labelHtml = generateLabelHtml(data);
+    const configOut = getSizeConfig(data.size);
 
     return NextResponse.json({
       success: true,
       html: labelHtml,
       printDimensions: {
-        width: '70mm',
-        height: '120mm',
+        width: `${configOut.widthMm}mm`,
+        height: `${configOut.heightMm}mm`,
       },
-      warningsGenerated: extractOilWarnings(data.oils).length,
+      sizeConfig: {
+        bottleSize: data.size,
+        maxOils: configOut.maxOils,
+        oilsShown: needsFallback ? Math.min(3, data.oils.length) : data.oils.length,
+        warningsShown: needsFallback
+          ? warnings.filter(w => w.severity === 'critical').slice(0, 2).length
+          : Math.min(warnings.length, configOut.maxWarnings),
+        needsQrFallback: needsFallback,
+      },
     });
   } catch (error) {
     console.error('Label generation error:', error);

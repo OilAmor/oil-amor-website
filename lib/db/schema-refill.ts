@@ -551,6 +551,43 @@ export const unlockedOils = pgTableCore(
   })
 );
 
+/**
+ * Batch Records
+ * Stores complete blend data for QR code batch tracking
+ */
+export const batchRecords = pgTableCore(
+  'batch_records',
+  {
+    id: textCore('id').primaryKey(),
+    blendName: textCore('blend_name').notNull(),
+    mode: textCore('mode').notNull().default('pure'),
+    oils: jsonbCore('oils').$type<Array<{ oilId: string; oilName: string; ml: number; percentage: number }>>().notNull(),
+    carrierOil: textCore('carrier_oil'),
+    carrierPercentage: integerCore('carrier_percentage'),
+    size: integerCore('size').notNull(),
+    crystal: textCore('crystal'),
+    cord: textCore('cord'),
+    intendedUse: textCore('intended_use'),
+    safetyWarnings: jsonbCore('safety_warnings').$type<string[]>(),
+    safetyScore: integerCore('safety_score').notNull().default(95),
+    safetyRating: textCore('safety_rating').notNull().default('safe'),
+    isRefill: booleanCore('is_refill').notNull().default(false),
+    sourceVolume: integerCore('source_volume'),
+    targetVolume: integerCore('target_volume'),
+    originalBatchId: textCore('original_batch_id'),
+    orderId: textCore('order_id'),
+    shopifyOrderId: textCore('shopify_order_id'),
+    customerName: textCore('customer_name'),
+    createdAt: timestampCore('created_at', { mode: 'date' }).notNull().defaultNow(),
+    expiresAt: timestampCore('expires_at', { mode: 'date' }).notNull(),
+  },
+  (table) => ({
+    orderIdIdx: indexCore('batch_order_idx').on(table.orderId),
+    createdAtIdx: indexCore('batch_created_idx').on(table.createdAt),
+    expiresAtIdx: indexCore('batch_expires_idx').on(table.expiresAt),
+  })
+);
+
 export const ordersRelations = relations(orders, ({ one }) => ({
   customer: one(customers, {
     fields: [orders.customerId],
@@ -564,6 +601,8 @@ export type Order = typeof orders.$inferSelect;
 export type InsertOrder = typeof orders.$inferInsert;
 export type UnlockedOil = typeof unlockedOils.$inferSelect;
 export type InsertUnlockedOil = typeof unlockedOils.$inferInsert;
+export type BatchRecord = typeof batchRecords.$inferSelect;
+export type InsertBatchRecord = typeof batchRecords.$inferInsert;
 
 // ============================================================================
 // COMMUNITY BLENDS (re-exported from schema/community-blends)
