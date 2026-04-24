@@ -2,19 +2,30 @@
  * Migration: Remove Shopify Dependencies
  * 
  * This script removes Shopify-specific columns from the database.
- * Run after deploying the Shopify-free codebase.
+ * Run against your PostgreSQL database after deploying the Shopify-free codebase.
  * 
  * Usage:
- *   npx tsx scripts/migrate-remove-shopify.ts
+ *   DATABASE_URL=postgresql://... npx tsx scripts/migrate-remove-shopify.ts
  */
 
 import { Pool } from 'pg';
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-});
-
 async function migrate() {
+  const databaseUrl = process.env.DATABASE_URL;
+  
+  if (!databaseUrl) {
+    console.error('❌ DATABASE_URL environment variable is required');
+    console.error('   Example: DATABASE_URL=postgresql://user:pass@host:5432/db npx tsx scripts/migrate-remove-shopify.ts');
+    process.exit(1);
+  }
+
+  const pool = new Pool({
+    connectionString: databaseUrl,
+    ssl: databaseUrl.includes('sslmode=require') || databaseUrl.includes('neon.tech') || databaseUrl.includes('supabase.co')
+      ? { rejectUnauthorized: false }
+      : undefined,
+  });
+
   const client = await pool.connect();
 
   try {
@@ -27,7 +38,7 @@ async function migrate() {
          WHERE table_name = $1 AND column_name = $2`,
         [table, column]
       );
-      return result.rowCount > 0;
+      return result.rowCount !== null && result.rowCount > 0;
     };
 
     // Drop shopify_order_id from orders
@@ -60,7 +71,7 @@ async function migrate() {
       );
     }
 
-    if (ordersWithoutHistory.rowCount > 0) {
+    if (ordersWithoutHistory.rowCount && ordersWithoutHistory.rowCount > 0) {
       console.log(`✅ Backfilled status_history for ${ordersWithoutHistory.rowCount} orders`);
     }
 
