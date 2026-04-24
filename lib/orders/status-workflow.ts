@@ -130,28 +130,60 @@ async function sendStatusEmail(
   template: string,
   trackingNumber?: string
 ) {
-  const { sendOrderConfirmationEmail, sendShippingConfirmationEmail } = await import('@/lib/email/resend')
+  const {
+    sendShippingConfirmationEmail,
+    sendBlendPreparationEmail,
+    sendBlendCraftingEmail,
+    sendOrderReadyEmail,
+    sendOrderDeliveredEmail,
+    sendOrderCancelledEmail,
+  } = await import('@/lib/email/resend')
+
+  const firstName = order.customerName.split(' ')[0] || 'Valued Customer'
+  const items = (order.items || []) as any[]
+  const blendItem = items.find((i) => i.customMix)
+  const blendName = blendItem?.customMix?.recipeName || blendItem?.name || 'your order'
+  const mode = blendItem?.customMix?.mode || 'pure'
+  const bottleSize = blendItem?.customMix?.totalVolume || 30
 
   switch (template) {
     case 'order_confirmed':
       // Already sent by Stripe webhook on initial creation
+      if (blendItem) {
+        await sendBlendPreparationEmail({
+          to: order.customerEmail,
+          firstName,
+          orderNumber: order.id,
+          blendName,
+          mode,
+          bottleSize,
+        })
+      }
       break
 
     case 'blend_mixing':
-      // TODO: Implement blend crafting email
-      console.log(`[Email] Would send "blend crafting" email to ${order.customerEmail} for ${order.id}`)
+      await sendBlendCraftingEmail({
+        to: order.customerEmail,
+        firstName,
+        orderNumber: order.id,
+        blendName,
+      })
       break
 
     case 'order_ready':
-      // TODO: Implement order ready email
-      console.log(`[Email] Would send "order ready" email to ${order.customerEmail} for ${order.id}`)
+      await sendOrderReadyEmail({
+        to: order.customerEmail,
+        firstName,
+        orderNumber: order.id,
+        blendName,
+      })
       break
 
     case 'order_shipped':
       if (trackingNumber) {
         await sendShippingConfirmationEmail({
           to: order.customerEmail,
-          firstName: order.customerName.split(' ')[0] || 'Valued Customer',
+          firstName,
           orderNumber: order.id,
           trackingNumber,
           carrier: (order.shipping as any)?.carrier || 'Australia Post',
@@ -161,13 +193,21 @@ async function sendStatusEmail(
       break
 
     case 'order_delivered':
-      // TODO: Implement delivery confirmation email
-      console.log(`[Email] Would send "delivered" email to ${order.customerEmail} for ${order.id}`)
+      await sendOrderDeliveredEmail({
+        to: order.customerEmail,
+        firstName,
+        orderNumber: order.id,
+        blendName,
+        batchId: blendItem?.customMix?.batchId,
+      })
       break
 
     case 'order_cancelled':
-      // TODO: Implement cancellation email
-      console.log(`[Email] Would send "cancelled" email to ${order.customerEmail} for ${order.id}`)
+      await sendOrderCancelledEmail({
+        to: order.customerEmail,
+        firstName,
+        orderNumber: order.id,
+      })
       break
 
     default:

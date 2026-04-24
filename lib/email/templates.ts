@@ -661,3 +661,297 @@ ${emailHeader('Crystal Circle Rewards', `${tier} Member`)}
 
   return baseEmail(content, { preview: `You have ${pointsBalance.toLocaleString()} Crystal Points!` })
 }
+
+// ============================================================================
+// BLEND PREPARATION EMAIL
+// ============================================================================
+export function blendPreparationEmail(params: {
+  firstName: string
+  orderNumber: string
+  blendName: string
+  mode: string
+  bottleSize: number
+}) {
+  const { firstName, orderNumber, blendName, mode, bottleSize } = params
+
+  const content = `
+${emailHeader('Your Blend is Being Prepared', `Order #${orderNumber}`)}
+
+<!-- Content -->
+<tr>
+  <td style="padding: 40px;" class="mobile-padding">
+    <p style="font-size: 16px; color: ${BRAND.colors.text}; line-height: 1.8; margin: 0 0 24px;">
+      Hi ${firstName},
+    </p>
+
+    <p style="font-size: 16px; color: ${BRAND.colors.muted}; line-height: 1.8; margin: 0 0 24px;">
+      We've received your order and our artisans are preparing your bespoke blend. Every drop is measured with precision and care.
+    </p>
+
+    <!-- Blend Details -->
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: rgba(201, 162, 39, 0.05); border: 1px solid rgba(201, 162, 39, 0.1); border-radius: ${BRAND.borderRadius.md}; margin: 24px 0;">
+      <tr>
+        <td style="padding: 24px;">
+          <p style="font-size: 14px; color: ${BRAND.colors.muted}; margin: 0 0 8px;">Your Blend</p>
+          <p style="font-size: 20px; color: ${BRAND.colors.text}; margin: 0 0 4px; font-weight: 500;">${blendName}</p>
+          <p style="font-size: 13px; color: ${BRAND.colors.subtle}; margin: 0;">${bottleSize}ml • ${mode === 'pure' ? 'Pure Essential Oil' : 'Carrier Oil Blend'}</p>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size: 14px; color: ${BRAND.colors.muted}; line-height: 1.6; margin: 32px 0 0; text-align: center;">
+      We'll notify you when your blend is ready for dispatch.
+    </p>
+  </td>
+</tr>
+`
+
+  return baseEmail(content, { preview: `Your ${blendName} is being prepared` })
+}
+
+// ============================================================================
+// BLEND CRAFTING EMAIL
+// ============================================================================
+export function blendCraftingEmail(params: {
+  firstName: string
+  orderNumber: string
+  blendName: string
+}) {
+  const { firstName, orderNumber, blendName } = params
+
+  const content = `
+${emailHeader('Handcrafting Your Blend', `Order #${orderNumber}`)}
+
+<!-- Content -->
+<tr>
+  <td style="padding: 40px;" class="mobile-padding">
+    <p style="font-size: 16px; color: ${BRAND.colors.text}; line-height: 1.8; margin: 0 0 24px;">
+      Hi ${firstName},
+    </p>
+
+    <p style="font-size: 16px; color: ${BRAND.colors.muted}; line-height: 1.8; margin: 0 0 24px;">
+      Our master blender is now handcrafting <strong style="color: ${BRAND.colors.gold};">${blendName}</strong>. Each oil is being carefully measured, mixed, and balanced to create your perfect formulation.
+    </p>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: rgba(155, 89, 182, 0.05); border: 1px solid rgba(155, 89, 182, 0.15); border-radius: ${BRAND.borderRadius.md}; margin: 24px 0;">
+      <tr>
+        <td style="padding: 20px; text-align: center;">
+          <p style="font-size: 14px; color: ${BRAND.colors.muted}; margin: 0;">
+            🧪 Quality testing and safety verification in progress
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size: 14px; color: ${BRAND.colors.muted}; line-height: 1.6; margin: 32px 0 0; text-align: center;">
+      Next step: quality check and labelling
+    </p>
+  </td>
+</tr>
+`
+
+  return baseEmail(content, { preview: `Handcrafting ${blendName}` })
+}
+
+// ============================================================================
+// ORDER READY EMAIL
+// ============================================================================
+export function orderReadyEmail(params: {
+  firstName: string
+  orderNumber: string
+  blendName: string
+}) {
+  const { firstName, orderNumber, blendName } = params
+
+  const content = `
+${emailHeader('Your Order is Ready', `Order #${orderNumber}`)}
+
+<!-- Content -->
+<tr>
+  <td style="padding: 40px;" class="mobile-padding">
+    <p style="font-size: 16px; color: ${BRAND.colors.text}; line-height: 1.8; margin: 0 0 24px;">
+      Hi ${firstName},
+    </p>
+
+    <p style="font-size: 16px; color: ${BRAND.colors.muted}; line-height: 1.8; margin: 0 0 24px;">
+      Great news! <strong style="color: ${BRAND.colors.gold};">${blendName}</strong> has passed our quality checks and is ready for dispatch. Your carefully crafted blend is packaged and waiting for the courier.
+    </p>
+
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: rgba(46, 204, 113, 0.05); border: 1px solid rgba(46, 204, 113, 0.15); border-radius: ${BRAND.borderRadius.md}; margin: 24px 0;">
+      <tr>
+        <td style="padding: 20px; text-align: center;">
+          <p style="font-size: 14px; color: ${BRAND.colors.success}; margin: 0;">
+            ✅ Quality Verified • ✅ Labelled • ✅ Packed
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size: 14px; color: ${BRAND.colors.muted}; line-height: 1.6; margin: 32px 0 0; text-align: center;">
+      You'll receive a tracking number once your order is on its way.
+    </p>
+  </td>
+</tr>
+`
+
+  return baseEmail(content, { preview: `${blendName} is ready for dispatch` })
+}
+
+// ============================================================================
+// ORDER DELIVERED EMAIL
+// ============================================================================
+export function orderDeliveredEmail(params: {
+  firstName: string
+  orderNumber: string
+  blendName: string
+  batchId?: string
+}) {
+  const { firstName, orderNumber, blendName, batchId } = params
+
+  const content = `
+${emailHeader('Your Blend Has Arrived', `Order #${orderNumber}`)}
+
+<!-- Content -->
+<tr>
+  <td style="padding: 40px;" class="mobile-padding">
+    <p style="font-size: 16px; color: ${BRAND.colors.text}; line-height: 1.8; margin: 0 0 24px;">
+      Hi ${firstName},
+    </p>
+
+    <p style="font-size: 16px; color: ${BRAND.colors.muted}; line-height: 1.8; margin: 0 0 24px;">
+      Your <strong style="color: ${BRAND.colors.gold};">${blendName}</strong> has been delivered. We hope it brings you the wellness and tranquility you seek.
+    </p>
+
+    <!-- Care Instructions -->
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: rgba(201, 162, 39, 0.05); border: 1px solid rgba(201, 162, 39, 0.1); border-radius: ${BRAND.borderRadius.md}; margin: 24px 0;">
+      <tr>
+        <td style="padding: 24px;">
+          <p style="font-size: 14px; color: ${BRAND.colors.gold}; margin: 0 0 12px; font-weight: 500;">💎 Care Instructions</p>
+          <p style="font-size: 13px; color: ${BRAND.colors.muted}; margin: 0 0 8px;">• Store in a cool, dark place away from direct sunlight</p>
+          <p style="font-size: 13px; color: ${BRAND.colors.muted}; margin: 0 0 8px;">• Keep the bottle tightly sealed when not in use</p>
+          <p style="font-size: 13px; color: ${BRAND.colors.muted}; margin: 0 0 8px;">• Use within 12 months for optimal potency</p>
+          <p style="font-size: 13px; color: ${BRAND.colors.muted}; margin: 0;">• Perform a patch test before first use</p>
+        </td>
+      </tr>
+    </table>
+
+    ${batchId ? `
+    <p style="font-size: 14px; color: ${BRAND.colors.muted}; line-height: 1.6; margin: 24px 0; text-align: center;">
+      Scan the QR code on your label to view your full blend recipe, safety information, and reorder anytime.
+    </p>
+    ` : ''}
+
+    ${emailButton('Reorder This Blend', `${process.env.NEXT_PUBLIC_URL}/account/orders`)}
+
+    <p style="font-size: 14px; color: ${BRAND.colors.muted}; line-height: 1.6; margin: 32px 0 0; text-align: center;">
+      With love and wellness,<br>
+      <strong style="color: ${BRAND.colors.gold};">The Oil Amor Team</strong>
+    </p>
+  </td>
+</tr>
+`
+
+  return baseEmail(content, { preview: `${blendName} has been delivered` })
+}
+
+// ============================================================================
+// COMMISSION EARNED EMAIL
+// ============================================================================
+export function commissionEarnedEmail(params: {
+  firstName: string
+  blendName: string
+  saleAmount: number
+  commissionAmount: number
+  commissionRate: number
+  purchaserName: string
+}) {
+  const { firstName, blendName, saleAmount, commissionAmount, commissionRate, purchaserName } = params
+
+  const content = `
+${emailHeader('You Earned a Commission!', 'Community Blend Sale')}
+
+<!-- Content -->
+<tr>
+  <td style="padding: 40px;" class="mobile-padding">
+    <p style="font-size: 16px; color: ${BRAND.colors.text}; line-height: 1.8; margin: 0 0 24px;">
+      Hi ${firstName},
+    </p>
+
+    <p style="font-size: 16px; color: ${BRAND.colors.muted}; line-height: 1.8; margin: 0 0 24px;">
+      Amazing news! Someone purchased your community blend <strong style="color: ${BRAND.colors.gold};">${blendName}</strong> and you've earned a commission.
+    </p>
+
+    <!-- Commission Details -->
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: rgba(201, 162, 39, 0.05); border: 1px solid rgba(201, 162, 39, 0.1); border-radius: ${BRAND.borderRadius.md}; margin: 24px 0;">
+      <tr>
+        <td style="padding: 24px; text-align: center;">
+          <p style="font-size: 12px; color: ${BRAND.colors.muted}; text-transform: uppercase; letter-spacing: 2px; margin: 0 0 8px;">Commission Earned</p>
+          <p style="font-size: 36px; color: ${BRAND.colors.gold}; margin: 0; font-weight: 600;">
+            $${commissionAmount.toFixed(2)}
+          </p>
+          <p style="font-size: 13px; color: ${BRAND.colors.subtle}; margin: 8px 0 0;">
+            ${commissionRate}% of $${saleAmount.toFixed(2)} sale
+          </p>
+        </td>
+      </tr>
+    </table>
+
+    <p style="font-size: 14px; color: ${BRAND.colors.muted}; line-height: 1.6; margin: 24px 0; text-align: center;">
+      Purchased by: <strong style="color: ${BRAND.colors.text};">${purchaserName}</strong>
+    </p>
+
+    <p style="font-size: 14px; color: ${BRAND.colors.muted}; line-height: 1.6; margin: 32px 0 0; text-align: center;">
+      Your commission has been credited to your store credit balance and can be used on your next purchase.
+    </p>
+  </td>
+</tr>
+`
+
+  return baseEmail(content, { preview: `You earned $${commissionAmount.toFixed(2)} from ${blendName}` })
+}
+
+// ============================================================================
+// ORDER CANCELLED EMAIL
+// ============================================================================
+export function orderCancelledEmail(params: {
+  firstName: string
+  orderNumber: string
+  reason?: string
+}) {
+  const { firstName, orderNumber, reason } = params
+
+  const content = `
+${emailHeader('Order Cancelled', `Order #${orderNumber}`)}
+
+<!-- Content -->
+<tr>
+  <td style="padding: 40px;" class="mobile-padding">
+    <p style="font-size: 16px; color: ${BRAND.colors.text}; line-height: 1.8; margin: 0 0 24px;">
+      Hi ${firstName},
+    </p>
+
+    <p style="font-size: 16px; color: ${BRAND.colors.muted}; line-height: 1.8; margin: 0 0 24px;">
+      We're writing to confirm that your order <strong style="color: ${BRAND.colors.text};">#${orderNumber}</strong> has been cancelled.
+    </p>
+
+    ${reason ? `
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%" style="background: rgba(231, 76, 60, 0.05); border: 1px solid rgba(231, 76, 60, 0.15); border-radius: ${BRAND.borderRadius.md}; margin: 24px 0;">
+      <tr>
+        <td style="padding: 20px;">
+          <p style="font-size: 14px; color: ${BRAND.colors.error}; margin: 0;">Reason: ${reason}</p>
+        </td>
+      </tr>
+    </table>
+    ` : ''}
+
+    <p style="font-size: 14px; color: ${BRAND.colors.muted}; line-height: 1.6; margin: 24px 0;">
+      If you paid by credit card, your refund will be processed within 3-5 business days. If you have any questions, please reply to this email.
+    </p>
+
+    ${emailButton('Shop Again', `${process.env.NEXT_PUBLIC_URL}/collections`)}
+  </td>
+</tr>
+`
+
+  return baseEmail(content, { preview: `Order #${orderNumber} has been cancelled` })
+}
