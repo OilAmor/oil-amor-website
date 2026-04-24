@@ -102,9 +102,7 @@ export default function RootLayout({
       <head>
         <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/favicon.svg" />
-        <link rel="preconnect" href="https://cdn.shopify.com" />
         <link rel="preconnect" href="https://cdn.sanity.io" />
-        <link rel="dns-prefetch" href="https://cdn.shopify.com" />
         <link rel="dns-prefetch" href="https://cdn.sanity.io" />
       </head>
       <body className="font-body bg-[#0a080c] text-[#f5f3ef] antialiased">

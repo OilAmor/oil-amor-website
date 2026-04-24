@@ -9,7 +9,7 @@ export function StickyMobileCart() {
   const { cart, openCart, totalItems } = useCart()
   
   const itemCount = totalItems
-  const subtotal = cart?.cost?.subtotalAmount?.amount
+  const subtotal = cart?.subtotal
   
   // Only show on mobile when items in cart
   if (itemCount === 0) return null
@@ -41,7 +41,7 @@ export function StickyMobileCart() {
           <div className="flex items-center gap-3">
             <span className="text-sm text-white/70">Subtotal</span>
             <span className="font-display text-lg">
-              {subtotal ? formatPrice(Number(subtotal), cart.cost?.subtotalAmount?.currencyCode || 'AUD') : '$0.00'}
+              {subtotal ? formatPrice(Number(subtotal), cart.currency || 'AUD') : '$0.00'}
             </span>
           </div>
         </button>

@@ -4,7 +4,7 @@
  * Manages diffuser necklace chains that unlock as customers
  * progress through the Crystal Circle tiers.
  * 
- * Chain selections are persisted to Shopify customer metafields.
+ * Chain selections are persisted to Redis rewards store.
  */
 
 import {
@@ -15,7 +15,7 @@ import {
   TIER_ORDER
 } from './tiers';
 import { getCustomerRewardsProfile, invalidateProfileCache } from './customer-rewards';
-import { updateCustomerMetafields, getCustomerMetafields } from '@/lib/shopify/metafields';
+import { updateCustomerRewardsData, getCustomerRewardsData } from './rewards-store';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -307,7 +307,7 @@ export async function getChainDetails(
 
 /**
  * Select a chain for a customer's order
- * Persists the selection to Shopify customer metafields
+ * Persists the selection to Redis rewards store
  * 
  * @param customerId - Customer's unique identifier
  * @param chainType - Selected chain type
@@ -338,8 +338,8 @@ export async function selectChain(
     };
   }
   
-  // Get current metafields to update history
-  const metafields = await getCustomerMetafields(customerId);
+  // Get current rewards data to update history
+  const metafields = await getCustomerRewardsData(customerId);
   const history: ChainSelectionHistory[] = (metafields.chain_history as ChainSelectionHistory[]) || [];
   
   // Record selection
@@ -352,8 +352,8 @@ export async function selectChain(
   // Update history
   const updatedHistory = [...history, selection];
   
-  // Persist to Shopify metafields
-  await updateCustomerMetafields(customerId, {
+  // Persist to Redis rewards store
+  await updateCustomerRewardsData(customerId, {
     preferred_chain: chainType,
     last_chain_selected: chainType,
     chain_history: updatedHistory.slice(-10), // Keep last 10 selections
@@ -385,8 +385,8 @@ export async function setPreferredChain(
     return false;
   }
   
-  // Update customer preference in Shopify metafields
-  await updateCustomerMetafields(customerId, {
+  // Update customer preference in Redis rewards store
+  await updateCustomerRewardsData(customerId, {
     preferred_chain: chainType,
   });
   
@@ -405,7 +405,7 @@ export async function getCustomerChainSelection(
   customerId: string
 ): Promise<CustomerChainSelection> {
   const profile = await getCustomerRewardsProfile(customerId);
-  const metafields = await getCustomerMetafields(customerId);
+  const metafields = await getCustomerRewardsData(customerId);
   
   // Get preferred chain from metafields, fallback to first unlocked
   const preferredChain = (metafields.preferred_chain as ChainType) || 
@@ -521,7 +521,7 @@ export async function getChainRecommendation(
   }
   
   // Get preferred chain if set
-  const metafields = await getCustomerMetafields(customerId);
+  const metafields = await getCustomerRewardsData(customerId);
   const preferredChain = metafields.preferred_chain as ChainType;
   
   if (preferredChain && profile.unlockedChains.includes(preferredChain)) {

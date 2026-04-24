@@ -79,32 +79,24 @@ async function checkRedis(): Promise<HealthCheck> {
   }
 }
 
-async function checkShopify(): Promise<HealthCheck> {
+async function checkDatabase(): Promise<HealthCheck> {
   const start = Date.now()
   
   try {
-    const response = await fetch(
-      `https://${process.env.NEXT_PUBLIC_SHOPIFY_STORE_DOMAIN}/admin/api/2024-01/shop.json`,
-      {
-        headers: {
-          'X-Shopify-Access-Token': process.env.SHOPIFY_ADMIN_API_ACCESS_TOKEN || '',
-        },
-      }
-    )
-    
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`)
-    }
+    const { pool } = await import('@/lib/db')
+    const client = await pool.connect()
+    await client.query('SELECT 1')
+    client.release()
     
     return {
-      name: 'shopify',
+      name: 'database',
       status: 'healthy',
       responseTime: Date.now() - start,
       lastChecked: new Date().toISOString(),
     }
   } catch (error) {
     return {
-      name: 'shopify',
+      name: 'database',
       status: 'unhealthy',
       responseTime: Date.now() - start,
       message: error instanceof Error ? error.message : 'Unknown error',
@@ -173,7 +165,7 @@ export async function GET(request: NextRequest) {
   // Run all health checks in parallel
   const checks = await Promise.all([
     checkRedis(),
-    checkShopify(),
+    checkDatabase(),
     checkSanity(),
   ])
   

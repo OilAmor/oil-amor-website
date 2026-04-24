@@ -78,7 +78,7 @@ export interface LabelData {
   originalBatchId?: string;
   // Order info for batch record
   orderId?: string;
-  shopifyOrderId?: string;
+  // shopifyOrderId removed
   customerName?: string;
   // Display toggles
   showIngredients?: boolean;
@@ -613,7 +613,7 @@ export async function POST(request: NextRequest) {
         targetVolume: data.isRefill ? data.size : undefined,
         originalBatchId: data.originalBatchId,
         orderId: data.orderId,
-        shopifyOrderId: data.shopifyOrderId,
+        // shopifyOrderId removed
         customerName: data.customerName,
       });
     } catch (err) {

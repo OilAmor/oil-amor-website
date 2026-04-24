@@ -4,6 +4,8 @@ import { db } from '@/lib/db';
 import { refillOrders } from '@/lib/db/schema-refill';
 import { eq } from 'drizzle-orm';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(request: NextRequest) {
   const authError = await requireAdminAuth(request)
   if (authError) return authError

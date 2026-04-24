@@ -151,18 +151,6 @@ export interface CartItem {
   properties?: Record<string, string>
 }
 
-export interface ShopifyCart {
-  id: string
-  lines: CartItem[]
-  checkoutUrl: string
-  totalQuantity: number
-  totalItems?: number
-  cost: {
-    subtotalAmount: { amount: string; currencyCode: string }
-    totalAmount: { amount: string; currencyCode: string }
-  }
-}
-
 export interface CustomerRewardsProfile {
   customerId: string
   currentTier: TierLevel
@@ -183,7 +171,7 @@ export interface ForeverBottle {
   refillCount: number
 }
 
-export interface ShopifyImage {
+export interface ProductImage {
   url: string
   altText?: string
   width?: number
@@ -323,10 +311,10 @@ export interface CrystalConfig {
 }
 
 // ============================================================================
-// SHOPIFY TYPES
+// PRODUCT CATALOG TYPES
 // ============================================================================
 
-export interface ShopifyProduct {
+export interface CatalogProduct {
   id: string
   title: string
   handle: string
@@ -351,7 +339,7 @@ export interface ShopifyProduct {
   }
   variants: {
     edges: Array<{
-      node: ShopifyProductVariant
+      node: CatalogProductVariant
     }>
   }
   metafields?: {
@@ -365,7 +353,7 @@ export interface ShopifyProduct {
   }
 }
 
-export interface ShopifyProductVariant {
+export interface CatalogProductVariant {
   id: string
   title: string
   sku: string

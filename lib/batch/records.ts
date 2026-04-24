@@ -41,7 +41,6 @@ export interface BatchRecord {
   originalBatchId?: string;
   // Order tracking
   orderId?: string;
-  shopifyOrderId?: string;
   customerName?: string;
   // Timestamps
   createdAt: string;
@@ -94,7 +93,6 @@ export async function saveBatchRecord(record: BatchRecord): Promise<void> {
       targetVolume: record.targetVolume,
       originalBatchId: record.originalBatchId,
       orderId: record.orderId,
-      shopifyOrderId: record.shopifyOrderId,
       customerName: record.customerName,
       createdAt: new Date(record.createdAt),
       expiresAt: new Date(record.expiresAt),
@@ -117,7 +115,7 @@ export async function saveBatchRecord(record: BatchRecord): Promise<void> {
         targetVolume: record.targetVolume,
         originalBatchId: record.originalBatchId,
         orderId: record.orderId,
-        shopifyOrderId: record.shopifyOrderId,
+        // shopifyOrderId removed
         customerName: record.customerName,
         expiresAt: new Date(record.expiresAt),
       },
@@ -169,7 +167,7 @@ export async function getBatchRecord(batchId: string): Promise<BatchRecord | nul
         targetVolume: row.targetVolume || undefined,
         originalBatchId: row.originalBatchId || undefined,
         orderId: row.orderId || undefined,
-        shopifyOrderId: row.shopifyOrderId || undefined,
+        // shopifyOrderId removed
         customerName: row.customerName || undefined,
         createdAt: row.createdAt.toISOString(),
         expiresAt: row.expiresAt.toISOString(),
@@ -210,7 +208,7 @@ export interface BuildBatchInput {
   targetVolume?: number;
   originalBatchId?: string;
   orderId?: string;
-  shopifyOrderId?: string;
+  // shopifyOrderId removed
   customerName?: string;
 }
 
@@ -237,7 +235,7 @@ export async function buildAndSaveBatchRecord(input: BuildBatchInput): Promise<B
     targetVolume: input.targetVolume,
     originalBatchId: input.originalBatchId,
     orderId: input.orderId,
-    shopifyOrderId: input.shopifyOrderId,
+    // shopifyOrderId removed
     customerName: input.customerName,
     createdAt: now.toISOString(),
     expiresAt: expiresAt.toISOString(),

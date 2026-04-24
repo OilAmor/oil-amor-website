@@ -280,10 +280,10 @@ export const useConfiguratorStore = create<ConfiguratorStore>()(
 
 // ============================================================================
 // CART ADAPTER
-// Adapts configurator cart item to Shopify cart transformer format
+// Adapts configurator cart item to cart format
 // ============================================================================
 
-export interface ShopifyCartItem {
+export interface ConfiguratorCartItem {
   oilVariantId: string
   bottleSize: string
   crystalType: string
@@ -310,11 +310,11 @@ export function getTierValue(tier: TierLevel): number {
 }
 
 /**
- * Adapt configurator cart item to Shopify format
+ * Adapt configurator cart item to standard cart format
  */
 export function adaptCartItem(
   item: ConfiguredProduct | null
-): ShopifyCartItem | null {
+): ConfiguratorCartItem | null {
   if (!item) return null
 
   const crystalConfig = CRYSTAL_MAPPING[item.bottleSize]

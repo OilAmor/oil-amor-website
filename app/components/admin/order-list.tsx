@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { EnrichedOrder, OrderItemType } from '@/lib/orders/types'
-import { getStatusLabel, getStatusColor } from '@/lib/orders/status-workflow'
+import { getStatusLabel, getStatusColor } from '@/lib/orders/status-helpers'
 import { Search, Filter, ChevronRight, Beaker, Printer, Truck, Package } from 'lucide-react'
 
 const TYPE_BADGES: Record<OrderItemType, { label: string; color: string }> = {

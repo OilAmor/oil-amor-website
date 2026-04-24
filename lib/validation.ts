@@ -7,7 +7,7 @@ import { z } from 'zod'
 export const cartActionSchema = z.object({
   action: z.enum(['create', 'get', 'add', 'update', 'remove']),
   cartId: z.string().uuid().optional(),
-  merchandiseId: z.string().regex(/^gid:\/\/shopify\/ProductVariant\/\d+$/).optional(),
+  merchandiseId: z.string().min(1).optional(),
   quantity: z.number().int().min(0).max(100).optional(),
   lineId: z.string().uuid().optional(),
 })

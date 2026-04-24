@@ -4,8 +4,8 @@
  * Main entry point for the Oil Amor loyalty program.
  * Export all types, functions, and utilities for the rewards system.
  * 
- * NOTE: This system uses Shopify customer metafields as the SINGLE SOURCE OF TRUTH
- * for customer rewards data. Redis is used only for caching.
+ * NOTE: This system uses Redis as the SINGLE SOURCE OF TRUTH
+ * for customer rewards data.
  */
 
 // ============================================================================
@@ -43,7 +43,7 @@ export {
 } from './tiers';
 
 // ============================================================================
-// CUSTOMER REWARDS - SHOPIFY METAFIELDS AS SOURCE OF TRUTH
+// CUSTOMER REWARDS - REDIS AS SOURCE OF TRUTH
 // ============================================================================
 
 export {
@@ -55,7 +55,6 @@ export {
   type RewardsNotification,
   type OrderInfo,
   type OrderItem,
-  type ShopifyOrder,
   type CreditReservation,
   
   // Profile Functions
@@ -78,8 +77,8 @@ export {
   commitCreditReservation,
   releaseCreditReservation,
   
-  // Webhook Integration
-  handleShopifyOrderWebhook,
+  // Order Processing
+  processOrderForRewards,
   
   // Cache Management
   invalidateProfileCache,
@@ -89,7 +88,7 @@ export {
 } from './customer-rewards';
 
 // ============================================================================
-// CHAIN SYSTEM - WITH PERSISTENCE TO SHOPIFY METAFIELDS
+// CHAIN SYSTEM - WITH PERSISTENCE TO REDIS
 // ============================================================================
 
 export {
@@ -133,7 +132,7 @@ export {
 } from './chain-system';
 
 // ============================================================================
-// CHARM SYSTEM - WITH PERSISTENCE TO SHOPIFY METAFIELDS
+// CHARM SYSTEM - WITH PERSISTENCE TO REDIS
 // ============================================================================
 
 export {

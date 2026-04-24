@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { EnrichedOrder, EnrichedOrderItem } from '@/lib/orders/types'
 import { OrderStatus } from '@/lib/db/schema/orders'
-import { getStatusLabel, getNextStatuses } from '@/lib/orders/status-workflow'
+import { getStatusLabel, getNextStatuses } from '@/lib/orders/status-helpers'
 import {
   X, Printer, QrCode, Beaker, Package, Truck, Clock, AlertTriangle,
   ChevronDown, ExternalLink, User, MapPin, CreditCard, Tag, FileText

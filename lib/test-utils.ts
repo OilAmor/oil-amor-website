@@ -37,14 +37,14 @@ export function createMockCartItem(overrides: Partial<CartItem> = {}): CartItem 
   
   return {
     id: 'line_test123',
-    variantId: 'gid://shopify/ProductVariant/123456789',
-    productId: 'gid://shopify/Product/987654321',
+    variantId: 'variant_123456789',
+    productId: 'product_987654321',
     name: 'Test Essential Oil',
     quantity: 1,
     unitPrice: 49.99,
     price: 49.99,
     currency: 'AUD',
-    image: 'https://cdn.shopify.com/test-image.jpg',
+    image: '/images/test-oil.jpg',
     configuration: {
       oilName: 'Lavender',
       crystalName: 'Amethyst',

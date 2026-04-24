@@ -1,6 +1,6 @@
 /**
  * Cart Manager
- * Enterprise-grade cart management with Redis persistence and Shopify sync
+ * Enterprise-grade cart management with Redis persistence
  */
 
 import { Redis } from '@upstash/redis'
@@ -13,7 +13,6 @@ import {
   CartValidationResult,
   CartEvent,
   CartEventType,
-  ShopifyCart,
 } from './types'
 import { createCartKey } from '@/lib/redis/client'
 import { logger } from '@/lib/logging/logger'
@@ -50,7 +49,6 @@ const CART_CONFIG = {
   
   // Sync settings
   sync: {
-    debounceMs: 500, // Debounce Shopify sync
     retryAttempts: 3,
     retryDelayMs: 1000,
   },
@@ -204,11 +202,11 @@ export class CartManager {
       item = {
         id: `line_${generateId(12)}`,
         variantId: input.variantId,
-        productId: '', // Will be populated from Shopify
-        name: '', // Will be populated from Shopify
+        productId: '', // Will be populated from product catalog
+        name: '', // Will be populated from product catalog
         quantity: input.quantity,
-        unitPrice: 0, // Will be populated from Shopify
-        price: 0, // Will be populated from Shopify
+        unitPrice: 0, // Will be populated from product catalog
+        price: 0, // Will be populated from product catalog
         currency: 'AUD',
         configuration: input.configuration,
         properties: input.properties,
@@ -492,55 +490,4 @@ export class CartManager {
     logger.info('Cart event', { type: event.type, cartId: event.cartId.slice(0, 8) })
   }
   
-  // ========================================================================
-  // SHOPIFY SYNC
-  // ========================================================================
-  
-  async syncWithShopify(cartId: string, shopifyCart: ShopifyCart): Promise<Cart> {
-    const cart = await this.getCart(cartId)
-    
-    if (!cart) {
-      throw new Error('Cart not found')
-    }
-    
-    // Update Shopify cart ID
-    cart.shopifyCartId = shopifyCart.id
-    cart.checkoutUrl = shopifyCart.checkoutUrl
-    
-    // Update items from Shopify
-    cart.items = shopifyCart.lines.edges.map(({ node }) => ({
-      id: node.id,
-      variantId: node.merchandise.id,
-      productId: node.merchandise.product.id,
-      name: `${node.merchandise.product.title} - ${node.merchandise.title}`,
-      quantity: node.quantity,
-      unitPrice: parseFloat(node.merchandise.price.amount),
-      price: parseFloat(node.merchandise.price.amount),
-      currency: node.merchandise.price.currencyCode,
-      image: node.merchandise.product.featuredImage?.url,
-      properties: node.attributes.reduce((acc, attr) => {
-        acc[attr.key] = attr.value
-        return acc
-      }, {} as Record<string, string>),
-      addedAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }))
-    
-    // Update summary
-    cart.summary = {
-      subtotal: parseFloat(shopifyCart.cost.subtotalAmount.amount),
-      totalTax: parseFloat(shopifyCart.cost.totalTaxAmount?.amount || '0'),
-      totalShipping: 0, // Will be calculated at checkout
-      totalDiscounts: 0,
-      total: parseFloat(shopifyCart.cost.totalAmount?.amount || shopifyCart.cost.subtotalAmount.amount),
-      currency: shopifyCart.cost.totalAmount?.currencyCode || shopifyCart.cost.subtotalAmount.currencyCode,
-      itemCount: shopifyCart.totalQuantity,
-    }
-    
-    cart.updatedAt = new Date().toISOString()
-    
-    await this.saveCart(cart)
-    
-    return cart
-  }
 }

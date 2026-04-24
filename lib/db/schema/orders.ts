@@ -109,8 +109,8 @@ export interface OrderLineItem {
   type: LineItemType
   
   // Product reference
-  productId?: string          // Shopify product ID
-  variantId?: string          // Shopify variant ID
+  productId?: string          // Product ID (local catalog)
+  variantId?: string          // Variant ID (if applicable)
   sku?: string
   
   // Display info
@@ -138,7 +138,7 @@ export interface OrderLineItem {
   unlocksOilName?: string
   
   // Metadata
-  properties?: Record<string, string>  // Key-value pairs for Shopify
+  properties?: Record<string, string>  // Key-value pairs for product options
 }
 
 // ============================================================================
@@ -194,7 +194,9 @@ export interface ShippingInfo {
 export interface Order {
   // Identification
   id: string                  // Internal order ID (ORD-2026-000001)
-  shopifyOrderId?: string     // Shopify order ID if synced
+  externalOrderId?: string    // External order reference (if synced)
+  /** @deprecated Use externalOrderId instead */
+  shopifyOrderId?: string     // Legacy Shopify order ID alias
   
   // Customer
   customerId: string
@@ -294,7 +296,7 @@ export interface CustomerOrderStats {
 
 export const ordersTable = {
   id: varchar('id', { length: 255 }).primaryKey(),
-  shopifyOrderId: varchar('shopify_order_id', { length: 255 }),
+  externalOrderId: varchar('external_order_id', { length: 255 }),
   customerId: varchar('customer_id', { length: 255 }).notNull(),
   customerEmail: varchar('customer_email', { length: 255 }).notNull(),
   customerName: varchar('customer_name', { length: 255 }).notNull(),

@@ -38,7 +38,7 @@ describe('CartManager', () => {
       mockRedis.set = jest.fn().mockResolvedValue('OK')
       
       const result = await cartManager.addItem('cart_123', {
-        variantId: 'gid://shopify/ProductVariant/123',
+        variantId: 'variant_123',
         quantity: 1,
       })
       

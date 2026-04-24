@@ -79,36 +79,6 @@ export interface Cart {
   // Items (Internal format)
   items: CartItem[]
   
-  // Shopify Storefront API compatible format
-  lines?: {
-    edges: Array<{
-      node: {
-        id: string
-        quantity: number
-        merchandise: {
-          id: string
-          title: string
-          product: {
-            id: string
-            title: string
-            featuredImage?: {
-              url: string
-              altText?: string
-            }
-          }
-          price: {
-            amount: string
-            currencyCode: string
-          }
-        }
-        attributes: Array<{
-          key: string
-          value: string
-        }>
-      }
-    }>
-  }
-  
   // Totals (Internal format)
   subtotal: number
   taxTotal: number
@@ -116,25 +86,8 @@ export interface Cart {
   discountTotal: number
   total: number
   
-  // Shopify cost format
-  cost?: {
-    subtotalAmount: {
-      amount: string
-      currencyCode: string
-    }
-    totalTaxAmount?: {
-      amount: string
-      currencyCode: string
-    }
-    totalAmount?: {
-      amount: string
-      currencyCode: string
-    }
-  }
-  
   // Checkout
   checkoutUrl?: string
-  shopifyCartId?: string
   
   // Summary (used by cart-manager)
   summary?: CartSummary
@@ -166,54 +119,7 @@ export interface Cart {
   configuration?: Record<string, unknown>
 }
 
-// Shopify Cart type for API responses
-export interface ShopifyCart {
-  id: string
-  checkoutUrl: string
-  totalQuantity: number
-  lines: {
-    edges: Array<{
-      node: {
-        id: string
-        quantity: number
-        merchandise: {
-          id: string
-          title: string
-          product: {
-            id: string
-            title: string
-            featuredImage?: {
-              url: string
-              altText?: string
-            }
-          }
-          price: {
-            amount: string
-            currencyCode: string
-          }
-        }
-        attributes: Array<{
-          key: string
-          value: string
-        }>
-      }
-    }>
-  }
-  cost: {
-    subtotalAmount: {
-      amount: string
-      currencyCode: string
-    }
-    totalTaxAmount?: {
-      amount: string
-      currencyCode: string
-    }
-    totalAmount?: {
-      amount: string
-      currencyCode: string
-    }
-  }
-}
+
 
 // ============================================================================
 // CART OPERATIONS

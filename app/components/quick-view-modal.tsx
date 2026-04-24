@@ -7,10 +7,10 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useCart } from '../hooks/use-cart'
 import { formatPrice } from '@/lib/utils'
-import { ShopifyProduct, ShopifyProductVariant } from '../types'
+import { CatalogProduct, CatalogProductVariant } from '../types'
 import DOMPurify from 'isomorphic-dompurify'
 
-// Strict allowlist for Shopify product descriptions in quick view
+// Strict allowlist for product descriptions in quick view
 const PURIFY_CONFIG = {
   ALLOWED_TAGS: [
     'p', 'br', 'strong', 'b', 'em', 'i', 'u', 'span',
@@ -21,13 +21,13 @@ const PURIFY_CONFIG = {
 }
 
 interface Props {
-  product: ShopifyProduct | null
+  product: CatalogProduct | null
   isOpen: boolean
   onClose: () => void
 }
 
 export function QuickViewModal({ product, isOpen, onClose }: Props) {
-  const [selectedVariant, setSelectedVariant] = useState<ShopifyProductVariant | null>(null)
+  const [selectedVariant, setSelectedVariant] = useState<CatalogProductVariant | null>(null)
   const [quantity, setQuantity] = useState(1)
   const [isAdding, setIsAdding] = useState(false)
   const [isAdded, setIsAdded] = useState(false)

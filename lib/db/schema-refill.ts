@@ -576,7 +576,7 @@ export const batchRecords = pgTableCore(
     targetVolume: integerCore('target_volume'),
     originalBatchId: textCore('original_batch_id'),
     orderId: textCore('order_id'),
-    shopifyOrderId: textCore('shopify_order_id'),
+    // shopifyOrderId removed — Shopify dependency eliminated
     customerName: textCore('customer_name'),
     createdAt: timestampCore('created_at', { mode: 'date' }).notNull().defaultNow(),
     expiresAt: timestampCore('expires_at', { mode: 'date' }).notNull(),

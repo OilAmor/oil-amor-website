@@ -33,13 +33,13 @@ export function createMockCart(overrides = {}) {
 export function createMockCartItem(overrides = {}) {
   return {
     id: 'line_test456',
-    variantId: 'gid://shopify/ProductVariant/123456',
-    productId: 'gid://shopify/Product/789',
+    variantId: 'variant_123456',
+    productId: 'product_789',
     name: 'Lavender with Amethyst',
     quantity: 1,
     price: 48,
     currency: 'AUD',
-    image: 'https://cdn.shopify.com/image.jpg',
+    image: '/images/test-oil.jpg',
     configuration: {
       oilName: 'Lavender',
       crystalName: 'Amethyst',
@@ -63,7 +63,7 @@ export function createMockOil(overrides = {}) {
     origin: 'Bulgaria',
     extractionMethod: 'steam-distillation',
     therapeuticProperties: ['Calming', 'Sleep support', 'Skin healing'],
-    images: [{ url: 'https://cdn.shopify.com/lavender.jpg' }],
+    images: [{ url: '/images/lavender.jpg' }],
     price: { amount: 48, currencyCode: 'AUD' },
     recommendedCrystals: ['amethyst', 'clear-quartz'],
     seo: {
@@ -87,7 +87,7 @@ export function createMockCrystal(overrides = {}) {
       zodiac: ['Pisces', 'Virgo'],
       healing: ['Stress relief', 'Sleep improvement'],
     },
-    images: [{ url: 'https://cdn.shopify.com/amethyst.jpg' }],
+    images: [{ url: '/images/amethyst.jpg' }],
     color: '#9966CC',
     rarity: 'common',
     availability: 'in-stock',

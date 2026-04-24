@@ -58,16 +58,16 @@ lib/rewards/
 ├── chain-system.ts             # Chain catalog & availability
 ├── charm-system.ts             # Charm collection & unlocking
 ├── notifications.ts            # Email & in-app notifications
-├── shopify-integration.ts      # Shopify & Klaviyo integration
+├── rewards-store.ts            # Redis-backed persistent storage for rewards data
 └── README.md                   # This file
 ```
 
 ## Integration Points
 
-### Shopify
-- Customer metafields store tier data
-- Checkout scripts apply automatic discounts
-- Webhooks handle order events
+### Redis
+- Persistent rewards data storage (no TTL)
+- Profile caching with 1 hour TTL
+- Real-time tier lookups
 
 ### Klaviyo
 - Tier upgrade emails
@@ -97,9 +97,10 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=xxx
 
-# Shopify
-SHOPIFY_SHOP_DOMAIN=oil-amor.myshopify.com
-SHOPIFY_ADMIN_ACCESS_TOKEN=xxx
+# Redis (primary storage for rewards data)
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=xxx
 
 # Klaviyo
 KLAVIYO_PUBLIC_API_KEY=xxx

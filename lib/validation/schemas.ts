@@ -18,7 +18,7 @@ export const phoneSchema = z.string().regex(/^\+?[\d\s-()]+$/, 'Invalid phone nu
 // ============================================================================
 
 export const addToCartSchema = z.object({
-  variantId: z.string().startsWith('gid://shopify/ProductVariant/'),
+  variantId: z.string().min(1),
   quantity: z.number().int().min(1).max(99),
   configuration: z.object({
     oilName: z.string().min(1).max(100),

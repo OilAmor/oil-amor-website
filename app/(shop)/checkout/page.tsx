@@ -30,7 +30,7 @@ import { cn } from '@/lib/utils'
 import { ATELIER_CRYSTALS } from '@/lib/atelier/atelier-engine'
 import { SIMPLE_CORD_OPTIONS } from '@/lib/atelier/cord-data-simple'
 import { createCheckoutSession, cartItemsToCheckoutItems } from '@/lib/stripe/checkout'
-import { hasPreorderItems, getPreorderOils } from '@/lib/inventory/inventory'
+import { hasPreorderItems, getPreorderOils } from '@/lib/inventory/client'
 
 // ============================================================================
 // COMPONENT: Checkout Item Summary

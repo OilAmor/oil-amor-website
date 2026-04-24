@@ -1,11 +1,11 @@
 /**
  * Customer Rewards Profile Management
  * 
- * Uses Shopify metafields as the SINGLE SOURCE OF TRUTH for customer rewards data.
- * Redis is used for caching only - all writes go to Shopify metafields.
+ * Uses Redis as the SINGLE SOURCE OF TRUTH for customer rewards data.
+ * All reads and writes are persisted to Redis with no TTL.
  * 
  * Handles customer rewards data, tier progression, account credits,
- * and integration with Shopify for persistent storage.
+ * with Redis-backed persistent storage.
  */
 
 import { Redis } from 'ioredis';
@@ -21,9 +21,9 @@ import {
 import { getAvailableChains } from './chain-system';
 import { getAvailableCharms } from './charm-system';
 import { 
-  getCustomerMetafields, 
-  updateCustomerMetafields 
-} from '@/lib/shopify/metafields';
+  getCustomerRewardsData, 
+  updateCustomerRewardsData 
+} from './rewards-store';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -127,12 +127,11 @@ const CACHE_KEYS = {
 const CACHE_TTL = 3600; // 1 hour in seconds
 
 // ============================================================================
-// PROFILE MANAGEMENT - SHOPIFY SOURCE OF TRUTH
+// PROFILE MANAGEMENT - REDIS SOURCE OF TRUTH
 // ============================================================================
 
 /**
- * Get customer rewards profile from cache or Shopify metafields
- * Shopify metafields are the SOURCE OF TRUTH
+ * Get customer rewards profile from Redis (source of truth)
  * @param customerId - Customer's unique identifier
  * @returns Complete rewards profile
  */
@@ -146,8 +145,8 @@ export async function getCustomerRewardsProfile(
     return cached;
   }
 
-  // Fetch from Shopify metafields (source of truth)
-  const profile = await fetchProfileFromShopify(customerId);
+  // Fetch from Redis (source of truth)
+  const profile = await fetchProfileFromStore(customerId);
   
   // Cache for 1 hour
   await setCache(cacheKey, profile, CACHE_TTL);
@@ -156,14 +155,14 @@ export async function getCustomerRewardsProfile(
 }
 
 /**
- * Fetch profile from Shopify metafields (SOURCE OF TRUTH)
+ * Fetch profile from Redis (SOURCE OF TRUTH)
  * @param customerId - Customer's unique identifier
  * @returns Customer rewards profile
  */
-async function fetchProfileFromShopify(
+async function fetchProfileFromStore(
   customerId: string
 ): Promise<CustomerRewardsProfile> {
-  const metafields = await getCustomerMetafields(customerId);
+  const metafields = await getCustomerRewardsData(customerId);
   
   const tier = (metafields.crystal_circle_tier as TierLevel) || 'seed';
   const totalSpend = metafields.total_spend || 0;
@@ -184,7 +183,7 @@ async function fetchProfileFromShopify(
     cordsOwned: 0, // Would need separate tracking
     crystalsCollected: [], // Would need separate tracking
     progressToNextTier: getTierProgressDetails(totalSpend, tier),
-    memberSince: new Date(metafields.tier_upgrade_date || Date.now()),
+    memberSince: new Date(metafields.last_purchase_date || Date.now()),
     lastPurchaseDate: metafields.last_purchase_date 
       ? new Date(metafields.last_purchase_date) 
       : undefined,
@@ -193,14 +192,14 @@ async function fetchProfileFromShopify(
 }
 
 /**
- * Save profile to Shopify metafields (SOURCE OF TRUTH)
+ * Save profile to Redis (SOURCE OF TRUTH)
  * Also invalidates the cache
  * @param profile - Customer rewards profile to save
  */
-async function saveProfileToShopify(
+async function saveProfileToStore(
   profile: CustomerRewardsProfile
 ): Promise<void> {
-  await updateCustomerMetafields(profile.customerId, {
+  await updateCustomerRewardsData(profile.customerId, {
     crystal_circle_tier: profile.currentTier,
     total_spend: profile.totalSpend,
     purchase_count: profile.purchaseCount,
@@ -313,8 +312,8 @@ export async function updateCustomerSpend(
   // Update progress tracking
   profile.progressToNextTier = getTierProgressDetails(newTotalSpend, newTier);
   
-  // Save to Shopify metafields (source of truth)
-  await saveProfileToShopify(profile);
+  // Save to Redis (source of truth)
+  await saveProfileToStore(profile);
   
   // Generate notifications
   const notifications = generateNotifications(
@@ -368,7 +367,7 @@ export async function upgradeCustomerTier(
     }
   }
   
-  await saveProfileToShopify(profile);
+  await saveProfileToStore(profile);
 }
 
 /**
@@ -378,7 +377,7 @@ export async function upgradeCustomerTier(
 export async function unlockRefillForCustomer(customerId: string): Promise<void> {
   const profile = await getCustomerRewardsProfile(customerId);
   profile.refillUnlocked = true;
-  await saveProfileToShopify(profile);
+  await saveProfileToStore(profile);
 }
 
 /**
@@ -493,7 +492,7 @@ export async function addAccountCredit(
   profile.accountCredit += amount;
   profile.creditHistory.push(transaction);
   
-  await saveProfileToShopify(profile);
+  await saveProfileToStore(profile);
   
   return profile.accountCredit;
 }
@@ -532,7 +531,7 @@ export async function useAccountCredit(
   profile.accountCredit -= amount;
   profile.creditHistory.push(transaction);
   
-  await saveProfileToShopify(profile);
+  await saveProfileToStore(profile);
   
   return true;
 }
@@ -620,8 +619,8 @@ export async function reserveCreditForCheckout(
   // Save to Redis (reservations are temporary)
   await setCache(CACHE_KEYS.reservation(reservationId), reservation, 30 * 60);
   
-  // Update profile in Shopify
-  await saveProfileToShopify(profile);
+  // Update profile in Redis
+  await saveProfileToStore(profile);
   
   return { reservationId, discountCode };
 }
@@ -657,7 +656,7 @@ export async function commitCreditReservation(reservationId: string): Promise<vo
   reservation.committedAt = new Date();
   
   // Save changes
-  await saveProfileToShopify(profile);
+  await saveProfileToStore(profile);
   await setCache(CACHE_KEYS.reservation(reservationId), reservation, 24 * 60 * 60);
 }
 
@@ -682,7 +681,7 @@ export async function releaseCreditReservation(reservationId: string): Promise<v
   reservation.releasedAt = new Date();
   
   // Save changes
-  await saveProfileToShopify(profile);
+  await saveProfileToStore(profile);
   await setCache(CACHE_KEYS.reservation(reservationId), reservation, 24 * 60 * 60);
 }
 
@@ -723,102 +722,35 @@ export async function invalidateProfileCache(customerId: string): Promise<void> 
 }
 
 // ============================================================================
-// SHOPIFY WEBHOOK INTEGRATION
+// ORDER PROCESSING
 // ============================================================================
 
-export interface ShopifyOrder {
-  id: string;
-  name: string;
-  email: string;
-  customer?: {
-    id: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-  };
-  line_items: Array<{
-    id: string;
-    product_id: string;
-    variant_id: string;
-    title: string;
-    variant_title: string;
-    quantity: number;
-    price: string;
-    properties?: Array<{
-      name: string;
-      value: string;
-    }>;
-  }>;
-  total_price: string;
-  subtotal_price: string;
-  created_at: string;
-}
-
 /**
- * Handle Shopify order webhook
- * Main entry point for processing orders from Shopify
- * @param order - Shopify order payload
+ * Process a local order for rewards updates
+ * @param customerId - Customer's unique identifier
+ * @param orderInfo - Order information
+ * @returns Updated profile with upgrade details
  */
-export async function handleShopifyOrderWebhook(
-  order: ShopifyOrder
-): Promise<RewardsUpdateResult | null> {
-  const customerId = order.customer?.id;
-  if (!customerId) {
-    console.log('Order has no customer, skipping rewards update');
-    return null;
-  }
-  
-  const orderTotal = parseFloat(order.total_price);
-  
-  // Build order info from Shopify payload
-  const orderInfo: OrderInfo = {
-    orderId: order.id,
-    orderTotal,
-    items: order.line_items.map(item => ({
-      productId: item.product_id,
-      productType: inferProductType(item),
-      quantity: item.quantity,
-      price: parseFloat(item.price)
-    })),
-    isRefill: order.line_items.some(item => 
-      item.title.toLowerCase().includes('refill')
-    )
-  };
-  
-  // Update customer spend and check for upgrades
+export async function processOrderForRewards(
+  customerId: string,
+  orderInfo: OrderInfo
+): Promise<RewardsUpdateResult> {
   const result = await updateCustomerSpend(customerId, orderInfo);
-  
+
   // Send tier upgrade notification if applicable
   if (result.tierUpgraded) {
     await sendTierUpgradeNotification(customerId, result.profile.currentTier);
   }
-  
+
   // Send charm unlock notifications
   for (const charmId of result.newCharmsUnlocked) {
     await sendCharmUnlockNotification(customerId, charmId);
   }
-  
+
   // Invalidate cache
   await invalidateProfileCache(customerId);
-  
-  return result;
-}
 
-/**
- * Infer product type from Shopify line item
- */
-function inferProductType(item: ShopifyOrder['line_items'][0]): OrderItem['productType'] {
-  const title = item.title.toLowerCase();
-  const variantTitle = (item.variant_title || '').toLowerCase();
-  
-  if (title.includes('refill')) return 'oil';
-  if (title.includes('chain')) return 'chain';
-  if (title.includes('charm')) return 'charm';
-  if (title.includes('cord')) return 'cord';
-  if (title.includes('crystal')) return 'crystal';
-  if (variantTitle.includes('30ml') || title.includes('30ml')) return '30ml_bottle';
-  
-  return 'oil';
+  return result;
 }
 
 // ============================================================================

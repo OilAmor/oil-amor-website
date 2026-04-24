@@ -1,7 +1,7 @@
 'use client'
 
 import { ProductionQueueItem } from '@/lib/orders/types'
-import { getStatusLabel } from '@/lib/orders/status-workflow'
+import { getStatusLabel } from '@/lib/orders/status-helpers'
 import { Beaker, AlertTriangle, Clock, CheckCircle, Printer, ChevronRight } from 'lucide-react'
 
 interface ProductionQueueProps {

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { formatPrice } from '@/lib/utils'
-import { ShopifyProduct } from '../types'
+import { CatalogProduct } from '../types'
 
 interface ViewedItem {
   id: string
@@ -70,7 +70,7 @@ export function RecentlyViewed() {
 }
 
 // Helper function to add item to recently viewed
-export function addToRecentlyViewed(product: ShopifyProduct) {
+export function addToRecentlyViewed(product: CatalogProduct) {
   if (typeof window === 'undefined') return
   
   const viewed: ViewedItem[] = JSON.parse(localStorage.getItem('recentlyViewed') || '[]')

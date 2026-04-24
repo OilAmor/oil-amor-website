@@ -4,7 +4,7 @@
  * Manages collectible diffuser charms that customers unlock through
  * purchase milestones and tier achievements.
  * 
- * Charm claims are persisted to Shopify customer metafields.
+ * Charm claims are persisted to Redis rewards store.
  */
 
 import {
@@ -14,7 +14,7 @@ import {
   compareTiers
 } from './tiers';
 import { getCustomerRewardsProfile, invalidateProfileCache } from './customer-rewards';
-import { updateCustomerMetafields, getCustomerMetafields } from '@/lib/shopify/metafields';
+import { updateCustomerRewardsData, getCustomerRewardsData } from './rewards-store';
 
 // ============================================================================
 // TYPE DEFINITIONS
@@ -414,7 +414,7 @@ export async function getCustomerCharmCollection(
   customerId: string
 ): Promise<CustomerCharmCollection> {
   const profile = await getCustomerRewardsProfile(customerId);
-  const metafields = await getCustomerMetafields(customerId);
+  const metafields = await getCustomerRewardsData(customerId);
   
   const totalCharms = Object.keys(CHARM_CATALOG).length;
   const collected = profile.unlockedCharms.includes('all')
@@ -435,7 +435,7 @@ export async function getCustomerCharmCollection(
 
 /**
  * Claim a charm for a customer
- * Persists the claim to Shopify customer metafields
+ * Persists the claim to Redis rewards store
  * 
  * @param customerId - Customer's unique identifier
  * @param charmId - Charm to claim
@@ -470,8 +470,8 @@ export async function claimCharm(
     return { success: false, error: 'Charm not yet unlocked' };
   }
   
-  // Get current metafields for claim history
-  const metafields = await getCustomerMetafields(customerId);
+  // Get current rewards data for claim history
+  const metafields = await getCustomerRewardsData(customerId);
   const claimHistory: CharmClaim[] = (metafields.charm_claims as CharmClaim[]) || [];
   
   // Determine source of unlock
@@ -496,8 +496,8 @@ export async function claimCharm(
   // Update collected charms
   const updatedCharms = [...profile.unlockedCharms, charmId];
   
-  // Persist to Shopify metafields
-  await updateCustomerMetafields(customerId, {
+  // Persist to Redis rewards store
+  await updateCustomerRewardsData(customerId, {
     collected_charms: updatedCharms,
     charm_claims: updatedClaims,
   });
@@ -527,8 +527,8 @@ export async function equipCharm(
     return { success: false, error: 'Charm not in collection' };
   }
   
-  // Persist equipped charm to Shopify metafields
-  await updateCustomerMetafields(customerId, {
+  // Persist equipped charm to Redis rewards store
+  await updateCustomerRewardsData(customerId, {
     equipped_charm: charmId,
   });
   
@@ -543,8 +543,8 @@ export async function equipCharm(
  * @param customerId - Customer's unique identifier
  */
 export async function unequipCharm(customerId: string): Promise<void> {
-  // Remove equipped charm from Shopify metafields
-  await updateCustomerMetafields(customerId, {
+  // Remove equipped charm from Redis rewards store
+  await updateCustomerRewardsData(customerId, {
     equipped_charm: null,
   });
   
