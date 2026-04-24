@@ -17,46 +17,53 @@ interface Stats {
   lowStockItems: string[]
 }
 
-export function StatsCards({ stats, loading }: { stats: Stats; loading: boolean }) {
+export function StatsCards({ stats, loading }: { stats: Stats | null; loading: boolean }) {
+  const safeStats = stats || {
+    totalOrders: 0, pendingOrders: 0, mixingOrders: 0, readyOrders: 0,
+    shippedOrders: 0, todayRevenue: 0, weekRevenue: 0, monthRevenue: 0,
+    averageOrderValue: 0, totalCommissions: 0, pendingCommissions: 0,
+    lowStockItems: [],
+  }
+
   const cards = [
     {
       label: 'Total Orders',
-      value: stats.totalOrders,
+      value: safeStats.totalOrders,
       icon: Package,
       color: 'text-blue-400',
       bg: 'bg-blue-400/10',
     },
     {
       label: 'Pending / Mixing',
-      value: stats.pendingOrders + stats.mixingOrders,
+      value: safeStats.pendingOrders + safeStats.mixingOrders,
       icon: Beaker,
       color: 'text-amber-400',
       bg: 'bg-amber-400/10',
     },
     {
       label: 'Ready to Ship',
-      value: stats.readyOrders,
+      value: safeStats.readyOrders,
       icon: Truck,
       color: 'text-emerald-400',
       bg: 'bg-emerald-400/10',
     },
     {
       label: 'Shipped',
-      value: stats.shippedOrders,
+      value: safeStats.shippedOrders,
       icon: Truck,
       color: 'text-cyan-400',
       bg: 'bg-cyan-400/10',
     },
     {
       label: 'Month Revenue',
-      value: `$${stats.monthRevenue.toFixed(2)}`,
+      value: `$${(safeStats.monthRevenue || 0).toFixed(2)}`,
       icon: DollarSign,
       color: 'text-violet-400',
       bg: 'bg-violet-400/10',
     },
     {
       label: 'Avg Order Value',
-      value: `$${stats.averageOrderValue.toFixed(2)}`,
+      value: `$${(safeStats.averageOrderValue || 0).toFixed(2)}`,
       icon: DollarSign,
       color: 'text-pink-400',
       bg: 'bg-pink-400/10',
@@ -86,12 +93,12 @@ export function StatsCards({ stats, loading }: { stats: Stats; loading: boolean 
         </div>
       ))}
 
-      {stats.lowStockItems.length > 0 && (
+      {safeStats.lowStockItems.length > 0 && (
         <div className="col-span-2 md:col-span-3 lg:col-span-6 bg-amber-900/20 border border-amber-700/30 rounded-xl p-4 flex items-center gap-3">
           <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0" />
           <span className="text-sm text-amber-200">
             <strong>Low Stock:</strong>{' '}
-            {stats.lowStockItems.join(', ')}
+            {safeStats.lowStockItems.join(', ')}
           </span>
         </div>
       )}

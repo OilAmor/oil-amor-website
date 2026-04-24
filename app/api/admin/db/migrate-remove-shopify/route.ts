@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
            process.env.DATABASE_URL.includes('supabase.co')
         ? { rejectUnauthorized: false }
         : undefined,
-    })
+    } as ConstructorParameters<typeof Pool>[0])
 
     const client = await pool.connect()
     const results: string[] = []
@@ -83,7 +83,7 @@ export async function POST(request: NextRequest) {
           `UPDATE orders 
            SET status_history = jsonb_build_array(jsonb_build_object('status', status, 'timestamp', created_at::text))
            WHERE id = $1`,
-          [row.id]
+          [(row as { id: string }).id]
         )
       }
 

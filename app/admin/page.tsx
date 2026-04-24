@@ -65,6 +65,7 @@ export default function AdminDashboard() {
   const [selectedOrder, setSelectedOrder] = useState<EnrichedOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [labelHtml, setLabelHtml] = useState<string | null>(null)
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null)
 
   // ==========================================================================
   // FETCH DATA
@@ -110,6 +111,23 @@ export default function AdminDashboard() {
     }
   }, [])
 
+  const checkAuth = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/dashboard/stats', { cache: 'no-store' })
+      if (res.status === 401) {
+        setIsAuthenticated(false)
+        setLoading(false)
+        return false
+      }
+      setIsAuthenticated(true)
+      return true
+    } catch {
+      setIsAuthenticated(false)
+      setLoading(false)
+      return false
+    }
+  }, [])
+
   const refreshAll = useCallback(async () => {
     setLoading(true)
     await Promise.all([fetchOrders(), fetchStats(), fetchProduction(), fetchCommissions()])
@@ -117,10 +135,14 @@ export default function AdminDashboard() {
   }, [fetchOrders, fetchStats, fetchProduction, fetchCommissions])
 
   useEffect(() => {
-    refreshAll()
-    const interval = setInterval(refreshAll, 30000) // Auto-refresh every 30s
-    return () => clearInterval(interval)
-  }, [refreshAll])
+    checkAuth().then((auth) => {
+      if (auth) {
+        refreshAll()
+        const interval = setInterval(refreshAll, 30000)
+        return () => clearInterval(interval)
+      }
+    })
+  }, [checkAuth, refreshAll])
 
   // ==========================================================================
   // ACTIONS
@@ -227,6 +249,28 @@ export default function AdminDashboard() {
     { id: 'commissions' as TabType, label: 'Commissions', icon: DollarSign },
     { id: 'analytics' as TabType, label: 'Analytics', icon: BarChart3 },
   ]
+
+  if (isAuthenticated === false) {
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-200 flex items-center justify-center">
+        <div className="text-center max-w-md px-6">
+          <div className="w-16 h-16 bg-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-6">
+            <LogOut className="w-8 h-8 text-slate-400" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-100 mb-2">Authentication Required</h1>
+          <p className="text-slate-400 mb-8">
+            You need to sign in with your admin credentials to access the dashboard.
+          </p>
+          <a
+            href="/admin/login"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-[#c9a227] text-[#0a080c] font-medium rounded-lg hover:bg-[#b8921f] transition-colors"
+          >
+            Sign In
+          </a>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200">
